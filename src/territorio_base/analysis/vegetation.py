@@ -14,6 +14,19 @@ NDVI_DENSITY_CLASSES = [
     (0.6, 1.0, "Vegetación muy densa / dosel maduro"),
 ]
 
+# Un color por clase, mismo orden que NDVI_DENSITY_CLASSES (rampa amarillo->verde oscuro).
+NDVI_DENSITY_COLORS = ["#bfae96", "#fee08b", "#66bd63", "#1a9850"]
+
+
+def classify_ndvi_density(ndvi: xr.DataArray) -> xr.DataArray:
+    """Devuelve un raster con el índice de clase (0..3) de NDVI_DENSITY_CLASSES por píxel, NaN si no hay dato."""
+    values = ndvi.values
+    edges = [hi for _, hi, _ in NDVI_DENSITY_CLASSES[:-1]]  # bordes internos: [0.2, 0.4, 0.6]
+    classified = np.full(values.shape, np.nan)
+    valid = ~np.isnan(values)
+    classified[valid] = np.digitize(values[valid], edges)
+    return xr.DataArray(classified, dims=ndvi.dims, coords=ndvi.coords)
+
 
 def summarize_vegetation(ndvi: xr.DataArray, worldcover: xr.DataArray) -> dict:
     ndvi_vals = ndvi.values

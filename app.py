@@ -9,14 +9,15 @@ import io
 
 import folium
 import folium.plugins
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
 from streamlit_folium import st_folium
 
+from territorio_base import mapview
 from territorio_base.aoi import AOI, load_aoi_from_bytes, load_aoi_from_geojson_dict
 from territorio_base.analysis.report import run_analysis, to_markdown
+from territorio_base.analysis.vegetation import classify_ndvi_density
 
 st.set_page_config(page_title="Territorio Base", layout="wide")
 st.title("Territorio Base")
@@ -64,7 +65,7 @@ if aoi is not None:
 
 st.header("2. Analizá la zona")
 
-col_a, col_b = st.columns([1, 3])
+col_a, _ = st.columns([1, 3])
 with col_a:
     run_clicked = st.button("Analizar zona", type="primary", disabled=st.session_state["aoi"] is None)
 
@@ -84,24 +85,12 @@ if run_clicked and st.session_state["aoi"] is not None:
 
 # --- 3. Resultados ---------------------------------------------------------
 
-
-def _render_raster(data, cmap: str, title: str) -> bytes:
-    fig, ax = plt.subplots(figsize=(4, 4))
-    im = ax.imshow(np.flipud(data.values), cmap=cmap)
-    ax.set_title(title, fontsize=10)
-    ax.axis("off")
-    fig.colorbar(im, ax=ax, fraction=0.04)
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", bbox_inches="tight", dpi=110)
-    plt.close(fig)
-    return buf.getvalue()
-
-
 results = st.session_state["results"]
 if results:
     st.header("3. Resultados")
 
     aoi_info = results["aoi"]
+    aoi_obj: AOI = st.session_state["aoi"]
     topo = results["topography"]["summary"]
     veg = results["vegetation"]["summary"]
     hydro = results["hydrology"]["summary"]
@@ -137,21 +126,92 @@ if results:
     else:
         st.success("No se encontró hidrología mapeada en OSM cerca del polígono.")
 
-    tab_topo, tab_veg, tab_hidro_pa, tab_reporte = st.tabs(
-        ["Topografía", "Vegetación", "Hidrología / Áreas protegidas", "Reporte"]
+    tab_mapa, tab_topo, tab_veg, tab_hidro_pa, tab_reporte = st.tabs(
+        ["Mapa interactivo", "Topografía", "Vegetación", "Hidrología / Áreas protegidas", "Reporte"]
     )
 
+    with tab_mapa:
+        col_controls, col_map = st.columns([1, 3])
+
+        with col_controls:
+            st.caption("Capas — prendé/apagá y ajustá opacidad")
+
+            show_dem = st.checkbox("Elevación (DEM)", value=False)
+            op_dem = st.slider("Opacidad DEM", 0.0, 1.0, 0.7, key="op_dem", disabled=not show_dem)
+
+            show_slope = st.checkbox("Pendiente (%)", value=False)
+            op_slope = st.slider("Opacidad pendiente", 0.0, 1.0, 0.7, key="op_slope", disabled=not show_slope)
+
+            show_ndvi = st.checkbox("NDVI (continuo)", value=False)
+            op_ndvi = st.slider("Opacidad NDVI", 0.0, 1.0, 0.7, key="op_ndvi", disabled=not show_ndvi)
+
+            show_ndvi_density = st.checkbox("Densidad de vegetación (clasificada)", value=True)
+            op_ndvi_density = st.slider(
+                "Opacidad densidad vegetación", 0.0, 1.0, 0.75, key="op_ndvi_density", disabled=not show_ndvi_density
+            )
+
+            show_worldcover = st.checkbox("Cobertura de suelo (WorldCover)", value=False)
+            op_worldcover = st.slider(
+                "Opacidad WorldCover", 0.0, 1.0, 0.7, key="op_worldcover", disabled=not show_worldcover
+            )
+
+            show_hydro = st.checkbox("Hidrología (OSM)", value=True)
+            show_pa = st.checkbox("Áreas protegidas (WDPA)", value=True)
+
+        with col_map:
+            fmap = mapview.build_base_map(aoi_obj)
+
+            if show_dem:
+                dem = results["topography"]["dem"]
+                uri, bounds = mapview.continuous_overlay(
+                    dem, "terrain", float(np.nanmin(dem.values)), float(np.nanmax(dem.values))
+                )
+                mapview.add_image_layer(fmap, uri, bounds, "Elevación", op_dem)
+
+            if show_slope:
+                slope = results["topography"]["slope"]
+                uri, bounds = mapview.continuous_overlay(
+                    slope, "YlOrRd", 0.0, float(np.nanpercentile(slope.values, 98))
+                )
+                mapview.add_image_layer(fmap, uri, bounds, "Pendiente", op_slope)
+
+            if show_ndvi:
+                ndvi = results["vegetation"]["ndvi"]
+                uri, bounds = mapview.continuous_overlay(ndvi, "RdYlGn", -1.0, 1.0)
+                mapview.add_image_layer(fmap, uri, bounds, "NDVI", op_ndvi)
+
+            if show_ndvi_density:
+                ndvi_class = classify_ndvi_density(results["vegetation"]["ndvi"])
+                colors_by_idx = {i: c for i, c in enumerate(mapview.NDVI_DENSITY_COLORS)}
+                uri, bounds = mapview.categorical_overlay(ndvi_class, colors_by_idx)
+                mapview.add_image_layer(fmap, uri, bounds, "Densidad de vegetación", op_ndvi_density)
+                mapview.add_legend(fmap, "Densidad de vegetación (NDVI)", mapview.ndvi_density_legend_items())
+
+            if show_worldcover:
+                wc = results["vegetation"]["worldcover"]
+                present = set(np.unique(wc.values[wc.values > 0]).tolist())
+                uri, bounds = mapview.categorical_overlay(wc, mapview.WORLDCOVER_COLORS)
+                mapview.add_image_layer(fmap, uri, bounds, "Cobertura de suelo", op_worldcover)
+                mapview.add_legend(
+                    fmap,
+                    "Cobertura de suelo (WorldCover)",
+                    mapview.worldcover_legend_items(present),
+                    position_offset_px=160 if show_ndvi_density else 0,
+                )
+
+            if show_hydro:
+                mapview.add_hydrology_layer(fmap, results["hydrology"]["features"], 0.9)
+
+            if show_pa:
+                mapview.add_protected_areas_layer(fmap, results["protected_areas"]["gdf"], 0.8)
+
+            st_folium(fmap, height=600, width=None, key="results_map", returned_objects=[])
+
     with tab_topo:
-        c1, c2 = st.columns(2)
-        c1.image(_render_raster(results["topography"]["dem"], "terrain", "Elevación (m)"))
-        c2.image(_render_raster(results["topography"]["slope"], "YlOrRd", "Pendiente (%)"))
         st.write("Distribución de pendientes:")
         st.bar_chart(pd.Series(topo["slope_class_pct"]))
 
     with tab_veg:
-        c1, c2 = st.columns(2)
-        c1.image(_render_raster(results["vegetation"]["ndvi"], "RdYlGn", "NDVI"))
-        c2.image(_render_raster(results["vegetation"]["worldcover"], "tab20", "ESA WorldCover"))
         st.write("Densidad de vegetación (por NDVI):")
         st.bar_chart(pd.Series(veg["ndvi_density_class_pct"]))
         st.write("Cobertura de suelo (ESA WorldCover):")
