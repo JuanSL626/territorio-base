@@ -14,6 +14,7 @@ densidad arbórea, hidrología y áreas protegidas.
 | Cobertura de suelo / % cobertura arbórea | ESA WorldCover 2021 (vía Planetary Computer) | 10 m |
 | Hidrología | OpenStreetMap (Overpass API) — ríos, cuerpos de agua, humedales | vectorial |
 | Áreas protegidas | WDPA (World Database on Protected Areas), vía el FeatureServer público de UNEP-WCMC | vectorial |
+| Inundación costera (opcional, on-demand) | WRI Aqueduct Floods v2 (CC-BY) — profundidad de inundación por escenario climático/período de retorno | ~927 m |
 
 No requiere ninguna cuenta ni API key. Si en el futuro se quiere sumar
 Google Earth Engine (para series históricas tipo Hansen Global Forest
@@ -28,9 +29,13 @@ uv run streamlit run app.py
 Se abre en el navegador. Ahí:
 1. Dibujás el polígono sobre el mapa (o subís un KML/KMZ/GeoJSON existente).
 2. Click en "Analizar zona".
-3. Se muestran métricas, mapas y tablas por pestaña (Topografía, Vegetación,
-   Hidrología/Áreas protegidas, Reporte), y se puede descargar el reporte en
-   Markdown y las capas (DEM, pendiente, NDVI, WorldCover) como GeoTIFF.
+3. Se muestran métricas, mapas y tablas por pestaña (Mapa interactivo,
+   Topografía, Vegetación, Hidrología/Áreas protegidas, Reporte), y se puede
+   descargar el reporte en Markdown y las capas (DEM, pendiente, NDVI,
+   WorldCover) como GeoTIFF.
+4. En "Mapa interactivo" se puede prender/apagar cada capa y ajustar su
+   opacidad, incluida una capa opcional de inundación costera (WRI Aqueduct)
+   con varios escenarios climáticos/períodos de retorno para elegir.
 
 ## Probar el pipeline sin la interfaz (más rápido para depurar)
 
@@ -48,10 +53,12 @@ src/territorio_base/
     stac.py                         # DEM, Sentinel-2/NDVI y WorldCover vía Planetary Computer
     osm.py                          # hidrología vía Overpass API
     protected_areas.py              # WDPA vía UNEP-WCMC FeatureServer
+    aqueduct.py                     # inundación costera vía WRI Aqueduct Floods (on-demand)
   analysis/
     topography.py                   # pendiente, orientación, estadísticas
-    vegetation.py                   # estadísticas de NDVI y cobertura de suelo
+    vegetation.py                   # estadísticas de NDVI, cobertura de suelo y clasificación de densidad
     report.py                       # orquesta todo lo anterior y arma el reporte
+  mapview.py                        # capas del mapa interactivo (ImageOverlay + leyendas)
 ```
 
 ## Notas / límites conocidos
@@ -66,3 +73,9 @@ src/territorio_base/
   son ajustables).
 - Pensado para polígonos del orden de decenas a cientos de hectáreas; áreas
   mucho más grandes van a tardar más en descargar/procesar.
+- La capa de inundación costera (WRI Aqueduct) es un screening, no un estudio
+  de detalle: resolución ~927 m (varios pixeles pueden cubrir todo el
+  polígono), proyecciones solo hasta 2080, metodología de 2020 basada en RCPs.
+  Climate Central (coastal.climatecentral.org) usa un DEM propietario de mayor
+  detalle y llega hasta 2150, pero no tiene API pública — solo mapa
+  interactivo, sin datos descargables para integrar acá.

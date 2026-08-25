@@ -18,6 +18,7 @@ from territorio_base import mapview
 from territorio_base.aoi import AOI, load_aoi_from_bytes, load_aoi_from_geojson_dict
 from territorio_base.analysis.report import run_analysis, to_markdown
 from territorio_base.analysis.vegetation import classify_ndvi_density
+from territorio_base.sources import aqueduct
 
 st.set_page_config(page_title="Territorio Base", layout="wide")
 st.title("Territorio Base")
@@ -158,6 +159,20 @@ if results:
             show_hydro = st.checkbox("Hidrología (OSM)", value=True)
             show_pa = st.checkbox("Áreas protegidas (WDPA)", value=True)
 
+            st.divider()
+            show_coastal = st.checkbox("Inundación costera (WRI Aqueduct)", value=False)
+            coastal_preset = st.selectbox(
+                "Escenario", list(aqueduct.PRESETS.keys()), disabled=not show_coastal
+            )
+            op_coastal = st.slider(
+                "Opacidad inundación costera", 0.0, 1.0, 0.8, key="op_coastal", disabled=not show_coastal
+            )
+            if show_coastal:
+                st.caption(
+                    "Fuente abierta (CC-BY) WRI Aqueduct Floods v2, resolución ~1 km "
+                    "(gruesa para este polígono) y proyecciones solo hasta 2080."
+                )
+
         with col_map:
             fmap = mapview.build_base_map(aoi_obj)
 
@@ -204,6 +219,48 @@ if results:
 
             if show_pa:
                 mapview.add_protected_areas_layer(fmap, results["protected_areas"]["gdf"], 0.8)
+
+            if show_coastal:
+                cache = st.session_state.setdefault("coastal_cache", {})
+                if coastal_preset not in cache:
+                    with st.spinner(f"Descargando inundación costera ({coastal_preset})…"):
+                        params = aqueduct.PRESETS[coastal_preset]
+                        depth = aqueduct.fetch_coastal_flood_depth(aoi_obj, **params)
+                        cache[coastal_preset] = {
+                            "depth": depth,
+                            "summary": aqueduct.summarize_coastal_flood(depth),
+                        }
+                coastal_summary = cache[coastal_preset]["summary"]
+                if coastal_summary["has_data"] and coastal_summary["pct_area_flooded"] > 0:
+                    depth_masked = cache[coastal_preset]["depth"].where(cache[coastal_preset]["depth"] > 0)
+                    uri, bounds = mapview.continuous_overlay(
+                        depth_masked, "Blues", 0.0, max(coastal_summary["max_depth_m"], 0.1)
+                    )
+                    mapview.add_image_layer(fmap, uri, bounds, "Inundación costera", op_coastal)
+                    mapview.add_legend(
+                        fmap,
+                        f"Inundación costera — {coastal_preset}",
+                        [
+                            ("#f7fbff", "Poca profundidad"),
+                            ("#6baed6", "Media"),
+                            ("#08306b", f"Hasta {coastal_summary['max_depth_m']:.1f} m"),
+                        ],
+                        position_offset_px=320,
+                    )
+                with col_controls:
+                    if not coastal_summary["has_data"]:
+                        st.warning("No hay cobertura de datos de Aqueduct para esta zona.")
+                    elif coastal_summary["pct_area_flooded"] == 0:
+                        st.success(
+                            f"Sin inundación proyectada en el AOI para «{coastal_preset}» "
+                            f"(resolución ~{coastal_summary['resolution_m_approx']:.0f} m)."
+                        )
+                    else:
+                        st.warning(
+                            f"⚠️ «{coastal_preset}»: {coastal_summary['pct_area_flooded']:.0f}% del área "
+                            f"(a esta resolución) muestra inundación, profundidad máx. "
+                            f"{coastal_summary['max_depth_m']:.1f} m."
+                        )
 
             st_folium(fmap, height=600, width=None, key="results_map", returned_objects=[])
 
