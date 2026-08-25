@@ -69,20 +69,20 @@ def load_aoi_from_file(path: str) -> AOI:
 
 def load_aoi_from_bytes(data: bytes, filename: str) -> AOI:
     """Para archivos subidos vía Streamlit (KML/KMZ/GeoJSON), que llegan como bytes en memoria."""
-    import fiona
-
-    suffix = filename.lower().rsplit(".", 1)[-1]
-    if suffix == "geojson" or suffix == "json":
-        return load_aoi_from_geojson_dict(json.loads(data))
-
     import io
 
-    with fiona.io.ZipMemoryFile(data) if suffix == "kmz" else io.BytesIO(data) as src:
-        if suffix == "kmz":
-            layer = src.listlayers()[0]
-            gdf = gpd.read_file(src.open(layer, "r"))
-        else:
-            gdf = gpd.read_file(io.BytesIO(data))
+    suffix = filename.lower().rsplit(".", 1)[-1]
+    if suffix in ("geojson", "json"):
+        return load_aoi_from_geojson_dict(json.loads(data))
+
+    if suffix == "kmz":
+        import zipfile
+
+        with zipfile.ZipFile(io.BytesIO(data)) as zf:
+            kml_name = next(n for n in zf.namelist() if n.lower().endswith(".kml"))
+            data = zf.read(kml_name)
+
+    gdf = gpd.read_file(io.BytesIO(data), driver="KML")
     if gdf.crs is not None and gdf.crs.to_epsg() != 4326:
         gdf = gdf.to_crs(epsg=4326)
     geometry = gdf.geometry.union_all() if len(gdf) > 1 else gdf.geometry.iloc[0]
