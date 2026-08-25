@@ -68,8 +68,11 @@ def _categorical_to_rgba(arr: np.ndarray, color_by_code: dict) -> np.ndarray:
 
 
 def _rgba_to_data_uri(rgba: np.ndarray) -> str:
+    # Los rasters ya vienen con fila 0 = norte (y descendente), que es lo que
+    # espera un PNG (fila 0 = arriba) para calzar con bounds=[[south,west],[north,east]].
+    # OJO: no voltear con flipud, o el mapa queda desfasado/espejado norte-sur.
     buf = io.BytesIO()
-    plt.imsave(buf, np.flipud(rgba), format="png")
+    plt.imsave(buf, rgba, format="png")
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
