@@ -22,6 +22,22 @@ Change), eso sí requiere una cuenta de GEE aprobada.
 
 ## Uso
 
+### Windows, sin usar la terminal
+
+1. Descargá el repositorio (botón verde "Code" → "Download ZIP" en GitHub, o `git clone`) y descomprimilo.
+2. Hacé doble click en **`Iniciar_App.bat`**.
+3. La primera vez instala automáticamente `uv` (el gestor de Python que usa
+   el proyecto) y las dependencias — puede tardar varios minutos. Las
+   siguientes veces arranca directo.
+4. Se abre solo en el navegador. Para cerrar la app, cerrá esa ventana negra
+   (la consola) o presioná Ctrl+C en ella.
+
+Requiere conexión a internet (para instalar dependencias la primera vez y
+para bajar las imágenes satelitales en cada análisis). No hace falta tener
+Python instalado de antes.
+
+### Mac/Linux, o desde la terminal en Windows
+
 ```bash
 uv run streamlit run app.py
 ```
@@ -46,6 +62,7 @@ uv run python scripts/smoke_test.py /ruta/a/un/poligono.geojson
 ## Estructura
 
 ```
+Iniciar_App.bat                     # doble click en Windows: instala todo y abre la app
 app.py                              # interfaz Streamlit
 src/territorio_base/
   aoi.py                            # carga/normaliza el polígono (dibujo, KML, KMZ, GeoJSON) y calcula su UTM
