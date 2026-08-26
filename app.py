@@ -175,50 +175,63 @@ if results:
 
         with col_map:
             fmap = mapview.build_base_map(aoi_obj)
+            legend_offset = 0
+
+            def _add_legend(title: str, items: list) -> None:
+                global legend_offset
+                if not items:
+                    return
+                mapview.add_legend(fmap, title, items, position_offset_px=legend_offset)
+                legend_offset += mapview.legend_height_px(items)
+
+            _add_legend("Límite del AOI", mapview.aoi_boundary_legend_items())
 
             if show_dem:
                 dem = results["topography"]["dem"]
-                uri, bounds = mapview.continuous_overlay(
-                    dem, "terrain", float(np.nanmin(dem.values)), float(np.nanmax(dem.values))
-                )
+                dem_min, dem_max = float(np.nanmin(dem.values)), float(np.nanmax(dem.values))
+                uri, bounds = mapview.continuous_overlay(dem, "terrain", dem_min, dem_max)
                 mapview.add_image_layer(fmap, uri, bounds, "Elevación", op_dem)
+                _add_legend(
+                    "Elevación (m)", mapview.continuous_legend_items("terrain", dem_min, dem_max, "{:.0f} m")
+                )
 
             if show_slope:
                 slope = results["topography"]["slope"]
-                uri, bounds = mapview.continuous_overlay(
-                    slope, "YlOrRd", 0.0, float(np.nanpercentile(slope.values, 98))
-                )
+                slope_max = float(np.nanpercentile(slope.values, 98))
+                uri, bounds = mapview.continuous_overlay(slope, "YlOrRd", 0.0, slope_max)
                 mapview.add_image_layer(fmap, uri, bounds, "Pendiente", op_slope)
+                _add_legend(
+                    "Pendiente (%)", mapview.continuous_legend_items("YlOrRd", 0.0, slope_max, "{:.0f}%")
+                )
 
             if show_ndvi:
                 ndvi = results["vegetation"]["ndvi"]
                 uri, bounds = mapview.continuous_overlay(ndvi, "RdYlGn", -1.0, 1.0)
                 mapview.add_image_layer(fmap, uri, bounds, "NDVI", op_ndvi)
+                _add_legend("NDVI", mapview.continuous_legend_items("RdYlGn", -1.0, 1.0, "{:.1f}"))
 
             if show_ndvi_density:
                 ndvi_class = classify_ndvi_density(results["vegetation"]["ndvi"])
                 colors_by_idx = {i: c for i, c in enumerate(mapview.NDVI_DENSITY_COLORS)}
                 uri, bounds = mapview.categorical_overlay(ndvi_class, colors_by_idx)
                 mapview.add_image_layer(fmap, uri, bounds, "Densidad de vegetación", op_ndvi_density)
-                mapview.add_legend(fmap, "Densidad de vegetación (NDVI)", mapview.ndvi_density_legend_items())
+                _add_legend("Densidad de vegetación (NDVI)", mapview.ndvi_density_legend_items())
 
             if show_worldcover:
                 wc = results["vegetation"]["worldcover"]
                 present = set(np.unique(wc.values[wc.values > 0]).tolist())
                 uri, bounds = mapview.categorical_overlay(wc, mapview.WORLDCOVER_COLORS)
                 mapview.add_image_layer(fmap, uri, bounds, "Cobertura de suelo", op_worldcover)
-                mapview.add_legend(
-                    fmap,
-                    "Cobertura de suelo (WorldCover)",
-                    mapview.worldcover_legend_items(present),
-                    position_offset_px=160 if show_ndvi_density else 0,
-                )
+                _add_legend("Cobertura de suelo (WorldCover)", mapview.worldcover_legend_items(present))
 
             if show_hydro:
                 mapview.add_hydrology_layer(fmap, results["hydrology"]["features"], 0.9)
+                _add_legend("Hidrología (OSM)", mapview.hydrology_legend_items(results["hydrology"]["features"]))
 
             if show_pa:
                 mapview.add_protected_areas_layer(fmap, results["protected_areas"]["gdf"], 0.8)
+                if not results["protected_areas"]["gdf"].empty:
+                    _add_legend("Áreas protegidas", mapview.protected_areas_legend_items())
 
             if show_coastal:
                 cache = st.session_state.setdefault("coastal_cache", {})
@@ -237,15 +250,11 @@ if results:
                         depth_masked, "Blues", 0.0, max(coastal_summary["max_depth_m"], 0.1)
                     )
                     mapview.add_image_layer(fmap, uri, bounds, "Inundación costera", op_coastal)
-                    mapview.add_legend(
-                        fmap,
+                    _add_legend(
                         f"Inundación costera — {coastal_preset}",
-                        [
-                            ("#f7fbff", "Poca profundidad"),
-                            ("#6baed6", "Media"),
-                            ("#08306b", f"Hasta {coastal_summary['max_depth_m']:.1f} m"),
-                        ],
-                        position_offset_px=320,
+                        mapview.continuous_legend_items(
+                            "Blues", 0.0, coastal_summary["max_depth_m"], "{:.1f} m"
+                        ),
                     )
                 with col_controls:
                     if not coastal_summary["has_data"]:

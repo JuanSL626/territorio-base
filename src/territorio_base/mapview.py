@@ -33,6 +33,12 @@ WORLDCOVER_COLORS = {
     100: "#fae6a0",
 }
 
+HYDROLOGY_COLORS = {"waterway": "#1f78b4", "water_body": "#08519c", "wetland": "#41b6c4"}
+HYDROLOGY_LABELS = {"waterway": "Curso de agua", "water_body": "Cuerpo de agua", "wetland": "Humedal"}
+
+PROTECTED_AREA_COLOR = "#d95f02"
+AOI_BOUNDARY_COLOR = "#3388ff"
+
 
 def reproject_to_wgs84(da: xr.DataArray) -> xr.DataArray:
     return da.rio.reproject("EPSG:4326")
@@ -103,6 +109,11 @@ def add_image_layer(m: folium.Map, data_uri: str, bounds: list, name: str, opaci
     ).add_to(m)
 
 
+def legend_height_px(items: list[tuple[str, str]]) -> int:
+    """Alto aproximado (px) de una leyenda con esta cantidad de filas, para apilar varias sin superponerse."""
+    return 40 + 20 * len(items)
+
+
 def add_legend(m: folium.Map, title: str, items: list[tuple[str, str]], position_offset_px: int = 0) -> None:
     """items: lista de (color_hex, etiqueta). position_offset_px separa leyendas apiladas."""
     rows = "".join(
@@ -144,6 +155,32 @@ def worldcover_legend_items(present_codes: set[int]) -> list[tuple[str, str]]:
     ]
 
 
+def continuous_legend_items(cmap: str, vmin: float, vmax: float, fmt: str = "{:.0f}", n: int = 5) -> list[tuple[str, str]]:
+    """Muestrea n valores entre vmin y vmax (de mayor a menor) para armar una leyenda tipo rampa."""
+    colormap = plt.get_cmap(cmap)
+    values = np.linspace(vmax, vmin, n)
+    items = []
+    for v in values:
+        t = (v - vmin) / (vmax - vmin) if vmax > vmin else 0.0
+        r, g, b, _ = colormap(t)
+        hex_color = "#%02x%02x%02x" % (int(r * 255), int(g * 255), int(b * 255))
+        items.append((hex_color, fmt.format(v)))
+    return items
+
+
+def hydrology_legend_items(features: list) -> list[tuple[str, str]]:
+    present = {f.kind for f in features}
+    return [(HYDROLOGY_COLORS[kind], HYDROLOGY_LABELS[kind]) for kind in HYDROLOGY_COLORS if kind in present]
+
+
+def protected_areas_legend_items() -> list[tuple[str, str]]:
+    return [(PROTECTED_AREA_COLOR, "Área protegida (WDPA)")]
+
+
+def aoi_boundary_legend_items() -> list[tuple[str, str]]:
+    return [(AOI_BOUNDARY_COLOR, "Límite del AOI")]
+
+
 def build_base_map(aoi: AOI) -> folium.Map:
     minx, miny, maxx, maxy = aoi.bbox
     center = [(miny + maxy) / 2, (minx + maxx) / 2]
@@ -151,19 +188,18 @@ def build_base_map(aoi: AOI) -> folium.Map:
     folium.GeoJson(
         aoi.geometry_wgs84.__geo_interface__,
         name="Límite del AOI",
-        style_function=lambda _: {"color": "#3388ff", "weight": 2, "fillOpacity": 0},
+        style_function=lambda _: {"color": AOI_BOUNDARY_COLOR, "weight": 2, "fillOpacity": 0},
     ).add_to(m)
     m.fit_bounds([[miny, minx], [maxy, maxx]])
     return m
 
 
 def add_hydrology_layer(m: folium.Map, features: list, opacity: float) -> None:
-    color_by_kind = {"waterway": "#1f78b4", "water_body": "#08519c", "wetland": "#41b6c4"}
     for f in features:
         folium.GeoJson(
             f.geometry.__geo_interface__,
             style_function=lambda _, k=f.kind: {
-                "color": color_by_kind.get(k, "#1f78b4"),
+                "color": HYDROLOGY_COLORS.get(k, "#1f78b4"),
                 "weight": 3,
                 "fillOpacity": opacity,
                 "opacity": opacity,
@@ -178,9 +214,9 @@ def add_protected_areas_layer(m: folium.Map, gdf, opacity: float) -> None:
     folium.GeoJson(
         gdf.__geo_interface__,
         style_function=lambda _: {
-            "color": "#d95f02",
+            "color": PROTECTED_AREA_COLOR,
             "weight": 2,
-            "fillColor": "#d95f02",
+            "fillColor": PROTECTED_AREA_COLOR,
             "fillOpacity": opacity * 0.5,
             "opacity": opacity,
         },
