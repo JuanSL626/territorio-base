@@ -1,4 +1,4 @@
-"""Prueba manual end-to-end contra el polígono real del proyecto Malena. No forma parte de la app."""
+"""Prueba manual end-to-end del pipeline contra un polígono real. No forma parte de la app."""
 
 import sys
 import time
