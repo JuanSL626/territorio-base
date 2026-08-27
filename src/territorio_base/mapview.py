@@ -265,6 +265,16 @@ def add_mepyd_group_layer(m: folium.Map, group: str, layers: dict, opacity: floa
             (c for c in ("MUN_NOM", "NOMBRE", "nombre", "name") if c in gdf.columns), None
         )
         is_point = gdf.geometry.geom_type.isin(["Point", "MultiPoint"]).any()
+        is_polygon = gdf.geometry.geom_type.isin(["Polygon", "MultiPolygon"]).any()
+        # Varias capas de "Amenazas" (zonificación sísmica, tsunami, ciclón,
+        # inundación...) son polígonos grandes que suelen solaparse en la
+        # misma zona. Con relleno fuerte, 2-3 superpuestos se mezclan en un
+        # color que no coincide con ningún color de la leyenda — ilegible.
+        # Bajando mucho el relleno y dejando el borde bien marcado, cada
+        # amenaza se puede seguir distinguiendo por su contorno aunque se
+        # solape con otras.
+        fill_factor = 0.12 if is_polygon else 0.4
+        border_weight = 2.5 if is_polygon else 2
         folium.GeoJson(
             gdf.__geo_interface__,
             name=f"{group} — {label}",
@@ -273,11 +283,11 @@ def add_mepyd_group_layer(m: folium.Map, group: str, layers: dict, opacity: floa
             )
             if is_point
             else None,
-            style_function=lambda _, c=color: {
+            style_function=lambda _, c=color, w=border_weight, ff=fill_factor: {
                 "color": c,
-                "weight": 2,
+                "weight": w,
                 "fillColor": c,
-                "fillOpacity": opacity * 0.4,
+                "fillOpacity": opacity * ff,
                 "opacity": opacity,
             },
             tooltip=folium.GeoJsonTooltip(fields=[name_field]) if name_field else folium.Tooltip(label),

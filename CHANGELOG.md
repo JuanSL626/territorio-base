@@ -6,6 +6,27 @@ app, no una librería versionada).
 
 ## 2026-08-27
 
+### Simbología de "Amenazas" ilegible por solapamiento de rellenos
+
+- Varias capas de "Amenazas" (zonificación sísmica, tsunami, ciclón,
+  inundación, licuefacción, deslizamiento) son polígonos grandes que
+  frecuentemente se solapan en la misma zona. Con relleno translúcido
+  fuerte (`fillOpacity` ~0.34), 2-3 capas superpuestas se mezclaban en un
+  color sólido que no correspondía a ningún color de la leyenda — todo el
+  AOI terminaba tapado por un único bloque rosado, imposible de leer.
+- `mapview.add_mepyd_group_layer` ahora baja mucho el relleno de polígonos
+  (`fillOpacity` ~0.10 en vez de ~0.34) y sube el grosor del borde, para
+  que cada amenaza se distinga por su contorno de color aunque se solape
+  con otras — las capas de puntos y líneas no cambiaron. De paso se corrigió
+  un bug de late-binding en las lambdas de estilo (dos variables nuevas del
+  loop no estaban capturadas como default args, así que todas las capas de
+  un grupo terminaban con el grosor/relleno de la última iteración — no se
+  notaba en "Amenazas" porque ahí todo es polígono, pero sí hubiera afectado
+  a grupos con geometrías mixtas como "Infraestructuras y edificaciones").
+- Verificado visualmente contra el mismo AOI donde se había reportado el
+  problema: antes era un bloque rosado uniforme, ahora se ven contornos de
+  colores distintos y el basemap de fondo.
+
 ### Una caída de Overpass/WDPA ya no tumba todo el análisis
 
 - En producción (Streamlit Community Cloud) los 3 mirrors de Overpass
