@@ -1,4 +1,14 @@
 {
   "extends": "@territorio/tsconfig/base.json",
-  "include": ["src/**/*", "*.ts", "*.js"]
+  "_comment": [
+    "`scripts/**/*` is in the program because scripts/generate.ts runs under",
+    "Node 24's native type stripping and still has to typecheck.",
+    "`allowImportingTsExtensions` mirrors packages/db: Node's native type",
+    "stripping does no module resolution of its own and needs the real `.ts`",
+    "specifier, and the package `exports` map already points at `./src/*.ts`."
+  ],
+  "compilerOptions": {
+    "allowImportingTsExtensions": true
+  },
+  "include": ["src/**/*", "scripts/**/*", "*.ts", "*.js"]
 }

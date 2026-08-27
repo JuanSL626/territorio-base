@@ -15,8 +15,14 @@ import { formatNumber } from '~/lib/format';
 
 export type LayerRuntime = {
   status: LayerStatus;
-  /** Razón corta del chip: "sin AOI", "sin escenas S2", "servicio caído". */
+  /**
+   * Razón CORTA del chip: "sin AOI", "sin datos", "sin escenas S2". Corta en
+   * serio — la fila mide 48 px y la etiqueta de la capa tiene prioridad sobre
+   * el chip; un motivo largo deja el nombre de la capa en "Ame…".
+   */
   reason?: string;
+  /** La explicación completa, como `title` del chip. Sin límite de largo. */
+  detail?: string;
   featureCount?: number;
 };
 
@@ -119,7 +125,12 @@ export function LayerRow({
             {formatNumber(runtime.featureCount, 0)}
           </span>
         ) : (
-          <LayerStatusChip status={runtime.status} reason={runtime.reason} onRetry={onRetry} />
+          <LayerStatusChip
+            status={runtime.status}
+            reason={runtime.reason}
+            detail={runtime.detail}
+            onRetry={onRetry}
+          />
         )}
 
         <LayerInfoPopover layer={layer} canDownload={canDownload} onDownload={onDownload} />

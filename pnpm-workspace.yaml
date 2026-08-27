@@ -78,6 +78,11 @@ catalog:
   # --- Validation (shared contracts, URL search params) ---
   zod: 4.4.3
 
+  # --- Contrato con el servicio raster (packages/api-client) ---
+  # Los tipos del cliente se GENERAN desde services/api/openapi.json; no se
+  # escriben a mano. Ver `pnpm --filter @territorio/api-client generate`.
+  openapi-typescript: 7.13.0
+
   # --- Vector geo (packages/geo owns ALL vector work) ---
   "@turf/turf": 7.4.0
   # proj4 >=2.21 ships its own d.ts; @types/proj4 is a deprecated stub. Do not add it.

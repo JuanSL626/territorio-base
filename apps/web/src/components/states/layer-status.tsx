@@ -6,6 +6,8 @@ export type LayerStatusChipProps = {
   status: LayerStatus;
   /** Razón corta: "sin AOI", "sin escenas S2", "servicio caído". */
   reason?: string;
+  /** Explicación completa, como `title`: el chip no tiene lugar para ella. */
+  detail?: string;
   onRetry?: () => void;
 };
 
@@ -29,13 +31,13 @@ const DEFAULT_LABEL: Record<LayerStatus, string> = {
  * Chip inline del §8: el error vive EN la fila de la capa, no en un toast.
  * Una capa sin datos se ve gris con su razón, nunca como un checkbox vivo.
  */
-export function LayerStatusChip({ status, reason, onRetry }: LayerStatusChipProps) {
+export function LayerStatusChip({ status, reason, detail, onRetry }: LayerStatusChipProps) {
   if (status === 'ok') return null;
 
   const label = reason != null && reason.length > 0 ? reason : DEFAULT_LABEL[status];
 
   return (
-    <span className="inline-flex items-center gap-1">
+    <span className="inline-flex shrink-0 items-center gap-1" title={detail ?? label}>
       <Badge tone={TONE[status]}>{label}</Badge>
       {status === 'error' && onRetry ? (
         <button

@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import type { LayerRuntime } from '~/components/layers/layer-row';
 import type { ThemeId } from '~/layers/types';
@@ -12,17 +12,22 @@ import { BottomCluster } from '~/components/layout/bottom-cluster';
 import { Inspector } from '~/components/layout/inspector';
 import { MapToolbar, type MapTool } from '~/components/layout/map-toolbar';
 import { Topbar } from '~/components/layout/topbar';
-import { MapCanvas } from '~/components/map/map-canvas';
+import { type MapController, type MapInspectorState, MapCanvas } from '~/components/map/map-canvas';
+import { publicRasterBaseUrl } from '~/components/map/raster-base';
+import { useMapAnalysis } from '~/components/map/use-map-analysis';
 import { ServiceDownStrip, type ServiceIncident } from '~/components/states/service-strip';
+import { useToast } from '~/components/ui/toast';
 import { LAYER_REGISTRY } from '~/layers/registry';
 import { isInRd } from '~/layers/sources';
 import {
+  type BasemapId,
   applyVista,
   getVista,
   initialVisibility,
   VISTAS,
   type LayerVisibility,
 } from '~/layers/vistas';
+import { useStartAnalysis } from '~/lib/analysis-queries';
 import {
   mapSearchSchema,
   parseBbox,
@@ -38,13 +43,28 @@ export const Route = createFileRoute('/_app/')({
   component: MapWorkspace,
 });
 
-/** El motor todavía no reporta estado por capa: hasta entonces, todo `ok`. */
-const EMPTY_RUNTIME: Record<string, LayerRuntime> = {};
-
 function MapWorkspace() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const breakpoint = useBreakpoint();
+
+  /*
+    Cableado del mapa (workstream MapLibre). El mapa calcula tres cosas que el
+    shell necesita y no puede derivar solo: el contenido del inspector, el
+    estado por capa y un controlador imperativo para "zoom a la geometría" y
+    el drill-down de la pila de resultados (§5.1/§5.3).
+  */
+  const controllerRef = useRef<MapController | null>(null);
+  const [inspectorState, setInspectorState] = useState<MapInspectorState>({
+    candidates: [],
+    feature: null,
+  });
+  const [layerRuntime, setLayerRuntime] = useState<Record<string, LayerRuntime>>({});
+  const [basemapOverride, setBasemapOverride] = useState<BasemapId | null>(null);
+
+  const analysis = useMapAnalysis(search.aoi);
+  const startAnalysis = useStartAnalysis();
+  const toast = useToast();
 
   const [thresholds, setThresholds] = useState<Record<string, number[]>>({});
   const [showS2Footprints, setShowS2Footprints] = useState(false);
@@ -97,17 +117,48 @@ function MapWorkspace() {
     void navigate({ search: (previous) => ({ ...previous, sel: next }), replace: true });
   };
 
+  /*
+    Un AOI nuevo (dibujado o subido) lanza el análisis y su id va a la URL: es
+    el "sin botón de submit" del §8, y deja el AOI como objeto de primera clase
+    del §0.3 — quien pega el link ve el mismo mapa.
+  */
+  const acceptAoi = (geometry: unknown) => {
+    setActiveTool(null);
+    startAnalysis.mutate(
+      { aoi: geometry },
+      {
+        onSuccess: (result) => {
+          if (result.ok) {
+            void navigate({ search: (previous) => ({ ...previous, aoi: result.analysisId }) });
+            return;
+          }
+          // Un rechazo (AOI inválido, AOI demasiado grande) NO es un servicio
+          // caído: la franja ámbar del §8 nombra servicios, esto es un aviso.
+          toast.push({
+            tone: 'warning',
+            title: 'No se pudo analizar',
+            description: result.message,
+          });
+        },
+        onError: (error: Error) => {
+          toast.push({ tone: 'error', title: 'No se pudo analizar', description: error.message });
+        },
+      },
+    );
+  };
+
   const vista = getVista(search.theme);
   const availableVistas = VISTAS.filter((item) => (item.requiresRd === true ? inRd : true));
   const hasAoi = search.aoi !== undefined;
-  const inspectorOpen = selection !== null;
+  const inspectorOpen =
+    selection !== null || inspectorState.feature !== null || inspectorState.candidates.length > 1;
 
   const capas = (
     <LayerPanel
       theme={search.theme}
       visible={visibility.visible}
       opacity={visibility.opacity}
-      runtime={EMPTY_RUNTIME}
+      runtime={layerRuntime}
       thresholds={thresholds}
       hasAoi={hasAoi}
       inRd={inRd}
@@ -198,12 +249,18 @@ function MapWorkspace() {
             onClose={() => {
               setSelection(undefined);
             }}
-            candidates={[]}
-            feature={null}
+            candidates={inspectorState.candidates}
+            feature={inspectorState.feature}
             defaultTab={vista.inspectorDefaultTab}
-            onPickCandidate={() => undefined}
-            onBack={() => undefined}
-            onZoom={() => undefined}
+            onPickCandidate={(layerId) => {
+              controllerRef.current?.pickLayer(layerId);
+            }}
+            onBack={() => {
+              controllerRef.current?.back();
+            }}
+            onZoom={() => {
+              controllerRef.current?.zoomToSelection();
+            }}
             onDownload={() => {
               setExportOpen(true);
             }}
@@ -213,13 +270,17 @@ function MapWorkspace() {
         map={
           <>
             <MapCanvas
-              basemap={vista.basemap}
+              basemap={basemapOverride ?? vista.basemap}
               visibleLayers={visibility.visible}
               opacity={visibility.opacity}
               aoiId={search.aoi}
+              analysis={analysis}
+              rasterBaseUrl={publicRasterBaseUrl()}
               bbox={bbox}
               selection={selection}
               drawing={activeTool === 'dibujar'}
+              tool={activeTool}
+              compact={breakpoint === 'mobile'}
               padding={{
                 top: 48 + 24,
                 right: inspectorOpen ? 380 + 24 : 24,
@@ -230,8 +291,27 @@ function MapWorkspace() {
                 setSelection(serializeSelection(next));
               }}
               onBboxChange={() => undefined}
-              onAoiDrawn={() => {
+              onAoiDrawn={acceptAoi}
+              onAoiUploaded={(aoi) => {
+                acceptAoi(aoi.geometry);
+              }}
+              onAoiError={(message) => {
+                // UC-03: un archivo corrupto se cuenta en castellano, no como
+                // un traceback (que es exactamente lo que hacía el legacy).
+                toast.push({
+                  tone: 'error',
+                  title: 'No se pudo leer el archivo',
+                  description: message,
+                });
+              }}
+              onToolDone={() => {
                 setActiveTool(null);
+              }}
+              onBasemapChange={setBasemapOverride}
+              onInspect={setInspectorState}
+              onLayerStatus={setLayerRuntime}
+              onReady={(controller) => {
+                controllerRef.current = controller;
               }}
             />
             <MapToolbar
