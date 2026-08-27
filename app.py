@@ -169,12 +169,12 @@ if results:
             show_hydro = st.checkbox("Hidrología (OSM)", value=True)
             show_pa = st.checkbox("Áreas protegidas (WDPA)", value=True)
 
-            mepyd_group_toggles = {}
             if mepyd["layers"]:
                 st.divider()
-                st.caption("Contexto RD (MEPyD)")
-                for group in mepyd["layers"]:
-                    mepyd_group_toggles[group] = st.checkbox(group, value=False, key=f"mepyd_{group}")
+                st.caption(
+                    "Contexto RD (MEPyD): prendé/apagá cada capa desde el panel "
+                    "de capas del mapa (ícono de capas, abajo a la derecha)."
+                )
 
             st.divider()
             show_coastal = st.checkbox("Inundación costera (WRI Aqueduct)", value=False)
@@ -250,11 +250,12 @@ if results:
                 if not results["protected_areas"]["gdf"].empty:
                     _add_legend("Áreas protegidas", mapview.protected_areas_legend_items())
 
-            active_mepyd_groups = [g for g, on in mepyd_group_toggles.items() if on]
-            for group in active_mepyd_groups:
-                layers = mepyd["layers"][group]
-                mapview.add_mepyd_group_layer(fmap, group, layers, 0.85)
-                _add_legend(f"Contexto RD — {group}", mapview.mepyd_legend_items(group, layers))
+            if mepyd["layers"]:
+                mepyd_groups_added = mapview.add_mepyd_layers(fmap, mepyd["layers"])
+                if mepyd_groups_added:
+                    folium.plugins.GroupedLayerControl(
+                        groups=mepyd_groups_added, exclusive_groups=False, collapsed=False
+                    ).add_to(fmap)
 
             if show_coastal:
                 cache = st.session_state.setdefault("coastal_cache", {})

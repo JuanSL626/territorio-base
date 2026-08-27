@@ -6,6 +6,30 @@ app, no una librería versionada).
 
 ## 2026-08-27
 
+### Contexto RD (MEPyD): panel de capas nativo del mapa, estilo Esri
+
+- Hasta ahora, para ver una capa de MEPyD había que prender su GRUPO entero
+  desde un checkbox de Streamlit en la sidebar (ej. todo "Amenazas" junto),
+  lo que además disparaba un rerun completo del script en cada click. No se
+  podía prender/apagar una amenaza puntual (ej. solo "Área propensa a
+  inundación") sin traer también sísmica, tsunami, ciclón, etc.
+- Se reemplazó por `folium.plugins.GroupedLayerControl`: ahora TODAS las
+  capas individuales del catálogo (~35) se agregan siempre al mapa
+  (ocultas, `show=False`), agrupadas por categoría con un panel de capas
+  nativo de Leaflet — igual al panel "Capas" del Explorador de Riesgo del
+  propio MEPyD (grupo con encabezado + checkbox por capa). Prender/apagar
+  una capa pasa a ser 100% client-side: instantáneo, sin rerun de
+  Streamlit, y las capas de un mismo grupo no son excluyentes entre sí
+  (`exclusive_groups=False`) — se pueden combinar varias amenazas a la vez.
+- Se sacaron los checkboxes de Streamlit por grupo MEPyD de la sidebar
+  (quedan redundantes con el panel del mapa); se dejó un texto corto
+  indicando que el control ahora vive en el ícono de capas del mapa.
+- `mapview.add_mepyd_group_layer` (por grupo activo) se reemplazó por
+  `mapview.add_mepyd_layers` (agrega todo el catálogo de una vez y devuelve
+  los objetos folium agrupados, listos para pasarle a GroupedLayerControl).
+- Verificado en el navegador: tildar/destildar capas individuales de
+  "Amenazas" cambia el mapa al instante y se pueden combinar varias.
+
 ### Simbología de "Amenazas" ilegible por solapamiento de rellenos
 
 - Varias capas de "Amenazas" (zonificación sísmica, tsunami, ciclón,

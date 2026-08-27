@@ -236,59 +236,67 @@ MEPYD_LAYER_PALETTE = [
 ]
 
 
-def mepyd_legend_items(group: str, layers: dict) -> list[tuple[str, str]]:
-    """Una entrada de leyenda por capa (no por grupo), en el mismo orden/color
-    que usa add_mepyd_group_layer para ese grupo."""
-    return [
-        (MEPYD_LAYER_PALETTE[i % len(MEPYD_LAYER_PALETTE)], label)
-        for i, label in enumerate(layers.keys())
-    ]
+def add_mepyd_layers(
+    m: folium.Map, results: dict[str, dict], opacity: float = 0.85
+) -> dict[str, list]:
+    """Agrega TODAS las capas del catálogo MEPyD al mapa, ocultas por defecto
+    (show=False), y devuelve los objetos folium agrupados por grupo — para
+    pasarlos a folium.plugins.GroupedLayerControl y así prender/apagar cada
+    capa individual (ej. cada amenaza dentro de "Amenazas") directamente
+    desde el panel de capas del mapa, sin re-ejecutar el script de Streamlit
+    en cada click — como el panel de capas de un visor tipo Esri.
 
-
-def add_mepyd_group_layer(m: folium.Map, group: str, layers: dict, opacity: float) -> None:
-    """layers: dict[etiqueta, GeoDataFrame] de un grupo del catálogo MEPyD.
-    Cada capa del grupo se pinta con un color distinto (mepyd_legend_items
-    genera la leyenda a juego) para poder distinguir, por ejemplo, cada
-    amenaza dentro del grupo "Amenazas".
+    Cada capa del grupo se pinta con un color distinto (paleta cualitativa,
+    reciclada por grupo) para poder distinguir, por ejemplo, cada amenaza
+    dentro del grupo "Amenazas".
 
     Las capas de puntos (salud, escuelas, albergues, subestaciones...) se
     dibujan como círculos chicos en vez del pin por defecto de Leaflet: con
     el pin, capas de miles de puntos (ej. "Infraestructura de salud", ~1600
     en un AOI mediano) tapaban el mapa entero y no respetaban el color de
     la capa (folium solo aplica style_function a líneas/polígonos, no a
-    markers)."""
-    for i, (label, gdf) in enumerate(layers.items()):
-        if gdf.empty:
-            continue
-        color = MEPYD_LAYER_PALETTE[i % len(MEPYD_LAYER_PALETTE)]
-        name_field = next(
-            (c for c in ("MUN_NOM", "NOMBRE", "nombre", "name") if c in gdf.columns), None
-        )
-        is_point = gdf.geometry.geom_type.isin(["Point", "MultiPoint"]).any()
-        is_polygon = gdf.geometry.geom_type.isin(["Polygon", "MultiPolygon"]).any()
-        # Varias capas de "Amenazas" (zonificación sísmica, tsunami, ciclón,
-        # inundación...) son polígonos grandes que suelen solaparse en la
-        # misma zona. Con relleno fuerte, 2-3 superpuestos se mezclan en un
-        # color que no coincide con ningún color de la leyenda — ilegible.
-        # Bajando mucho el relleno y dejando el borde bien marcado, cada
-        # amenaza se puede seguir distinguiendo por su contorno aunque se
-        # solape con otras.
-        fill_factor = 0.12 if is_polygon else 0.4
-        border_weight = 2.5 if is_polygon else 2
-        folium.GeoJson(
-            gdf.__geo_interface__,
-            name=f"{group} — {label}",
-            marker=folium.CircleMarker(
-                radius=4, color=color, weight=1, fill=True, fill_color=color, fill_opacity=opacity
+    markers).
+
+    Varias capas de "Amenazas" (zonificación sísmica, tsunami, ciclón,
+    inundación...) son polígonos grandes que suelen solaparse en la misma
+    zona. Con relleno fuerte, 2-3 superpuestos se mezclan en un color que no
+    coincide con ningún color de la leyenda — ilegible. Por eso los polígonos
+    llevan relleno muy bajo y borde bien marcado, para poder distinguir cada
+    amenaza por su contorno aunque se solape con otras.
+    """
+    groups_out: dict[str, list] = {}
+    for group, layers in results.items():
+        added = []
+        for i, (label, gdf) in enumerate(layers.items()):
+            if gdf.empty:
+                continue
+            color = MEPYD_LAYER_PALETTE[i % len(MEPYD_LAYER_PALETTE)]
+            name_field = next(
+                (c for c in ("MUN_NOM", "NOMBRE", "nombre", "name") if c in gdf.columns), None
             )
-            if is_point
-            else None,
-            style_function=lambda _, c=color, w=border_weight, ff=fill_factor: {
-                "color": c,
-                "weight": w,
-                "fillColor": c,
-                "fillOpacity": opacity * ff,
-                "opacity": opacity,
-            },
-            tooltip=folium.GeoJsonTooltip(fields=[name_field]) if name_field else folium.Tooltip(label),
-        ).add_to(m)
+            is_point = gdf.geometry.geom_type.isin(["Point", "MultiPoint"]).any()
+            is_polygon = gdf.geometry.geom_type.isin(["Polygon", "MultiPolygon"]).any()
+            fill_factor = 0.12 if is_polygon else 0.4
+            border_weight = 2.5 if is_polygon else 2
+            gj = folium.GeoJson(
+                gdf.__geo_interface__,
+                name=label,
+                show=False,
+                marker=folium.CircleMarker(
+                    radius=4, color=color, weight=1, fill=True, fill_color=color, fill_opacity=opacity
+                )
+                if is_point
+                else None,
+                style_function=lambda _, c=color, w=border_weight, ff=fill_factor: {
+                    "color": c,
+                    "weight": w,
+                    "fillColor": c,
+                    "fillOpacity": opacity * ff,
+                    "opacity": opacity,
+                },
+                tooltip=folium.GeoJsonTooltip(fields=[name_field]) if name_field else folium.Tooltip(label),
+            ).add_to(m)
+            added.append(gj)
+        if added:
+            groups_out[group] = added
+    return groups_out
