@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Callable
 
+import geopandas as gpd
+
 from territorio_base.aoi import AOI
 from territorio_base.analysis.topography import compute_slope_aspect, summarize_topography
 from territorio_base.analysis.vegetation import summarize_vegetation
@@ -30,12 +32,39 @@ def run_analysis(aoi: AOI, progress: Progress = _noop) -> dict:
     veg_summary = summarize_vegetation(ndvi, worldcover)
 
     progress("Consultando hidrología en OpenStreetMap…")
-    hydro_features = osm.fetch_hydrology(aoi)
-    hydro_summary = osm.summarize_hydrology(aoi, hydro_features)
+    try:
+        hydro_features = osm.fetch_hydrology(aoi)
+        hydro_summary = osm.summarize_hydrology(aoi, hydro_features)
+        hydro_summary["available"] = True
+    except Exception:
+        # Overpass es un servicio público sin SLA — que esté caído no debería
+        # tirar abajo el resto del análisis (topografía, vegetación, etc. ya
+        # se descargaron bien en este punto).
+        hydro_features = []
+        hydro_summary = {
+            "available": False,
+            "features_found": 0,
+            "intersects_aoi": False,
+            "nearest_distance_m": None,
+            "features": [],
+        }
 
     progress("Consultando áreas protegidas (WDPA)…")
-    pa_gdf = protected_areas.fetch_protected_areas(aoi)
-    pa_summary = protected_areas.summarize_protected_areas(aoi, pa_gdf)
+    try:
+        pa_gdf = protected_areas.fetch_protected_areas(aoi)
+        pa_summary = protected_areas.summarize_protected_areas(aoi, pa_gdf)
+        pa_summary["available"] = True
+    except Exception:
+        pa_gdf = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
+        pa_summary = {
+            "available": False,
+            "areas_found": 0,
+            "intersects_aoi": False,
+            "overlap_ha": 0.0,
+            "overlap_pct_of_aoi": 0.0,
+            "nearest_distance_m": None,
+            "areas": [],
+        }
 
     mepyd_results: dict = {}
     mepyd_summary: dict = {}
@@ -116,7 +145,9 @@ def to_markdown(results: dict) -> str:
         "",
         "## Hidrología (OpenStreetMap, buffer 500 m)",
     ]
-    if hydro["features_found"] == 0:
+    if not hydro.get("available", True):
+        lines.append("- No se pudo consultar (Overpass API sin respuesta) — no es que no haya, sino que no se pudo chequear.")
+    elif hydro["features_found"] == 0:
         lines.append("- No se encontraron cursos/cuerpos de agua mapeados en OSM cerca del AOI.")
     else:
         lines.append(f"- {hydro['features_found']} elemento(s) encontrados dentro del buffer.")
@@ -130,7 +161,9 @@ def to_markdown(results: dict) -> str:
         "",
         "## Áreas protegidas (WDPA, buffer 1 km)",
     ]
-    if pa["areas_found"] == 0:
+    if not pa.get("available", True):
+        lines.append("- No se pudo consultar (servicio de UNEP-WCMC sin respuesta) — no es que no haya, sino que no se pudo chequear.")
+    elif pa["areas_found"] == 0:
         lines.append("- No se encontraron áreas WDPA cerca del AOI.")
     else:
         lines.append(f"- {pa['areas_found']} área(s) encontradas dentro del buffer.")

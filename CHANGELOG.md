@@ -6,6 +6,27 @@ app, no una librería versionada).
 
 ## 2026-08-27
 
+### Una caída de Overpass/WDPA ya no tumba todo el análisis
+
+- En producción (Streamlit Community Cloud) los 3 mirrors de Overpass
+  fallaron **juntos** con "Connection refused" — señal de que el problema
+  no era un mirror puntual saturado sino algo a nivel de todo el cluster de
+  overpass-api.de (los 3 comparten esa infraestructura), probablemente
+  bloqueando la IP de salida de Streamlit Cloud. Esto tumbaba el análisis
+  completo, aunque topografía/vegetación ya se hubieran descargado bien.
+- Causa raíz real: `run_analysis` no tenía manejo de errores alrededor de
+  hidrología (Overpass) ni áreas protegidas (WDPA) — un solo servicio
+  externo caído abortaba todo el reporte. Ahora ambas llamadas están en
+  `try/except`; si fallan, el resto del análisis se completa igual y se
+  marca esa sección como `available: False` (distinto de "consultado, sin
+  resultados") tanto en el reporte Markdown como en la UI.
+- Se agregaron `overpass.kumi.systems` y `overpass.private.coffee` de
+  vuelta a la lista de mirrors (infraestructura de terceros, no relacionada
+  a overpass-api.de) para no depender de un solo proveedor si todo el
+  cluster principal está bloqueado. Timeout por intento: `(connect=5s,
+  read=30s)` en vez de 45s fijo, para no colgarse tanto tiempo contra un
+  mirror que no responde en absoluto.
+
 ### Contexto RD (MEPyD): capas de puntos ya no tapan el mapa
 
 - Al revisar todos los grupos (no solo "Amenazas"), las capas de puntos

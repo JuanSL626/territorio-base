@@ -104,7 +104,9 @@ if results:
     m3.metric("Pendiente media", f"{topo['slope_mean_pct']:.1f}%")
     m4.metric("Cobertura arbórea", f"{veg['worldcover_tree_cover_pct']:.1f}%")
 
-    if pa["intersects_aoi"]:
+    if not pa.get("available", True):
+        st.error("No se pudo consultar áreas protegidas (WDPA) — el servicio no respondió. El resto del análisis sí se completó.")
+    elif pa["intersects_aoi"]:
         st.warning(
             f"⚠️ El polígono SÍ intersecta un área de la WDPA: "
             f"{pa['areas'][0]['name']} ({pa['areas'][0]['desig']}) — "
@@ -118,7 +120,9 @@ if results:
     else:
         st.success("No se encontraron áreas protegidas (WDPA) cerca del polígono.")
 
-    if hydro["intersects_aoi"]:
+    if not hydro.get("available", True):
+        st.error("No se pudo consultar hidrología (Overpass API) — el servicio no respondió. El resto del análisis sí se completó.")
+    elif hydro["intersects_aoi"]:
         st.warning("⚠️ Hay un curso/cuerpo de agua de OSM que intersecta el polígono.")
     elif hydro["features_found"] > 0:
         st.info(

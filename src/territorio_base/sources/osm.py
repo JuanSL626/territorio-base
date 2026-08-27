@@ -11,16 +11,23 @@ from shapely.geometry.base import BaseGeometry
 from territorio_base.aoi import AOI
 
 # El mirror principal (overpass-api.de) se satura seguido y devuelve 504/timeout
-# en horas pico. Los otros dos son frontends alternativos del mismo cluster/
-# datos (mismo timestamp_osm_base que el principal al verificarlo) — no son
-# mirrors de datos regionales/desactualizados como otros mirrors públicos
-# (ej. overpass.osm.ch, que respondía rápido pero con 0 resultados para todo
-# el Caribe: parece ser un extracto regional, no una réplica global), así que
-# no hay riesgo de "responde rápido pero con datos incompletos".
+# en horas pico. z/lz4 son frontends alternativos del mismo cluster/datos
+# (mismo timestamp_osm_base al verificarlo) — sirven cuando el frontend
+# principal específico está saturado pero no si el bloqueo/rate-limit es a
+# nivel de todo el cluster (pasó en producción: los 3 fallaron juntos, muy
+# probablemente porque comparten organización/infra y algo bloqueó la IP de
+# salida de Streamlit Cloud contra las tres). Por eso se agregan también
+# kumi.systems y private.coffee — infraestructura de terceros no relacionada,
+# para no depender de un solo proveedor. Se descartó overpass.osm.ch: responde
+# rápido pero con 0 resultados para todo el Caribe (parece ser un extracto
+# regional, no una réplica global — peor que no tener fallback, porque falla
+# en silencio con datos incompletos en vez de dar error).
 OVERPASS_URLS = [
     "https://overpass-api.de/api/interpreter",
     "https://z.overpass-api.de/api/interpreter",
     "https://lz4.overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
 ]
 
 _QUERY = """
@@ -43,7 +50,7 @@ def _query_overpass(query: str) -> dict:
                 url,
                 data={"data": query},
                 headers={"User-Agent": "territorio-base/0.1 (analisis territorial preliminar)"},
-                timeout=45,
+                timeout=(5, 30),  # (connect, read): no esperar de más contra un mirror caído/bloqueado
             )
             resp.raise_for_status()
             return resp.json()
