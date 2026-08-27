@@ -1,15 +1,48 @@
-# Python-generated files
+# --- Node / pnpm ---
+node_modules/
+.pnpm-store/
+*.tsbuildinfo
+
+# --- Turborepo ---
+.turbo/
+
+# --- Build output ---
+dist/
+.output/
+.vinxi/
+.nitro/
+.tanstack/
+.vite/
+coverage/
+
+# --- Generated ---
+**/routeTree.gen.ts
+
+# --- Env ---
+.env
+.env.*
+!.env.example
+
+# --- SQLite (packages/db) ---
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# --- Python-generated files ---
 __pycache__/
 *.py[oc]
 build/
-dist/
 wheels/
 *.egg-info
 
-# Virtual environments
+# --- Virtual environments ---
 .venv
 
-# Salidas y cachés de análisis (por AOI, no se versionan)
+# --- Salidas y cachés de análisis (por AOI, no se versionan) ---
 data/
 outputs/
 
+# --- OS / editor ---
+.DS_Store

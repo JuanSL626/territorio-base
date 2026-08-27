@@ -1,0 +1,4 @@
+{
+  "extends": "@territorio/tsconfig/base.json",
+  "include": ["src/**/*", "*.ts", "*.js"]
+}

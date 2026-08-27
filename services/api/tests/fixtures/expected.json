@@ -1,0 +1,419 @@
+{
+  "_leeme": "Valores de referencia y TOLERANCIAS. Medidos en una corrida real contra Microsoft Planetary Computer el 2026-08-27 con el pipeline ya corregido (H1/H2/H3 aplicados). Se usan en los tests marcados `network`.",
+  "_tolerancias": {
+    "aoi": "EXACTO. area_ha/bbox/utm_epsg salen solo de la geometría del fixture y de pyproj: no dependen de ningún servicio. Tolerancia 1e-3 ha para absorber diferencias de última cifra entre versiones de PROJ.",
+    "elevacion": "VENTANA ESTRECHA (±8 m sobre min/max/mean, ±6 m sobre el rango). Copernicus DEM GLO-30 es un dataset congelado; lo único que puede mover el número es el remuestreo de odc-stac al cambiar de versión.",
+    "pendiente": "VENTANA RELATIVA ±25 %. La pendiente es una derivada del DEM sobre la grilla remuestreada, así que es más sensible al remuestreo que la elevación misma. Se fija además la CLASE DOMINANTE, que es lo que el usuario realmente lee.",
+    "ndvi": "VENTANA ANCHA (±0.20 en la media, ±25 pp en las clases). El compuesto usa las 6 escenas menos nubladas de los ÚLTIMOS 180 DÍAS: la ventana se corre sola con el calendario, así que un valor exacto sería un test que se rompe solo. Lo que sí se fija duro es la CLASE DOMINANTE de densidad y el signo del NDVI medio: un AOI urbano nunca debe dar 'dosel maduro', y uno de cordillera nunca 'sin vegetación'. Ese es el invariante que H1 rompía.",
+    "worldcover": "VENTANA ESTRECHA (±3 pp). WorldCover 2021 v200 también es un dataset congelado. Se exige además `worldcover_epoch_year == 2021`: si vuelve a aparecer una mezcla de épocas (H2), este assert cae.",
+    "sumas": "slope_class_pct y ndvi_density_class_pct tienen que sumar 100 ± 0.01."
+  },
+  "aois": {
+    "borde-tile-dem": {
+      "aoi": {
+        "area_ha": 14.023,
+        "area_ha_tolerance": 0.001,
+        "utm_epsg": 32619,
+        "bbox": [
+          -70.002,
+          18.45,
+          -69.998,
+          18.453
+        ]
+      },
+      "topography": {
+        "elevation_min_m": [
+          -1.828,
+          14.172
+        ],
+        "elevation_max_m": [
+          9.42,
+          25.42
+        ],
+        "elevation_mean_m": [
+          2.988,
+          18.988
+        ],
+        "elevation_range_m": [
+          5.248,
+          17.248
+        ],
+        "slope_mean_pct": [
+          4.743,
+          7.905
+        ],
+        "slope_max_pct": [
+          14.223,
+          23.706
+        ],
+        "dominant_slope_class": "Suave (5-15%)"
+      },
+      "vegetation": {
+        "ndvi_mean": [
+          0.395,
+          0.795
+        ],
+        "ndvi_median": [
+          0.446,
+          0.846
+        ],
+        "ndvi_p90": [
+          0.633,
+          1
+        ],
+        "dominant_ndvi_density_class": "Vegetación muy densa / dosel maduro",
+        "worldcover_tree_cover_pct": [
+          84.014,
+          90.014
+        ],
+        "dominant_landcover_class": "Bosque / cobertura arbórea",
+        "worldcover_landcover_pct": {
+          "Bosque / cobertura arbórea": [
+            84.014,
+            90.014
+          ],
+          "Pastizal": [
+            1.722,
+            7.722
+          ],
+          "Área construida": [
+            4.292,
+            10.292
+          ],
+          "Humedal herbáceo": [
+            0,
+            3.972
+          ]
+        }
+      },
+      "provenance": {
+        "worldcover_epoch_year": 2021,
+        "sentinel2_boa_offsets_applied": [
+          -1000.0
+        ],
+        "dem_item_count_min": 2
+      },
+      "medido_el": "2026-08-27"
+    },
+    "cordillera-central": {
+      "aoi": {
+        "area_ha": 23.3137,
+        "area_ha_tolerance": 0.001,
+        "utm_epsg": 32619,
+        "bbox": [
+          -70.995,
+          19.02,
+          -70.99,
+          19.024
+        ]
+      },
+      "topography": {
+        "elevation_min_m": [
+          2749.47,
+          2765.47
+        ],
+        "elevation_max_m": [
+          2977.77,
+          2993.77
+        ],
+        "elevation_mean_m": [
+          2882.193,
+          2898.193
+        ],
+        "elevation_range_m": [
+          222.3,
+          234.3
+        ],
+        "slope_mean_pct": [
+          28.861,
+          48.102
+        ],
+        "slope_max_pct": [
+          55.028,
+          91.713
+        ],
+        "dominant_slope_class": "Fuerte (>30%)"
+      },
+      "vegetation": {
+        "ndvi_mean": [
+          0.457,
+          0.857
+        ],
+        "ndvi_median": [
+          0.468,
+          0.868
+        ],
+        "ndvi_p90": [
+          0.514,
+          0.914
+        ],
+        "dominant_ndvi_density_class": "Vegetación muy densa / dosel maduro",
+        "worldcover_tree_cover_pct": [
+          87.546,
+          93.546
+        ],
+        "dominant_landcover_class": "Bosque / cobertura arbórea",
+        "worldcover_landcover_pct": {
+          "Bosque / cobertura arbórea": [
+            87.546,
+            93.546
+          ],
+          "Pastizal": [
+            6.454,
+            12.454
+          ]
+        }
+      },
+      "provenance": {
+        "worldcover_epoch_year": 2021,
+        "sentinel2_boa_offsets_applied": [
+          -1000.0
+        ]
+      },
+      "medido_el": "2026-08-27"
+    },
+    "cruce-72w": {
+      "aoi": {
+        "area_ha": 14.066,
+        "area_ha_tolerance": 0.001,
+        "utm_epsg": 32619,
+        "bbox": [
+          -72.002,
+          18.3,
+          -71.998,
+          18.303
+        ]
+      },
+      "topography": {
+        "elevation_min_m": [
+          1179.42,
+          1195.42
+        ],
+        "elevation_max_m": [
+          1350.814,
+          1366.814
+        ],
+        "elevation_mean_m": [
+          1258.643,
+          1274.643
+        ],
+        "elevation_range_m": [
+          165.394,
+          177.394
+        ],
+        "slope_mean_pct": [
+          27.189,
+          45.315
+        ],
+        "slope_max_pct": [
+          49.568,
+          82.613
+        ],
+        "dominant_slope_class": "Fuerte (>30%)"
+      },
+      "vegetation": {
+        "ndvi_mean": [
+          0.317,
+          0.717
+        ],
+        "ndvi_median": [
+          0.289,
+          0.689
+        ],
+        "ndvi_p90": [
+          0.485,
+          0.885
+        ],
+        "dominant_ndvi_density_class": "Vegetación densa / bosque secundario",
+        "worldcover_tree_cover_pct": [
+          7.77,
+          13.77
+        ],
+        "dominant_landcover_class": "Pastizal",
+        "worldcover_landcover_pct": {
+          "Bosque / cobertura arbórea": [
+            7.77,
+            13.77
+          ],
+          "Matorral (shrubland)": [
+            0,
+            5.354
+          ],
+          "Pastizal": [
+            83.876,
+            89.876
+          ]
+        }
+      },
+      "provenance": {
+        "worldcover_epoch_year": 2021,
+        "sentinel2_boa_offsets_applied": [
+          -1000.0
+        ]
+      },
+      "medido_el": "2026-08-27"
+    },
+    "multipolygon-con-hueco": {
+      "aoi": {
+        "area_ha": 73.0186,
+        "area_ha_tolerance": 0.001,
+        "utm_epsg": 32619,
+        "bbox": [
+          -69.92,
+          18.48,
+          -69.9,
+          18.494
+        ]
+      },
+      "topography": {
+        "elevation_min_m": [
+          34.401,
+          50.401
+        ],
+        "elevation_max_m": [
+          48.861,
+          64.861
+        ],
+        "elevation_mean_m": [
+          40.792,
+          56.792
+        ],
+        "elevation_range_m": [
+          8.459,
+          20.459
+        ],
+        "slope_mean_pct": [
+          4.04,
+          6.734
+        ],
+        "slope_max_pct": [
+          16.447,
+          27.411
+        ],
+        "dominant_slope_class": "Plano (0-5%)"
+      },
+      "vegetation": {
+        "ndvi_mean": [
+          -0.064,
+          0.336
+        ],
+        "ndvi_median": [
+          -0.11,
+          0.29
+        ],
+        "ndvi_p90": [
+          0.144,
+          0.544
+        ],
+        "dominant_ndvi_density_class": "Sin vegetación / suelo desnudo o agua",
+        "worldcover_tree_cover_pct": [
+          0,
+          4.645
+        ],
+        "dominant_landcover_class": "Área construida",
+        "worldcover_landcover_pct": {
+          "Bosque / cobertura arbórea": [
+            0,
+            4.645
+          ],
+          "Pastizal": [
+            3.03,
+            9.03
+          ],
+          "Área construida": [
+            89.065,
+            95.065
+          ],
+          "Suelo desnudo / disperso": [
+            0,
+            3.26
+          ]
+        }
+      },
+      "provenance": {
+        "worldcover_epoch_year": 2021,
+        "sentinel2_boa_offsets_applied": [
+          -1000.0
+        ]
+      },
+      "medido_el": "2026-08-27"
+    },
+    "santo-domingo-urbano": {
+      "aoi": {
+        "area_ha": 23.3681,
+        "area_ha_tolerance": 0.001,
+        "utm_epsg": 32619,
+        "bbox": [
+          -69.935,
+          18.47,
+          -69.93,
+          18.474
+        ]
+      },
+      "topography": {
+        "elevation_min_m": [
+          36.547,
+          52.547
+        ],
+        "elevation_max_m": [
+          60.281,
+          76.281
+        ],
+        "elevation_mean_m": [
+          48.034,
+          64.034
+        ],
+        "elevation_range_m": [
+          17.734,
+          29.734
+        ],
+        "slope_mean_pct": [
+          6.233,
+          10.388
+        ],
+        "slope_max_pct": [
+          29.673,
+          49.455
+        ],
+        "dominant_slope_class": "Suave (5-15%)"
+      },
+      "vegetation": {
+        "ndvi_mean": [
+          -0.1,
+          0.3
+        ],
+        "ndvi_median": [
+          -0.137,
+          0.263
+        ],
+        "ndvi_p90": [
+          0.051,
+          0.451
+        ],
+        "dominant_ndvi_density_class": "Sin vegetación / suelo desnudo o agua",
+        "worldcover_tree_cover_pct": [
+          0,
+          3.686
+        ],
+        "dominant_landcover_class": "Área construida",
+        "worldcover_landcover_pct": {
+          "Bosque / cobertura arbórea": [
+            0,
+            3.686
+          ],
+          "Área construida": [
+            96.314,
+            100
+          ]
+        }
+      },
+      "provenance": {
+        "worldcover_epoch_year": 2021,
+        "sentinel2_boa_offsets_applied": [
+          -1000.0
+        ]
+      },
+      "medido_el": "2026-08-27"
+    }
+  }
+}

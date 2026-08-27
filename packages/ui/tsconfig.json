@@ -1,0 +1,4 @@
+{
+  "extends": "@territorio/tsconfig/react-library.json",
+  "include": ["src/**/*", "*.ts", "*.js"]
+}

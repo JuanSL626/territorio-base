@@ -1,0 +1,34 @@
+{
+  "type": "Feature",
+  "properties": {
+    "nombre": "Cordillera Central — vertiente del Pico Duarte",
+    "por_que": "Terreno empinado: valida que slope_class_pct se corra a 'Fuerte (>30%)' y que el rango de elevación sea de cientos de metros. Es el caso donde H3 (denominadores distintos para elevación y pendiente) más se nota."
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          -70.995,
+          19.02
+        ],
+        [
+          -70.99,
+          19.02
+        ],
+        [
+          -70.99,
+          19.024
+        ],
+        [
+          -70.995,
+          19.024
+        ],
+        [
+          -70.995,
+          19.02
+        ]
+      ]
+    ]
+  }
+}

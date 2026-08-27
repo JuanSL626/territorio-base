@@ -1,0 +1,12 @@
+.venv/
+data/
+tests/
+legacy-vector-reference/
+.pytest_cache/
+**/__pycache__/
+*.py[oc]
+.coverage
+htmlcov/
+node_modules/
+requirements.txt
+runtime.txt

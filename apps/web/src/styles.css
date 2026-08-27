@@ -1,0 +1,266 @@
+@import 'tailwindcss';
+
+/*
+  Sistema visual — 02-design-brief.md §10.
+
+  Regla: TODO el color de chrome sale de estos tokens semánticos. El color de los
+  DATOS vive en el registro de capas (src/layers), nunca acá, y el hue de
+  --accent no se reutiliza jamás para una clase de datos.
+
+  La paleta clara completa se define en :root. El modo oscuro sólo REDEFINE
+  tokens, dos veces: por preferencia del sistema y por [data-theme="dark"]
+  explícito, para que el switch gane en ambas direcciones.
+*/
+
+:root {
+  color-scheme: light;
+
+  --surface: #ffffff;
+  --surface-2: #f6f7f9;
+  --surface-3: #eceff3;
+  --surface-inverse: #1b2027;
+  --surface-overlay: rgb(15 20 26 / 0.32);
+
+  --border: #e3e6ec;
+  --border-strong: #c8cdd7;
+
+  --fg: #12161c;
+  --fg-muted: #5b6673;
+  --fg-subtle: #828d9b;
+  --fg-inverse: #f4f6f9;
+
+  --accent: #1f6feb;
+  --accent-hover: #1a5fcb;
+  --accent-soft: #e7f0fe;
+  --accent-fg: #ffffff;
+
+  --danger: #b42318;
+  --danger-soft: #fee4e2;
+  --warning: #b54708;
+  --warning-soft: #fef0c7;
+  --success: #067647;
+  --success-soft: #d1fadf;
+  --info: #175cd3;
+  --info-soft: #d1e9ff;
+
+  --ring: #1f6feb;
+
+  --shadow-popover: 0 8px 24px -6px rgb(16 24 40 / 0.18), 0 2px 6px -2px rgb(16 24 40 / 0.1);
+  --shadow-sheet: 0 -12px 32px -8px rgb(16 24 40 / 0.22);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --surface: #11151a;
+    --surface-2: #161b22;
+    --surface-3: #1f262f;
+    --surface-inverse: #080b0f;
+    --surface-overlay: rgb(3 6 10 / 0.55);
+
+    --border: #262d37;
+    --border-strong: #3a434f;
+
+    --fg: #e9edf3;
+    --fg-muted: #9aa5b2;
+    --fg-subtle: #74808e;
+    --fg-inverse: #e9edf3;
+
+    --accent: #4f92ff;
+    --accent-hover: #6ba3ff;
+    --accent-soft: #14243d;
+    --accent-fg: #06101f;
+
+    --danger: #ff8b7d;
+    --danger-soft: #3a1713;
+    --warning: #f5b544;
+    --warning-soft: #3a2a0c;
+    --success: #4ade80;
+    --success-soft: #0d2a1c;
+    --info: #7fb0ff;
+    --info-soft: #12233d;
+
+    --ring: #4f92ff;
+
+    --shadow-popover: 0 8px 24px -6px rgb(0 0 0 / 0.6), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+    --shadow-sheet: 0 -12px 32px -8px rgb(0 0 0 / 0.6);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --surface: #11151a;
+  --surface-2: #161b22;
+  --surface-3: #1f262f;
+  --surface-inverse: #080b0f;
+  --surface-overlay: rgb(3 6 10 / 0.55);
+
+  --border: #262d37;
+  --border-strong: #3a434f;
+
+  --fg: #e9edf3;
+  --fg-muted: #9aa5b2;
+  --fg-subtle: #74808e;
+  --fg-inverse: #e9edf3;
+
+  --accent: #4f92ff;
+  --accent-hover: #6ba3ff;
+  --accent-soft: #14243d;
+  --accent-fg: #06101f;
+
+  --danger: #ff8b7d;
+  --danger-soft: #3a1713;
+  --warning: #f5b544;
+  --warning-soft: #3a2a0c;
+  --success: #4ade80;
+  --success-soft: #0d2a1c;
+  --info: #7fb0ff;
+  --info-soft: #12233d;
+
+  --ring: #4f92ff;
+
+  --shadow-popover: 0 8px 24px -6px rgb(0 0 0 / 0.6), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+  --shadow-sheet: 0 -12px 32px -8px rgb(0 0 0 / 0.6);
+}
+
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-inverse: var(--surface-inverse);
+  --color-overlay: var(--surface-overlay);
+
+  --color-border-base: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-fg-inverse: var(--fg-inverse);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-fg: var(--accent-fg);
+
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+
+  --color-ring: var(--ring);
+
+  /* Grilla de 8px (4px permitido dentro de filas) — §10 */
+  --spacing: 4px;
+
+  --radius-chip: 4px;
+  --radius-btn: 6px;
+  --radius-panel: 8px;
+
+  --shadow-popover: var(--shadow-popover);
+  --shadow-sheet: var(--shadow-sheet);
+
+  --font-sans:
+    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+
+  /* Escala tipográfica exacta del §10 */
+  --text-11: 11px;
+  --text-11--line-height: 14px;
+  --text-12: 12px;
+  --text-12--line-height: 16px;
+  --text-13: 13px;
+  --text-13--line-height: 18px;
+  --text-15: 15px;
+  --text-15--line-height: 20px;
+  --text-18: 18px;
+  --text-18--line-height: 24px;
+
+  /* Regiones fijas del §2 */
+  --spacing-topbar: 48px;
+  --spacing-panel: 360px;
+  --spacing-inspector: 380px;
+  --spacing-rail: 48px;
+  --spacing-tabbar: 56px;
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--surface-2);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 18px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Números tabulares en todo lo que sea dato (§10). */
+  .tabular {
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* Sólo se anuncia a lectores de pantalla: equivalentes de texto de gráficos. */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+}
+
+/* §6.6 — la impresión nunca sale de la página GL viva. */
+@media print {
+  :root {
+    color-scheme: light;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-page-break {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  body {
+    background: #ffffff;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

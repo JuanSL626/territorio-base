@@ -1,0 +1,34 @@
+{
+  "type": "Feature",
+  "properties": {
+    "nombre": "Cruce del meridiano 72°O",
+    "por_que": "El AOI cruza el límite entre las zonas UTM 18N (EPSG:32618) y 19N (EPSG:32619), que es el único caso donde los ítems de Sentinel-2 llegan en dos CRS distintas y odc.stac tiene que reproyectar de verdad (critique §7). También es donde el centroide de un MultiPolygon elegiría la zona equivocada (H16)."
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          -72.002,
+          18.3
+        ],
+        [
+          -71.998,
+          18.3
+        ],
+        [
+          -71.998,
+          18.303
+        ],
+        [
+          -72.002,
+          18.303
+        ],
+        [
+          -72.002,
+          18.3
+        ]
+      ]
+    ]
+  }
+}

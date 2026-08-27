@@ -1,0 +1,15 @@
+{
+  "name": "@territorio/api-service",
+  "version": "0.2.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "description": "Servicio FastAPI raster (Python). Lleva package.json solo para que Turborepo pueda orquestar tareas de uv; no declara dependencias npm.",
+  "scripts": {
+    "sync": "uv sync",
+    "dev": "uv run uvicorn territorio_base_api.main:app --reload --port 8787",
+    "start": "uv run uvicorn territorio_base_api.main:app --host 0.0.0.0 --port 8787",
+    "test": "uv run pytest -m \"not network\"",
+    "test:network": "uv run pytest",
+    "openapi": "uv run python -c \"import json;from territorio_base_api.main import app;print(json.dumps(app.openapi(), ensure_ascii=False, indent=2))\""
+  }
+}

@@ -1,0 +1,27 @@
+node_modules/
+.turbo/
+dist/
+.output/
+.vinxi/
+.nitro/
+.tanstack/
+coverage/
+.venv/
+data/
+outputs/
+
+pnpm-lock.yaml
+services/api/uv.lock
+services/api/requirements.txt
+
+# Prose and legacy config are hand-maintained; Prettier owns code, not documents.
+docs/
+CHANGELOG.md
+README.md
+.devcontainer/
+
+# Generated
+**/routeTree.gen.ts
+# drizzle-kit writes these; reformatting them makes every migration diff noisy
+# and the snapshot is compared byte-wise by the migration journal.
+packages/db/drizzle/

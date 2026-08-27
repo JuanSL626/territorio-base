@@ -1,0 +1,37 @@
+{
+  "name": "@territorio/geo",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsgo --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@tmcw/togeojson": "catalog:",
+    "@turf/turf": "catalog:",
+    "@xmldom/xmldom": "catalog:",
+    "archiver": "catalog:",
+    "jszip": "catalog:",
+    "proj4": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@territorio/eslint-config": "workspace:*",
+    "@territorio/tsconfig": "workspace:*",
+    "@types/archiver": "catalog:",
+    "@types/node": "catalog:",
+    "@typescript/native-preview": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

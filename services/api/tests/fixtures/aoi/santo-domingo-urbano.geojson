@@ -1,0 +1,34 @@
+{
+  "type": "Feature",
+  "properties": {
+    "nombre": "Santo Domingo — Gascue/Naco, urbano y plano",
+    "por_que": "AOI de control: terreno plano, NDVI bajo, WorldCover dominado por 'Área construida'. Una sola tile DEM, una sola zona UTM (19N)."
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          -69.935,
+          18.47
+        ],
+        [
+          -69.93,
+          18.47
+        ],
+        [
+          -69.93,
+          18.474
+        ],
+        [
+          -69.935,
+          18.474
+        ],
+        [
+          -69.935,
+          18.47
+        ]
+      ]
+    ]
+  }
+}

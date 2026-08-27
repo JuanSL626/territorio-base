@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "@territorio/tsconfig/app",
+  "_comment": "For apps/web (TanStack Start + Vite, SSR). Both DOM and Node ambient types are in scope because server routes and client code live in the same program.",
+  "extends": "./react-library.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["node", "vite/client"],
+    "allowImportingTsExtensions": true
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "type": "Feature",
+  "properties": {
+    "nombre": "MultiPolygon con hueco (dona + isla)",
+    "por_que": "Dos partes disjuntas, una con anillo interior. Valida (a) que el recorte respete el hueco (un ray-cast ingenuo convierte la dona en disco — H11), y (b) que la zona UTM se elija con representative_point(): el CENTROIDE de esta geometría cae DENTRO DEL HUECO, o sea fuera del AOI (H16). Acá las dos elecciones dan la misma zona; cerca de 72°O darían zonas distintas y todas las áreas/distancias saldrían mal."
+  },
+  "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+      [
+        [
+          [
+            -69.92,
+            18.48
+          ],
+          [
+            -69.91,
+            18.48
+          ],
+          [
+            -69.91,
+            18.488
+          ],
+          [
+            -69.92,
+            18.488
+          ],
+          [
+            -69.92,
+            18.48
+          ]
+        ],
+        [
+          [
+            -69.918,
+            18.482
+          ],
+          [
+            -69.9105,
+            18.482
+          ],
+          [
+            -69.9105,
+            18.487
+          ],
+          [
+            -69.918,
+            18.487
+          ],
+          [
+            -69.918,
+            18.482
+          ]
+        ]
+      ],
+      [
+        [
+          [
+            -69.905,
+            18.49
+          ],
+          [
+            -69.9,
+            18.49
+          ],
+          [
+            -69.9,
+            18.494
+          ],
+          [
+            -69.905,
+            18.494
+          ],
+          [
+            -69.905,
+            18.49
+          ]
+        ]
+      ]
+    ]
+  }
+}

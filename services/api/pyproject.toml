@@ -1,0 +1,66 @@
+[project]
+name = "territorio-base-api"
+version = "0.2.0"
+description = "Servicio raster de Territorio Base: STAC/Planetary Computer, NDVI, pendiente, WorldCover, Aqueduct y export GeoTIFF."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    # --- Servicio HTTP ---
+    "fastapi>=0.121.0",
+    "uvicorn[standard]>=0.40.0",
+    "pydantic>=2.13.4",
+    "sse-starlette>=3.0.0",
+    # --- Motor raster (el único motivo por el que este servicio existe) ---
+    "odc-stac>=0.5.3",
+    "planetary-computer>=1.0.0",
+    "pystac-client>=0.9.0",
+    "rasterio>=1.4.4",
+    "rioxarray>=0.19.0",
+    "xarray>=2026.7.0",
+    "numpy>=2.4.6",
+    "pyproj>=3.7.2",
+    "shapely>=2.1.2",
+    "requests>=2.34.2",
+    # --- Render de overlays ---
+    # matplotlib se usa SOLO por sus colormaps (terrain, YlOrRd, RdYlGn, Blues), que
+    # son las mismas que usaba el mapa folium legacy: cambiarlas rompería la paridad
+    # visual con los reportes ya emitidos. El PNG lo escribe Pillow.
+    "matplotlib>=3.11.1",
+    "pillow>=12.3.0",
+]
+
+# Salieron a propósito (el servicio ya no las usa):
+#   streamlit, streamlit-folium, folium -> la UI es TanStack Start + MapLibre.
+#   geopandas, pyogrio                  -> lo vectorial y el parseo de AOI son de
+#                                          packages/geo (TypeScript). aoi.py ahora
+#                                          usa shapely + pyproj, que rasterio ya trae.
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.0",
+    "pytest-cov>=7.0.0",
+    # starlette 1.6 deprecó httpx para TestClient y pide httpx2.
+    "httpx2>=0.30.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "territorio_base_api"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = [
+    "network: golpea servicios externos reales (Planetary Computer, WRI). Se excluye en CI con `-m 'not network'`.",
+    "slow: tarda más de ~10 s.",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:pkg_resources.*",
+    # odc-loader llama a rasterio.warp.reproject con un ndarray de destino desnudo
+    # (el geobox va por dst_transform/dst_crs). rasterio avisa igual. Es ruido de la
+    # librería, no un geotransform perdido nuestro: verificado siguiendo el stack.
+    "ignore:Dataset has no geotransform:rasterio.errors.NotGeoreferencedWarning",
+]
