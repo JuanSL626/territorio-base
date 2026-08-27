@@ -10,7 +10,14 @@ from shapely.geometry.base import BaseGeometry
 
 from territorio_base.aoi import AOI
 
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+# El mirror principal (overpass-api.de) se satura seguido y devuelve 504 en
+# horas pico. Se prueban mirrors públicos alternativos en orden antes de
+# darse por vencido — no hace falta ninguna cuenta ni token para usarlos.
+OVERPASS_URLS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+]
 
 _QUERY = """
 [out:json][timeout:60];
@@ -22,6 +29,25 @@ _QUERY = """
 );
 out body geom;
 """
+
+
+def _query_overpass(query: str) -> dict:
+    last_exc: Exception | None = None
+    for url in OVERPASS_URLS:
+        try:
+            resp = requests.post(
+                url,
+                data={"data": query},
+                headers={"User-Agent": "territorio-base/0.1 (analisis territorial preliminar)"},
+                timeout=90,
+            )
+            resp.raise_for_status()
+            return resp.json()
+        except requests.RequestException as exc:
+            last_exc = exc
+            continue
+    assert last_exc is not None
+    raise last_exc
 
 
 @dataclass
@@ -49,14 +75,8 @@ def fetch_hydrology(aoi: AOI, buffer_m: float = 500) -> list[HydrologyFeature]:
     search_area = aoi.buffer_wgs84(buffer_m)
     west, south, east, north = search_area.bounds
 
-    resp = requests.post(
-        OVERPASS_URL,
-        data={"data": _QUERY.format(south=south, west=west, north=north, east=east)},
-        headers={"User-Agent": "territorio-base/0.1 (analisis territorial preliminar)"},
-        timeout=90,
-    )
-    resp.raise_for_status()
-    elements = resp.json().get("elements", [])
+    data = _query_overpass(_QUERY.format(south=south, west=west, north=north, east=east))
+    elements = data.get("elements", [])
 
     features = []
     for el in elements:

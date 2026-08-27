@@ -6,6 +6,17 @@ app, no una librería versionada).
 
 ## 2026-08-27
 
+### Hidrología (OSM) más resiliente a caídas de Overpass
+
+- El mirror principal de Overpass (`overpass-api.de`) empezó a devolver
+  504 Gateway Timeout de forma intermitente en producción (Streamlit
+  Community Cloud) — es un servicio público compartido y se satura seguido
+  en horas pico, no es algo que dependa de nuestro código.
+- `sources/osm.py` ahora prueba una lista de mirrors públicos alternativos
+  en orden (`overpass.kumi.systems`, `overpass.private.coffee`) antes de
+  fallar, en vez de pegarle siempre al mismo endpoint. Ninguno requiere
+  cuenta ni token.
+
 ### Contexto República Dominicana (MEPyD)
 
 - Se integró como insumo adicional el "Sistema de Información para la GRD y
