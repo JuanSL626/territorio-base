@@ -39,15 +39,6 @@ HYDROLOGY_LABELS = {"waterway": "Curso de agua", "water_body": "Cuerpo de agua",
 PROTECTED_AREA_COLOR = "#d95f02"
 AOI_BOUNDARY_COLOR = "#3388ff"
 
-MEPYD_GROUP_COLORS = {
-    "División Político-Administrativa": "#6a3d9a",
-    "Amenaza sísmica (por nivel censal 2010)": "#e31a1c",
-    "Amenazas": "#ff7f00",
-    "Agua": "#1f78b4",
-    "Infraestructuras y edificaciones": "#33a02c",
-    "Vías": "#7f7f7f",
-    "Áreas protegidas (MEPyD)": "#b15928",
-}
 
 
 def reproject_to_wgs84(da: xr.DataArray) -> xr.DataArray:
@@ -234,18 +225,35 @@ def add_protected_areas_layer(m: folium.Map, gdf, opacity: float) -> None:
     ).add_to(m)
 
 
-def mepyd_legend_items(groups: list[str]) -> list[tuple[str, str]]:
-    return [(MEPYD_GROUP_COLORS.get(g, "#000000"), g) for g in groups]
+# Paleta cualitativa (ColorBrewer Set3/Paired combinadas) para distinguir
+# capas individuales dentro de un mismo grupo — se recicla por grupo, ya que
+# lo que importa es distinguir entre capas de un mismo grupo activo, no que
+# el color sea único en las ~35 capas del catálogo entero.
+MEPYD_LAYER_PALETTE = [
+    "#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00",
+    "#a65628", "#f781bf", "#999999", "#66c2a5", "#fc8d62",
+    "#8da0cb", "#e78ac3",
+]
+
+
+def mepyd_legend_items(group: str, layers: dict) -> list[tuple[str, str]]:
+    """Una entrada de leyenda por capa (no por grupo), en el mismo orden/color
+    que usa add_mepyd_group_layer para ese grupo."""
+    return [
+        (MEPYD_LAYER_PALETTE[i % len(MEPYD_LAYER_PALETTE)], label)
+        for i, label in enumerate(layers.keys())
+    ]
 
 
 def add_mepyd_group_layer(m: folium.Map, group: str, layers: dict, opacity: float) -> None:
-    """layers: dict[etiqueta, GeoDataFrame] de un grupo del catálogo MEPyD (todas
-    pintadas del mismo color, uno por grupo, para no saturar el mapa con ~35
-    colores distintos)."""
-    color = MEPYD_GROUP_COLORS.get(group, "#000000")
-    for label, gdf in layers.items():
+    """layers: dict[etiqueta, GeoDataFrame] de un grupo del catálogo MEPyD.
+    Cada capa del grupo se pinta con un color distinto (mepyd_legend_items
+    genera la leyenda a juego) para poder distinguir, por ejemplo, cada
+    amenaza dentro del grupo "Amenazas"."""
+    for i, (label, gdf) in enumerate(layers.items()):
         if gdf.empty:
             continue
+        color = MEPYD_LAYER_PALETTE[i % len(MEPYD_LAYER_PALETTE)]
         name_field = next(
             (c for c in ("MUN_NOM", "NOMBRE", "nombre", "name") if c in gdf.columns), None
         )

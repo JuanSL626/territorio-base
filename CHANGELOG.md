@@ -6,6 +6,17 @@ app, no una librería versionada).
 
 ## 2026-08-27
 
+### Contexto RD (MEPyD): colores por capa individual en el mapa
+
+- El toggle de mapa por grupo (ej. "Amenazas") pintaba todas sus capas del
+  mismo color — con varias amenazas superpuestas (sísmica, tsunami,
+  inundación, ciclón, licuefacción...) el AOI terminaba cubierto por un
+  único bloque de color, sin poder distinguir una amenaza de otra.
+- `mapview.add_mepyd_group_layer` ahora asigna un color distinto por capa
+  dentro del grupo (paleta cualitativa de 12 colores, reciclada por grupo),
+  y `mapview.mepyd_legend_items(group, layers)` genera una leyenda con una
+  línea por capa en vez de una sola línea por grupo.
+
 ### Hidrología (OSM) más resiliente a caídas de Overpass
 
 - El mirror principal de Overpass (`overpass-api.de`) empezó a devolver

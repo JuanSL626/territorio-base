@@ -248,9 +248,9 @@ if results:
 
             active_mepyd_groups = [g for g, on in mepyd_group_toggles.items() if on]
             for group in active_mepyd_groups:
-                mapview.add_mepyd_group_layer(fmap, group, mepyd["layers"][group], 0.85)
-            if active_mepyd_groups:
-                _add_legend("Contexto RD (MEPyD)", mapview.mepyd_legend_items(active_mepyd_groups))
+                layers = mepyd["layers"][group]
+                mapview.add_mepyd_group_layer(fmap, group, layers, 0.85)
+                _add_legend(f"Contexto RD — {group}", mapview.mepyd_legend_items(group, layers))
 
             if show_coastal:
                 cache = st.session_state.setdefault("coastal_cache", {})
