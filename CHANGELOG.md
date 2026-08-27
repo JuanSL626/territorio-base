@@ -4,6 +4,49 @@ Bitácora de decisiones técnicas del proyecto — el porqué detrás del códig
 para no volver a redescubrirlo. Formato libre, no sigue semver (esto es una
 app, no una librería versionada).
 
+## 2026-08-27
+
+### Contexto República Dominicana (MEPyD)
+
+- Se integró como insumo adicional el "Sistema de Información para la GRD y
+  la AC" del Ministerio de Economía, Planificación y Desarrollo
+  (https://riesgos.mepyd.gob.do), un portal ArcGIS Hub con datos de riesgo
+  de desastres específicos de República Dominicana que nuestras fuentes
+  globales (WorldCover, WDPA, Aqueduct) no cubren.
+- En vez de descargar los shapefiles estáticos del catálogo de datos
+  abiertos del portal, se encontró (inspeccionando la configuración del
+  Experience Builder de su "Explorador de Riesgo 2.1" vía
+  `arcgis.com/sharing/rest/content/items/{id}/data`) que esas mismas capas
+  están servidas como ~35 FeatureServers públicos de ArcGIS Online, sin
+  token, con soporte de consulta espacial directa — mismo patrón que ya
+  usábamos para WDPA en `sources/protected_areas.py`. Se optó por consultar
+  esos servicios en vivo (`sources/mepyd_rd.py`) en vez de bajar/cachear
+  shapefiles.
+- Las ~35 capas se agruparon exactamente igual que en el árbol de capas de
+  ese Explorador de Riesgo (mismos nombres de grupo: División
+  Político-Administrativa, Amenaza sísmica por nivel censal, Amenazas,
+  Agua, Infraestructuras y edificaciones, Vías, Áreas protegidas), para que
+  el resultado sea reconocible por alguien que ya conoce ese portal. Se
+  excluyeron del mismo mapa los feeds que no son datos propios de
+  MEPyD/RD: imágenes satelitales GOES en vivo, huracanes activos de NOAA
+  (feed global efímero) y cobertura Sentinel-2 (ya cubierta por nuestra
+  propia fuente ESA WorldCover).
+- Como son datos de alcance nacional (RD), esta fuente se activa solo si
+  el AOI cae dentro de un bbox aproximado del país (`mepyd_rd.is_in_rd`) —
+  para cualquier otra zona del mundo se omite sin costo.
+- Las consultas se paralelizan (`ThreadPoolExecutor`, 10 workers) porque
+  son ~35 servicios de terceros con latencia variable; una capa que falla
+  se descarta en silencio en vez de tumbar el análisis completo. Se
+  implementó paginación por `resultOffset` respetando el flag
+  `exceededTransferLimit` de ArcGIS REST — sin esto, capas densas (ej.
+  "Infraestructura de salud", con miles de puntos a nivel nacional)
+  truncaban resultados en `maxRecordCount` sin avisar.
+- Probado end-to-end contra un polígono real en Santo Domingo (vía la app
+  en el navegador): aparece como pestaña "Contexto RD (MEPyD)" (solo
+  cuando el AOI está en RD), como capas togglables más en el mapa
+  interactivo (un color por grupo, para no saturar el mapa con ~35
+  colores), y como sección en el reporte Markdown descargable.
+
 ## 2026-08-26
 
 ### Fuentes de datos

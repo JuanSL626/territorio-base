@@ -15,6 +15,10 @@ densidad arbórea, hidrología y áreas protegidas.
 | Hidrología | OpenStreetMap (Overpass API) — ríos, cuerpos de agua, humedales | vectorial |
 | Áreas protegidas | WDPA (World Database on Protected Areas), vía el FeatureServer público de UNEP-WCMC | vectorial |
 | Inundación costera (opcional, on-demand) | WRI Aqueduct Floods v2 (CC-BY) — profundidad de inundación por escenario climático/período de retorno | ~927 m |
+| Contexto adicional en República Dominicana (amenaza sísmica, tsunami, inundación, ciclón, deslizamiento, infraestructura, vías, división político-administrativa, etc.) | Sistema de Información para la GRD y la AC (MEPyD), vía sus FeatureServers públicos de ArcGIS Online | vectorial |
+
+Esta última solo aporta datos cuando el AOI cae dentro de República
+Dominicana; para cualquier otra zona se omite automáticamente.
 
 No requiere ninguna cuenta ni API key. Si en el futuro se quiere sumar
 Google Earth Engine (para series históricas tipo Hansen Global Forest

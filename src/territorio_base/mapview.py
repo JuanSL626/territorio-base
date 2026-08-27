@@ -39,6 +39,16 @@ HYDROLOGY_LABELS = {"waterway": "Curso de agua", "water_body": "Cuerpo de agua",
 PROTECTED_AREA_COLOR = "#d95f02"
 AOI_BOUNDARY_COLOR = "#3388ff"
 
+MEPYD_GROUP_COLORS = {
+    "División Político-Administrativa": "#6a3d9a",
+    "Amenaza sísmica (por nivel censal 2010)": "#e31a1c",
+    "Amenazas": "#ff7f00",
+    "Agua": "#1f78b4",
+    "Infraestructuras y edificaciones": "#33a02c",
+    "Vías": "#7f7f7f",
+    "Áreas protegidas (MEPyD)": "#b15928",
+}
+
 
 def reproject_to_wgs84(da: xr.DataArray) -> xr.DataArray:
     return da.rio.reproject("EPSG:4326")
@@ -222,3 +232,32 @@ def add_protected_areas_layer(m: folium.Map, gdf, opacity: float) -> None:
         },
         tooltip=folium.GeoJsonTooltip(fields=[c for c in ["name", "desig"] if c in gdf.columns]),
     ).add_to(m)
+
+
+def mepyd_legend_items(groups: list[str]) -> list[tuple[str, str]]:
+    return [(MEPYD_GROUP_COLORS.get(g, "#000000"), g) for g in groups]
+
+
+def add_mepyd_group_layer(m: folium.Map, group: str, layers: dict, opacity: float) -> None:
+    """layers: dict[etiqueta, GeoDataFrame] de un grupo del catálogo MEPyD (todas
+    pintadas del mismo color, uno por grupo, para no saturar el mapa con ~35
+    colores distintos)."""
+    color = MEPYD_GROUP_COLORS.get(group, "#000000")
+    for label, gdf in layers.items():
+        if gdf.empty:
+            continue
+        name_field = next(
+            (c for c in ("MUN_NOM", "NOMBRE", "nombre", "name") if c in gdf.columns), None
+        )
+        folium.GeoJson(
+            gdf.__geo_interface__,
+            name=f"{group} — {label}",
+            style_function=lambda _, c=color: {
+                "color": c,
+                "weight": 2,
+                "fillColor": c,
+                "fillOpacity": opacity * 0.4,
+                "opacity": opacity,
+            },
+            tooltip=folium.GeoJsonTooltip(fields=[name_field]) if name_field else folium.Tooltip(label),
+        ).add_to(m)

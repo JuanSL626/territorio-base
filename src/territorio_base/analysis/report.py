@@ -7,7 +7,7 @@ from typing import Callable
 from territorio_base.aoi import AOI
 from territorio_base.analysis.topography import compute_slope_aspect, summarize_topography
 from territorio_base.analysis.vegetation import summarize_vegetation
-from territorio_base.sources import osm, protected_areas, stac
+from territorio_base.sources import mepyd_rd, osm, protected_areas, stac
 
 Progress = Callable[[str], None]
 
@@ -37,6 +37,13 @@ def run_analysis(aoi: AOI, progress: Progress = _noop) -> dict:
     pa_gdf = protected_areas.fetch_protected_areas(aoi)
     pa_summary = protected_areas.summarize_protected_areas(aoi, pa_gdf)
 
+    mepyd_results: dict = {}
+    mepyd_summary: dict = {}
+    if mepyd_rd.is_in_rd(aoi):
+        progress("Consultando catálogo MEPyD (Rep. Dominicana)…")
+        mepyd_results = mepyd_rd.fetch_all(aoi)
+        mepyd_summary = mepyd_rd.summarize(mepyd_results)
+
     return {
         "aoi": {
             "area_ha": aoi.area_ha,
@@ -61,6 +68,11 @@ def run_analysis(aoi: AOI, progress: Progress = _noop) -> dict:
         "protected_areas": {
             "summary": pa_summary,
             "gdf": pa_gdf,
+        },
+        "mepyd_rd": {
+            "in_rd": mepyd_rd.is_in_rd(aoi),
+            "summary": mepyd_summary,
+            "layers": mepyd_results,
         },
     }
 
@@ -131,5 +143,18 @@ def to_markdown(results: dict) -> str:
             lines.append(
                 f"  - {a['name']} ({a['desig']}, IUCN {a['iucn_cat']}, {a['status']}) — {a['distance_m']:.0f} m"
             )
+
+    mepyd = results["mepyd_rd"]
+    if mepyd["in_rd"]:
+        lines += [
+            "",
+            "## Contexto República Dominicana (MEPyD — Sistema de Información para la GRD y la AC, buffer 500 m)",
+        ]
+        if not mepyd["summary"]:
+            lines.append("- Sin resultados (servicios sin respuesta o sin elementos cerca del AOI).")
+        for group, layers in mepyd["summary"].items():
+            lines.append(f"### {group}")
+            for label, data in layers.items():
+                lines.append(f"- **{label}**: {data['count']} elemento(s)")
 
     return "\n".join(lines)

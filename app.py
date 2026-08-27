@@ -96,6 +96,7 @@ if results:
     veg = results["vegetation"]["summary"]
     hydro = results["hydrology"]["summary"]
     pa = results["protected_areas"]["summary"]
+    mepyd = results["mepyd_rd"]
 
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Área", f"{aoi_info['area_ha']:.1f} ha")
@@ -127,9 +128,14 @@ if results:
     else:
         st.success("No se encontró hidrología mapeada en OSM cerca del polígono.")
 
-    tab_mapa, tab_topo, tab_veg, tab_hidro_pa, tab_reporte = st.tabs(
-        ["Mapa interactivo", "Topografía", "Vegetación", "Hidrología / Áreas protegidas", "Reporte"]
-    )
+    tab_names = ["Mapa interactivo", "Topografía", "Vegetación", "Hidrología / Áreas protegidas"]
+    if mepyd["in_rd"]:
+        tab_names.append("Contexto RD (MEPyD)")
+    tab_names.append("Reporte")
+    tabs = st.tabs(tab_names)
+    tab_mapa, tab_topo, tab_veg, tab_hidro_pa = tabs[:4]
+    tab_mepyd = tabs[4] if mepyd["in_rd"] else None
+    tab_reporte = tabs[-1]
 
     with tab_mapa:
         col_controls, col_map = st.columns([1, 3])
@@ -158,6 +164,13 @@ if results:
 
             show_hydro = st.checkbox("Hidrología (OSM)", value=True)
             show_pa = st.checkbox("Áreas protegidas (WDPA)", value=True)
+
+            mepyd_group_toggles = {}
+            if mepyd["layers"]:
+                st.divider()
+                st.caption("Contexto RD (MEPyD)")
+                for group in mepyd["layers"]:
+                    mepyd_group_toggles[group] = st.checkbox(group, value=False, key=f"mepyd_{group}")
 
             st.divider()
             show_coastal = st.checkbox("Inundación costera (WRI Aqueduct)", value=False)
@@ -233,6 +246,12 @@ if results:
                 if not results["protected_areas"]["gdf"].empty:
                     _add_legend("Áreas protegidas", mapview.protected_areas_legend_items())
 
+            active_mepyd_groups = [g for g, on in mepyd_group_toggles.items() if on]
+            for group in active_mepyd_groups:
+                mapview.add_mepyd_group_layer(fmap, group, mepyd["layers"][group], 0.85)
+            if active_mepyd_groups:
+                _add_legend("Contexto RD (MEPyD)", mapview.mepyd_legend_items(active_mepyd_groups))
+
             if show_coastal:
                 cache = st.session_state.setdefault("coastal_cache", {})
                 if coastal_preset not in cache:
@@ -294,6 +313,24 @@ if results:
             st.table(pa["areas"])
         else:
             st.write("Sin áreas encontradas.")
+
+    if tab_mepyd is not None:
+        with tab_mepyd:
+            st.caption(
+                "Sistema de Información para la GRD y la AC (MEPyD, República "
+                "Dominicana) — https://riesgos.mepyd.gob.do — buffer 500 m, "
+                "agrupado igual que en su Explorador de Riesgo."
+            )
+            if not mepyd["summary"]:
+                st.write("Sin resultados (servicios sin respuesta o sin elementos cerca del AOI).")
+            for group, layers in mepyd["summary"].items():
+                st.subheader(group)
+                for label, data in layers.items():
+                    with st.expander(f"{label} ({data['count']})"):
+                        if data["features"]:
+                            st.table(data["features"])
+                        else:
+                            st.write("Sin atributos.")
 
     with tab_reporte:
         md = to_markdown(results)
