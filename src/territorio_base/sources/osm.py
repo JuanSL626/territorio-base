@@ -10,13 +10,17 @@ from shapely.geometry.base import BaseGeometry
 
 from territorio_base.aoi import AOI
 
-# El mirror principal (overpass-api.de) se satura seguido y devuelve 504 en
-# horas pico. Se prueban mirrors públicos alternativos en orden antes de
-# darse por vencido — no hace falta ninguna cuenta ni token para usarlos.
+# El mirror principal (overpass-api.de) se satura seguido y devuelve 504/timeout
+# en horas pico. Los otros dos son frontends alternativos del mismo cluster/
+# datos (mismo timestamp_osm_base que el principal al verificarlo) — no son
+# mirrors de datos regionales/desactualizados como otros mirrors públicos
+# (ej. overpass.osm.ch, que respondía rápido pero con 0 resultados para todo
+# el Caribe: parece ser un extracto regional, no una réplica global), así que
+# no hay riesgo de "responde rápido pero con datos incompletos".
 OVERPASS_URLS = [
     "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter",
-    "https://overpass.private.coffee/api/interpreter",
+    "https://z.overpass-api.de/api/interpreter",
+    "https://lz4.overpass-api.de/api/interpreter",
 ]
 
 _QUERY = """
@@ -39,7 +43,7 @@ def _query_overpass(query: str) -> dict:
                 url,
                 data={"data": query},
                 headers={"User-Agent": "territorio-base/0.1 (analisis territorial preliminar)"},
-                timeout=90,
+                timeout=45,
             )
             resp.raise_for_status()
             return resp.json()

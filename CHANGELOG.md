@@ -6,6 +6,38 @@ app, no una librería versionada).
 
 ## 2026-08-27
 
+### Contexto RD (MEPyD): capas de puntos ya no tapan el mapa
+
+- Al revisar todos los grupos (no solo "Amenazas"), las capas de puntos
+  ("Infraestructuras y edificaciones": salud ~1600 puntos en un AOI
+  mediano, centros educativos, albergues, subestaciones) se dibujaban con
+  el pin azul por defecto de Leaflet — folium solo aplica `style_function`
+  a líneas/polígonos, no a markers, así que ignoraban el color de la capa
+  y con miles de puntos el mapa quedaba ilegible (y pesado).
+- `mapview.add_mepyd_group_layer` ahora detecta geometrías Point/MultiPoint
+  y las dibuja como círculos chicos (`folium.CircleMarker`) del color de
+  la capa, en vez del pin. Líneas y polígonos no cambiaron (ya respetaban
+  el color vía `style_function`).
+- Verificado visualmente cada grupo (División Político-Administrativa,
+  Amenaza sísmica, Amenazas, Agua, Infraestructuras, Vías) contra un AOI
+  real: puntos, líneas y polígonos se ven distinguibles.
+
+### Overpass: mejor elección de mirrors alternativos
+
+- Al verificar los mirrors alternativos agregados antes
+  (`overpass.kumi.systems`, `overpass.private.coffee`), resultaron poco
+  confiables desde este entorno (timeouts / 502 consistentes) y un tercer
+  candidato (`overpass.osm.ch`) respondía rápido pero **con 0 resultados
+  para todo el Caribe** — parece ser un extracto regional, no una réplica
+  global, lo cual habría sido peor que no tener fallback (falla silenciosa
+  con datos incompletos en vez de error visible).
+- Reemplazados por `z.overpass-api.de` y `lz4.overpass-api.de`: frontends
+  alternativos del mismo cluster que el mirror principal (mismo
+  `timestamp_osm_base` al verificarlo, o sea mismos datos globales), que
+  respondieron rápido en pruebas mientras el principal estaba saturado.
+  Timeout por intento bajado de 90s a 45s para no colgarse tanto tiempo en
+  un mirror caído antes de probar el siguiente.
+
 ### Contexto RD (MEPyD): colores por capa individual en el mapa
 
 - El toggle de mapa por grupo (ej. "Amenazas") pintaba todas sus capas del

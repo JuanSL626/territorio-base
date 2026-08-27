@@ -249,7 +249,14 @@ def add_mepyd_group_layer(m: folium.Map, group: str, layers: dict, opacity: floa
     """layers: dict[etiqueta, GeoDataFrame] de un grupo del catálogo MEPyD.
     Cada capa del grupo se pinta con un color distinto (mepyd_legend_items
     genera la leyenda a juego) para poder distinguir, por ejemplo, cada
-    amenaza dentro del grupo "Amenazas"."""
+    amenaza dentro del grupo "Amenazas".
+
+    Las capas de puntos (salud, escuelas, albergues, subestaciones...) se
+    dibujan como círculos chicos en vez del pin por defecto de Leaflet: con
+    el pin, capas de miles de puntos (ej. "Infraestructura de salud", ~1600
+    en un AOI mediano) tapaban el mapa entero y no respetaban el color de
+    la capa (folium solo aplica style_function a líneas/polígonos, no a
+    markers)."""
     for i, (label, gdf) in enumerate(layers.items()):
         if gdf.empty:
             continue
@@ -257,9 +264,15 @@ def add_mepyd_group_layer(m: folium.Map, group: str, layers: dict, opacity: floa
         name_field = next(
             (c for c in ("MUN_NOM", "NOMBRE", "nombre", "name") if c in gdf.columns), None
         )
+        is_point = gdf.geometry.geom_type.isin(["Point", "MultiPoint"]).any()
         folium.GeoJson(
             gdf.__geo_interface__,
             name=f"{group} — {label}",
+            marker=folium.CircleMarker(
+                radius=4, color=color, weight=1, fill=True, fill_color=color, fill_opacity=opacity
+            )
+            if is_point
+            else None,
             style_function=lambda _, c=color: {
                 "color": c,
                 "weight": 2,
