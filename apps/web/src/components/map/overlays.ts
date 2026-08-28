@@ -1,7 +1,6 @@
 /*
-  ═══════════════════════════════════════════════════════════════════════════
   REGRESIÓN #1 DEL INVENTARIO — ORIENTACIÓN NORTE-SUR. NO BORRAR.
-  ═══════════════════════════════════════════════════════════════════════════
+
   El bug histórico: el legacy aplicaba `np.flipud` a arrays que YA venían con
   la fila 0 = norte, y el overlay salía espejado respecto de sus bounds. El
   inventario lo marca como "trivial de reintroducir con otra librería", y ESTA
@@ -24,8 +23,8 @@
   del lado del servicio o en los bounds — no se arregla metiendo un `reverse()`
   acá.
 
-  ── VERIFICADO CONTRA UN ANÁLISIS REAL (no sólo contra el test unitario) ──
-  AOI de 460 ha en la Cordillera Central (-70.93/18.90 a -70.91/18.92), 685 m de
+  Verificado contra un análisis real, no sólo contra el test unitario: AOI de
+  460 ha en la Cordillera Central (-70.93/18.90 a -70.91/18.92), 685 m de
   desnivel real (1 290–1 975 m). Se comparó el `raster/dem.tif` reproyectado a
   EPSG:4326 contra el `overlay/dem.png`, invirtiendo la rampa `terrain` color a
   color para reconstruir la elevación de cada píxel:
@@ -97,19 +96,10 @@ export function coordinatesOf(metadata: OverlayMetadata): ImageCoordinates {
   return coordinatesFromBounds(metadata.bounds);
 }
 
-/* -------------------------------------------------------------------------- */
-/* Resolución de URLs                                                          */
-/* -------------------------------------------------------------------------- */
-
 /**
- * El servicio devuelve rutas relativas (`/analysis/{id}/overlay/dem.png`) y el
- * browser necesita una URL absoluta.
- *
- * `base` la provee quien renderiza el mapa. `lib/api.ts` documenta el caso en
- * el que NO hay base pública: si el servicio raster exige `API_TOKEN`, una URL
- * desnuda daría 401 y hay que proxear por una ruta del servidor. Cuando no hay
- * base, esta función devuelve `null` y la capa reporta su estado en la fila del
- * panel — nunca una imagen rota en silencio (§8, "Layer load error").
+ * `base` la provee quien renderiza el mapa (ver `raster-base.ts` para cuándo
+ * no hay base pública). Sin base, devuelve `null` y la capa reporta su
+ * estado en la fila del panel — nunca una imagen rota en silencio (§8).
  */
 export function resolveOverlayUrl(
   url: string | null | undefined,
@@ -120,10 +110,6 @@ export function resolveOverlayUrl(
   if (base === undefined || base.length === 0) return null;
   return `${base.replace(/\/+$/, '')}${url.startsWith('/') ? '' : '/'}${url}`;
 }
-
-/* -------------------------------------------------------------------------- */
-/* Puente registro ↔ servicio raster                                           */
-/* -------------------------------------------------------------------------- */
 
 /**
  * Id del registro → nombre de capa del servicio raster.
@@ -150,19 +136,15 @@ export function rasterLayerFor(layerId: string): RasterLayer | undefined {
 export type RasterOverlayRef = {
   layerId: string;
   rasterLayer: RasterLayer;
-  /** URL absoluta del PNG, o `null` si no se puede armar. */
   pngUrl: string | null;
-  /** URL absoluta del sidecar JSON (bounds + leyenda), o `null`. */
   metadataUrl: string | null;
   available: boolean;
 };
 
 /**
  * Overlays que ESTA corrida produjo de verdad (`analysis.layers`), más el
- * costero, que llega aparte porque se pide bajo demanda (§4, `coastal`).
- *
- * No se listan capas que el análisis no produjo: el menú de descarga y el mapa
- * salen de lo que el backend hizo, nunca de una lista estática (§12.13).
+ * costero (llega aparte porque se pide bajo demanda, §4 `coastal`). No se
+ * listan capas que el análisis no produjo: nunca una lista estática (§12.13).
  */
 export function overlayRefs(
   analysis: TerritorioAnalysis | null,
@@ -202,18 +184,12 @@ export function overlayRefs(
   return refs;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Lectura del sidecar                                                         */
-/* -------------------------------------------------------------------------- */
-
 export type OverlayPlacement = {
   coordinates: ImageCoordinates;
   metadata: OverlayMetadata | null;
 };
 
 /**
- * Trae bounds y leyenda del overlay.
- *
  * Se prefiere el sidecar JSON al header `X-Bounds` por una razón concreta del
  * §5 de la tarea: la leyenda de WorldCover es DINÁMICA (sólo las clases
  * presentes en el AOI) y esa lista sólo viaja en el sidecar. El header queda

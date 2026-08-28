@@ -9,7 +9,6 @@ export function Skeleton({ className }: { className?: string }) {
   );
 }
 
-/** Esqueleto de tarjeta del estado "analizando" (§8). */
 export function SkeletonLines({ lines = 3 }: { lines?: number }) {
   return (
     <div className="flex flex-col gap-2">

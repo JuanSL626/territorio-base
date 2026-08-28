@@ -17,13 +17,6 @@ export type AoiSizeGuardProps = {
   onSplit: () => void;
 };
 
-/**
- * Guardia de tamaño del §7.4, ANTES de que arranque cualquier trabajo:
- *   ≤500 ha  → sigue en silencio,
- *   500-2000 → aviso con el costo estimado y una alternativa concreta,
- *   >2000    → bloquea el S2 a 10 m por default y explica por qué ANTES del
- *              click, nunca como timeout post-hoc.
- */
 export function AoiSizeGuard({
   areaHa,
   onProceed,

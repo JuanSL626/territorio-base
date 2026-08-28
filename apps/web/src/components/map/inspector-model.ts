@@ -1,17 +1,17 @@
 /*
   Feature clickeado → contenido del inspector (§5.2 y §5.3). Módulo PURO.
 
-  La regla del §5.2, literal: **visibilidad opt-in con alias**. Un `IUCN_CAT`,
-  un `desig_eng` o un `waterway=stream` crudo no llega jamás a la pantalla; lo
-  que se muestra es lo que el `PopupConfig` de la capa nombra, con su alias en
-  castellano y su formato.
+  Regla del §5.2: visibilidad opt-in con alias. Un `IUCN_CAT`, un `desig_eng`
+  o un `waterway=stream` crudo no llega jamás a la pantalla; se muestra lo
+  que el `PopupConfig` de la capa nombra, con su alias en castellano y su
+  formato.
 
-  La única excepción es MEPyD, y es explícita: sus capas declaran
-  `allowDynamicFields: true` porque llegan con `outFields="*"` y un esquema
-  distinto por capa (inventario §6). Ahí se renderiza defensivamente TODA
-  columna que devolvió el servicio, con su nombre de columna como etiqueta —
-  que es exactamente lo que hacía el legacy y lo único honesto: inventar un
-  alias para una columna que no conocemos sería peor que mostrar su nombre.
+  Excepción explícita: MEPyD. Sus capas declaran `allowDynamicFields: true`
+  porque llegan con `outFields="*"` y un esquema distinto por capa
+  (inventario §6) — ahí se renderiza defensivamente TODA columna que
+  devolvió el servicio, con su nombre de columna como etiqueta, que es lo
+  que hacía el legacy y lo único honesto: inventar un alias para una
+  columna que no conocemos sería peor que mostrar su nombre.
 */
 
 import { FEATURE_ID_KEY } from './layer-style';
@@ -33,10 +33,8 @@ const EMPTY_VALUE = '—';
 const UNNAMED = 'Sin nombre';
 
 /**
- * Un hit del mapa, ya resuelto a una capa del REGISTRO.
- *
  * `layerId` no se infiere del feature: lo pone quien registró la capa de
- * estilo en el mapa (§12.6 — la identidad de capa es estructural). Este módulo
+ * estilo en el mapa (§12.6, identidad de capa estructural). Este módulo
  * nunca adivina de qué capa vino nada.
  */
 export type FeatureHit = {
@@ -44,10 +42,6 @@ export type FeatureHit = {
   featureId: string;
   properties: FeatureProperties;
 };
-
-/* -------------------------------------------------------------------------- */
-/* Formato de valores                                                          */
-/* -------------------------------------------------------------------------- */
 
 function isEmpty(value: unknown): boolean {
   return value == null || (typeof value === 'string' && value.trim().length === 0);
@@ -78,11 +72,10 @@ export function formatFieldValue(value: unknown, field?: PopupField): string {
     default:
       /*
         Sin `format` declarado no se sabe si el número es una MEDIDA o un
-        IDENTIFICADOR, y la diferencia se ve: `OSM 24 193` y `OBJECTID 1 240`
-        son mentiras tipográficas. Un entero se muestra crudo (los ids y los
-        códigos de ArcGIS son enteros) y sólo los decimales reciben el formato
-        español — es la heurística que menos daño hace sobre el esquema
-        dinámico de MEPyD.
+        IDENTIFICADOR: `OSM 24 193` y `OBJECTID 1 240` son mentiras
+        tipográficas. Un entero se muestra crudo (ids y códigos de ArcGIS son
+        enteros) y sólo los decimales reciben formato español — la heurística
+        que menos daño hace sobre el esquema dinámico de MEPyD.
       */
       if (typeof value === 'number') {
         return Number.isInteger(value) ? String(value) : formatNumber(value, 2);
@@ -93,11 +86,10 @@ export function formatFieldValue(value: unknown, field?: PopupField): string {
 }
 
 /**
- * Resuelve una clave que puede traer alternativas separadas por `|`.
- *
- * Es el heurístico de display de MEPyD del inventario §6, escrito como dato en
- * el registro (`{MUN_NOM|NOMBRE|nombre|name}`) en vez de como un `if` acá: la
- * capa 40 declara su propio orden de preferencia y no cambia ningún componente.
+ * Resuelve una clave con alternativas separadas por `|`. Es el heurístico de
+ * display de MEPyD (inventario §6), escrito como dato en el registro
+ * (`{MUN_NOM|NOMBRE|nombre|name}`) en vez de un `if` acá: la capa 40 declara
+ * su propio orden de preferencia sin tocar ningún componente.
  */
 function readKey(properties: FeatureProperties, key: string): unknown {
   for (const candidate of key.split('|')) {
@@ -129,10 +121,6 @@ function renderTemplate(
     .trim();
 }
 
-/* -------------------------------------------------------------------------- */
-/* Construcción del feature del inspector                                      */
-/* -------------------------------------------------------------------------- */
-
 /** Claves internas que nunca se muestran: son plomería, no atributos. */
 const INTERNAL_KEYS = new Set([FEATURE_ID_KEY, 'geometry', 'bbox']);
 
@@ -151,7 +139,6 @@ function dynamicFieldsOf(
 export type BuildFeatureInput = {
   hit: FeatureHit;
   aoi: AoiContext;
-  /** Total de elementos de esa capa dentro del AOI (link a la vista de tabla). */
   layerFeatureCount: number;
 };
 
@@ -203,14 +190,10 @@ export function buildInspectorFeature(input: BuildFeatureInput): InspectorFeatur
   };
 }
 
-/* -------------------------------------------------------------------------- */
-/* La pila de resultados de un click que pega en varias capas (§5.1)           */
-/* -------------------------------------------------------------------------- */
-
 /**
- * Agrupa los hits por capa, en el orden en que el registro declara las capas
- * (no en el orden de dibujo del mapa, que pondría siempre los puntos primero).
- * Un click que pega en más de una capa NUNCA elige ganador.
+ * Agrupa los hits por capa en el orden del REGISTRO, no en el orden de
+ * dibujo del mapa (que pondría siempre los puntos primero). Un click que
+ * pega en más de una capa NUNCA elige ganador.
  */
 export function buildCandidates(hits: readonly FeatureHit[]): InspectorCandidate[] {
   const counts = new Map<string, number>();

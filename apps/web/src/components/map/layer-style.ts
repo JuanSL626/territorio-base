@@ -2,9 +2,8 @@
   LayerDef → capas de estilo MapLibre. Módulo PURO: sin `maplibregl`, sin DOM,
   sin React. Todo lo que decide cómo se ve un dato está acá y se puede testear.
 
-  ───────────────────────────────────────────────────────────────────────────
-  LAS TRES REGRESIONES DEL INVENTARIO §9 QUE VIVEN EN ESTE ARCHIVO
-  ───────────────────────────────────────────────────────────────────────────
+  Las tres regresiones del inventario §9 que viven en este archivo:
+
   #4  Polígonos de amenaza apilados: con relleno ~0,34 tres capas superpuestas
       se mezclaban en un blob que no coincidía con NINGUNA entrada de leyenda.
       Acá el relleno sale de `legend.fillFactor` (0,12 para MEPyD, 0,5 para
@@ -34,7 +33,6 @@ import type {
 } from 'maplibre-gl';
 import type { LayerDef, LegendSpec, PopupField } from '~/layers/types';
 
-/** Rol de la capa de estilo. Una capa del registro puede generar varias. */
 export type MapLayerRole = 'fill' | 'outline' | 'line' | 'point' | 'raster';
 
 export type StyledLayer =
@@ -61,10 +59,6 @@ export function highlightLayerId(layerId: string, role: MapLayerRole): string {
   return `${PREFIX}-hl-${role}:${layerId}`;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Color                                                                       */
-/* -------------------------------------------------------------------------- */
-
 function firstClassColor(legend: LegendSpec): string {
   if (legend.type === 'classes') return legend.classes[0]?.color ?? '#999999';
   if (legend.type === 'swatch') return legend.color;
@@ -72,22 +66,16 @@ function firstClassColor(legend: LegendSpec): string {
 }
 
 /**
- * Campo categórico de la capa: el primero del popup que declare `valueLabels`.
- *
  * Es lo que hace que hidrología pinte sus tres tipos con los tres hex del
- * inventario (`waterway #1f78b4`, `water_body #08519c`, `wetland #41b6c4`) sin
- * que este módulo sepa qué es "hidrología": la relación código→etiqueta la
- * declara el `PopupConfig` y la etiqueta→color la declara la leyenda. Una capa
- * futura con la misma forma se pinta igual sin tocar código.
+ * inventario (`waterway #1f78b4`, `water_body #08519c`, `wetland #41b6c4`)
+ * sin que este módulo sepa qué es "hidrología": código→etiqueta lo declara
+ * el `PopupConfig` y etiqueta→color lo declara la leyenda. Una capa futura
+ * con la misma forma se pinta igual sin tocar código.
  */
 function categoricalField(layer: LayerDef): PopupField | undefined {
   return layer.popup?.fields.find((field) => field.valueLabels !== undefined);
 }
 
-/**
- * Color de relleno/trazo de una capa vectorial. Devuelve una expresión `match`
- * cuando la capa es categórica y un literal cuando no.
- */
 export function colorExpression(layer: LayerDef): DataDrivenPropertyValueSpecification<string> {
   const legend = layer.legend;
   const fallback = firstClassColor(legend);
@@ -116,10 +104,6 @@ export function colorExpression(layer: LayerDef): DataDrivenPropertyValueSpecifi
   const expression: unknown = ['match', ['get', field.key], ...cases, fallback];
   return expression as ExpressionSpecification;
 }
-
-/* -------------------------------------------------------------------------- */
-/* Geometría del estilo                                                        */
-/* -------------------------------------------------------------------------- */
 
 /**
  * Fracción de la opacidad que va al RELLENO. `fillFactor` sale del registro
@@ -267,7 +251,6 @@ export function vectorLayerSpecs(layer: LayerDef, opacity: number): StyledLayer[
   }
 }
 
-/** Capa `raster` que muestra el PNG del overlay del servicio. */
 export function rasterOverlaySpec(layerId: string, opacity: number): StyledLayer {
   const id = mapLayerId(layerId, 'raster');
   return {
@@ -288,16 +271,10 @@ export function rasterOverlaySpec(layerId: string, opacity: number): StyledLayer
   };
 }
 
-/* -------------------------------------------------------------------------- */
-/* Resaltado del feature seleccionado y del hover (§5.1)                       */
-/* -------------------------------------------------------------------------- */
-
 /** `--accent`: 3px de contorno y 30% de relleno, tal cual el §5.1. */
 export const HIGHLIGHT_COLOR = '#1f6feb';
 
 /**
- * Capas de resaltado del feature seleccionado, filtradas por el id sintético.
- *
  * Se usa `filter` y no `feature-state` a propósito: `feature-state` sólo pinta
  * features que ya están renderizados, así que una selección que llega por URL
  * (`sel=` del §5.1) sobre un feature todavía fuera de viewport no se vería.
@@ -361,10 +338,6 @@ export function highlightSpecs(layer: LayerDef, featureId: string): StyledLayer[
       return [];
   }
 }
-
-/* -------------------------------------------------------------------------- */
-/* Orden de dibujo                                                             */
-/* -------------------------------------------------------------------------- */
 
 /**
  * Clave de orden, de abajo hacia arriba. Un punto nunca queda tapado por un

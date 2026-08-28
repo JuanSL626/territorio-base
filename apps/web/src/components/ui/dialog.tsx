@@ -11,7 +11,6 @@ export type DialogProps = {
   onClose: () => void;
   title: string;
   description?: string;
-  /** El modal de exportación mide ~520px (§7.2). */
   width?: number;
   footer?: ReactNode;
   children: ReactNode;

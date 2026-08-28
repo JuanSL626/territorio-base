@@ -88,7 +88,6 @@ describe('claimInvite', () => {
     expect(wrong.ok).toBe(false);
     if (!wrong.ok) expect(wrong.reason).toBe('email-mismatch');
 
-    // Same address, different casing and padding — the pin is case-insensitive.
     const right = await claimInvite(db, { code, email: '  ana@ejemplo.do ' });
     expect(right.ok).toBe(true);
   });
@@ -104,7 +103,6 @@ describe('claimInvite', () => {
     const { code } = await createInvite(db, { email: 'ana@ejemplo.do' });
     await claimInvite(db, { code, email: 'otro@ejemplo.do' });
 
-    // The failed attempt must not have burned the code for its real owner.
     const still = await checkInvite(db, { code, email: 'ana@ejemplo.do' });
     expect(still.ok).toBe(true);
   });

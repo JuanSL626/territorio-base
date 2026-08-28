@@ -9,9 +9,7 @@
  *   apps/web/src/lib/auth.ts →  betterAuth({ ...buildAuthOptions(), plugins: [tanstackStartCookies()] })
  *   scripts/seed.ts          →  createAuth()
  *
- * ── How sign-up is closed ────────────────────────────────────────────────────
- *
- * `emailAndPassword.disableSignUp` is left `false` on purpose: setting it would
+ * How sign-up is closed: `emailAndPassword.disableSignUp` is left `false` on purpose: setting it would
  * 400 the endpoint outright and there would be no way to redeem an invite. The
  * gate is two layers instead:
  *
@@ -22,9 +20,7 @@
  *      adding a social provider or the admin plugin later cannot quietly open
  *      registration.
  *
- * ── Why the adapter's `transaction` option is off ────────────────────────────
- *
- * `drizzleAdapter({ transaction: true })` calls `db.transaction(cb)` with an
+ * Why the adapter's `transaction` option is off: `drizzleAdapter({ transaction: true })` calls `db.transaction(cb)` with an
  * *async* callback. drizzle's better-sqlite3 driver is synchronous: it issues
  * BEGIN, calls the callback, gets a pending promise back, and issues COMMIT
  * immediately — committing an empty transaction and running the real work

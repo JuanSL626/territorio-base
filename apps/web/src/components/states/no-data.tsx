@@ -5,7 +5,6 @@ export type NoDataCardProps = {
   title: string;
   /** Razón en castellano llano. Nunca un stacktrace, nunca "Error 500". */
   reason: string;
-  /** Servicio concreto que falló: "Overpass API", "MEPyD", "Planetary Computer". */
   service?: string;
   onRetry?: () => void;
   retryLabel?: string;
@@ -51,7 +50,6 @@ export function NoDataCard({
 export type EmptyResultCardProps = {
   title: string;
   reason: string;
-  /** Acción de "ampliar la búsqueda": buffer 500→1000 m, ventana 180→365 d. */
   widen?: { label: string; onClick: () => void };
 };
 

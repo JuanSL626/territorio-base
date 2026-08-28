@@ -5,9 +5,7 @@
  * lanza un job, consulta su estado y, cuando hay algo listo, navega a la ruta
  * que transmite el ZIP.
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * INVARIANTES (las mismas que `analysis-server.ts`, por las mismas razones)
- * ─────────────────────────────────────────────────────────────────────────────
+ * Invariantes (las mismas que `analysis-server.ts`, por las mismas razones):
  * 1. **Toda lectura está scopeada al dueño.** El análisis se lee con
  *    `fetchAnalysis`, que filtra por `user_id`; el job de exportación guarda el
  *    `userId` que lo creó y `getExportSnapshot` lo compara. Un id adivinado
@@ -45,10 +43,6 @@ import {
 import { fetchSession, type SessionUser } from './session';
 
 import type { TerritorioAnalysis } from './analysis-contract';
-
-/* -------------------------------------------------------------------------- */
-/* Resultados                                                                  */
-/* -------------------------------------------------------------------------- */
 
 export type ExportRefusalReason =
   | 'no-autenticado'
@@ -95,10 +89,6 @@ async function currentUser(): Promise<SessionUser | null> {
   return await fetchSession();
 }
 
-/* -------------------------------------------------------------------------- */
-/* Validadores                                                                 */
-/* -------------------------------------------------------------------------- */
-
 const selectionSchema = z.object({
   artifactIds: z.array(z.string().min(1).max(200)).max(200),
   crs: z.enum(EXPORT_CRS_OPTIONS),
@@ -133,10 +123,6 @@ const reportSchema = z.object({
   sections: z.array(z.enum(REPORT_SECTION_IDS)).max(REPORT_SECTION_IDS.length).optional(),
 });
 
-/* -------------------------------------------------------------------------- */
-/* Lectura del análisis                                                        */
-/* -------------------------------------------------------------------------- */
-
 /*
   El análisis se lee con la server function del otro workstream, no con una
   consulta propia: hay UN solo accesor scopeado al dueño y agregar un segundo
@@ -159,10 +145,6 @@ async function readAnalysis(
   return refuse('no-encontrado', result.message);
 }
 
-/* -------------------------------------------------------------------------- */
-/* El plan                                                                     */
-/* -------------------------------------------------------------------------- */
-
 /**
  * Qué se puede bajar de ESTE análisis. La lista sale de lo que la corrida
  * produjo de verdad — nunca de una lista estática de formatos (§7.2, §13).
@@ -181,10 +163,6 @@ export const fetchExportPlan = createServerFn({ method: 'GET' })
       plan: buildExportPlan({ analysis: read.analysis, aoiName: data.aoiName }),
     };
   });
-
-/* -------------------------------------------------------------------------- */
-/* Lanzar la exportación                                                       */
-/* -------------------------------------------------------------------------- */
 
 export const startExport = createServerFn({ method: 'POST' })
   .validator(startExportSchema)
@@ -244,10 +222,6 @@ export const startExport = createServerFn({ method: 'POST' })
     return { ok: true, jobId };
   });
 
-/* -------------------------------------------------------------------------- */
-/* Seguimiento                                                                 */
-/* -------------------------------------------------------------------------- */
-
 /**
  * Estado del job. Barata: lee el registro del proceso, no toca la base ni el
  * servicio raster.
@@ -285,10 +259,6 @@ export const retryExport = createServerFn({ method: 'POST' })
     if (job === null) return JOB_NOT_FOUND;
     return { ok: true, job };
   });
-
-/* -------------------------------------------------------------------------- */
-/* El reporte suelto                                                           */
-/* -------------------------------------------------------------------------- */
 
 /**
  * El Markdown del reporte, sin pasar por un job.

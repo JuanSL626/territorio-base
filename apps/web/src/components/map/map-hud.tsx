@@ -6,10 +6,6 @@ import type { BasemapId } from '~/layers/vistas';
 
 import { formatHectares } from '~/lib/format';
 
-/* -------------------------------------------------------------------------- */
-/* Lectura de coordenadas, zoom y escala                                       */
-/* -------------------------------------------------------------------------- */
-
 export type MapReadoutProps = {
   coordinates: string;
   zoom: number;
@@ -17,15 +13,13 @@ export type MapReadoutProps = {
 };
 
 /**
-  Lectura permanente abajo a la derecha: coordenadas del cursor, zoom y barra
-  de escala. Va a la derecha porque el cúmulo inferior IZQUIERDO del §2 ya
-  tiene escala, atribución y leyenda compacta; duplicarlo del mismo lado sería
-  ruido, y el usuario que dibuja necesita el número de coordenada cerca del
-  cursor sin taparle el panel.
-*/
+ * Va a la derecha porque el cúmulo inferior IZQUIERDO (§2) ya tiene escala,
+ * atribución y leyenda compacta; duplicarlo del mismo lado sería ruido, y
+ * quien dibuja necesita la coordenada cerca del cursor sin taparle el panel.
+ */
 export function MapReadout({ coordinates, zoom, scale }: MapReadoutProps) {
-  // `bottom-8`: justo encima del control de atribución de MapLibre, que va
-  // abajo a la derecha y cuyo texto es una exigencia del proveedor, no adorno.
+  // `bottom-8`: justo encima del control de atribución de MapLibre (abajo a
+  // la derecha), cuyo texto es una exigencia del proveedor, no adorno.
   return (
     <div className="pointer-events-none absolute right-3 bottom-8 z-10 flex flex-col items-end gap-1">
       <div className="rounded-chip border-border-base bg-surface/90 flex items-center gap-2 border px-2 py-1 backdrop-blur-sm">
@@ -48,10 +42,6 @@ export function MapReadout({ coordinates, zoom, scale }: MapReadoutProps) {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* HUD del modo dibujo (§8, estado "Drawing")                                  */
-/* -------------------------------------------------------------------------- */
-
 export type DrawingHudProps = {
   state: DrawState;
 };
@@ -62,9 +52,9 @@ const DRAW_HINTS: Record<DrawState['mode'], string> = {
 };
 
 /**
- * Lectura de área EN VIVO siguiendo el cursor, más las teclas de escape. Es la
- * mitad del estado "Drawing" del §8 que no se puede pintar dentro del canvas
- * GL: el polígono, los vértices y el pulso del primero los dibuja `draw.ts`.
+ * Es la mitad del estado "Drawing" (§8) que no se puede pintar dentro del
+ * canvas GL: el polígono, los vértices y el pulso del primero los dibuja
+ * `draw.ts`.
  */
 export function DrawingHud({ state }: DrawingHudProps) {
   return (
@@ -96,20 +86,13 @@ export function DrawingHud({ state }: DrawingHudProps) {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Selector de mapa base                                                       */
-/* -------------------------------------------------------------------------- */
-
 export type BasemapSwitcherProps = {
   value: BasemapId;
   onChange: (next: BasemapId) => void;
   onClose: () => void;
 };
 
-/**
- * Los tres mapas base, todos SIN API key (ver `basemaps.ts`). Se ancla debajo
- * de la toolbar vertical del §2, que es donde vive su botón.
- */
+/** Se ancla debajo de la toolbar vertical (§2), que es donde vive su botón. */
 export function BasemapSwitcher({ value, onChange, onClose }: BasemapSwitcherProps) {
   return (
     <div

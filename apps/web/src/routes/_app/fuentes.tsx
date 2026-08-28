@@ -11,13 +11,11 @@ import { LAYER_REGISTRY } from '~/layers/registry';
 /**
  * `/fuentes` — el catálogo de fuentes de la plataforma.
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * POR QUÉ ESTA PÁGINA ES UN ENTREGABLE Y NO UN PIE DE PÁGINA
- * ─────────────────────────────────────────────────────────────────────────────
- * Un análisis territorial se usa para decidir dónde se construye, dónde no y
- * con qué cuidados. Nadie puede sostener esa decisión frente a un tercero si no
- * puede decir de dónde salió cada número: qué dataset, de qué año, a qué
- * resolución, con qué licencia y con qué límites conocidos.
+ * Por qué esta página es un entregable y no un pie de página: un análisis
+ * territorial se usa para decidir dónde se construye, dónde no y con qué
+ * cuidados. Nadie puede sostener esa decisión frente a un tercero si no puede
+ * decir de dónde salió cada número: qué dataset, de qué año, a qué resolución,
+ * con qué licencia y con qué límites conocidos.
  *
  * Por eso acá está todo, en la misma página, sin acordeones que escondan la
  * mitad: la ficha completa de cada fuente, el método en castellano llano, la
@@ -41,10 +39,6 @@ export const Route = createFileRoute('/_app/fuentes')({
   }),
   component: FuentesPage,
 });
-
-/* -------------------------------------------------------------------------- */
-/* Derivados del registro                                                      */
-/* -------------------------------------------------------------------------- */
 
 type SourceEntry = {
   source: SourceRef;
@@ -136,10 +130,6 @@ function anchorId(name: string): string {
     .replace(/^-+|-+$/g, '')}`;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Límites conocidos que NO salen del registro                                 */
-/* -------------------------------------------------------------------------- */
-
 /*
   Decisiones de exclusión del inventario §5. Se publican por la misma razón por
   la que se tomaron: un fallback que responde 200 con datos incompletos es peor
@@ -168,10 +158,6 @@ const EXCLUSIONS: readonly { title: string; body: string }[] = [
     body: 'Los FeatureServer de ArcGIS truncan en `maxRecordCount` y avisan con `exceededTransferLimit`. Se pagina por `resultOffset` hasta 10 páginas: sin eso, las capas densas se truncaban en silencio. Una capa cuyo servicio no responde se omite del resultado y queda anotada como faltante, nunca desaparece sin dejar rastro.',
   },
 ];
-
-/* -------------------------------------------------------------------------- */
-/* Página                                                                      */
-/* -------------------------------------------------------------------------- */
 
 function FuentesPage() {
   const entries = sourceEntries();

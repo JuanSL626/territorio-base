@@ -1,9 +1,5 @@
 import type { LegendSpec } from '~/layers/types';
 
-/**
- * Muestra de leyenda de la fila (§4.3): 14×14 para clase o color plano,
- * 24×8 para rampa continua. El color sale SIEMPRE del registro.
- */
 export function LegendSwatch({ legend }: { legend: LegendSpec }) {
   switch (legend.type) {
     case 'ramp':
@@ -48,7 +44,6 @@ export function LegendSwatch({ legend }: { legend: LegendSpec }) {
   }
 }
 
-/** Leyenda expandida: filas de clase o rampa con extremos rotulados. */
 export function LegendDetail({ legend }: { legend: LegendSpec }) {
   switch (legend.type) {
     case 'ramp':

@@ -3,9 +3,7 @@ import { getRequestHeaders, setResponseHeader } from '@tanstack/react-start/serv
 import { z } from 'zod';
 
 /*
-  ─────────────────────────────────────────────────────────────────────────────
-  COSTURA DE AUTENTICACIÓN (la implementación NO vive acá)
-  ─────────────────────────────────────────────────────────────────────────────
+  Costura de autenticación (la implementación NO vive acá).
   El workstream de auth es dueño de `packages/db` (Drizzle + SQLite + Better
   Auth, invitación obligatoria) y de `apps/web/src/lib/auth*.ts`. Este módulo
   sólo declara el CONTRATO que el shell consume y lo resuelve en runtime.

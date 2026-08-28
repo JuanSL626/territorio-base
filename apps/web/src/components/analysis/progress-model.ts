@@ -2,14 +2,12 @@
   Snapshot del motor → tarjetas de progreso del §8. Módulo PURO.
 
   `AnalyzingState` dibuja una tarjeta por TEMA con su línea de pasos
-  determinada; el motor, en cambio, reporta dos cosas distintas: los mensajes
-  en español del pipeline raster (que llegan por SSE, uno por paso) y el estado
-  de cada FUENTE vectorial (que no tiene pasos: consulta o no consulta).
-
-  Traducir una cosa en la otra acá — y no dentro del componente — es lo que
-  permite probar el mapeo sin montar React, y es lo que hace que la tarjeta de
-  hidrología aparezca ya resuelta mientras la de raster sigue corriendo
-  (regresión #3: una escena Sentinel-2 lenta nunca bloquea al resto).
+  determinada; el motor reporta dos cosas distintas: mensajes en español del
+  pipeline raster (SSE, uno por paso) y el estado de cada FUENTE vectorial
+  (sin pasos: consulta o no consulta). Traducir una cosa en la otra acá, no
+  dentro del componente, permite probar el mapeo sin montar React y hace que
+  la tarjeta de hidrología aparezca resuelta mientras la de raster sigue
+  corriendo (regresión #3: una escena Sentinel-2 lenta nunca bloquea al resto).
 */
 
 import type {
@@ -19,7 +17,6 @@ import type {
 } from '~/components/states/analyzing';
 import type { LiveRunSnapshot, LiveSourceState } from '~/lib/analysis-runtime';
 
-/** Una fuente vectorial: sin pasos internos, un solo renglón por tarjeta. */
 const VECTOR_THEMES = [
   {
     id: 'hidrologia',
@@ -42,13 +39,10 @@ const RASTER_THEME_LABEL = 'Topografía y vegetación';
 const RASTER_FIRST_STEP = 'Preparando el compuesto Sentinel-2 y el DEM';
 
 /**
- * Estado de una fuente → glifo del paso.
- *
  * `pending` con la corrida todavía viva es `running`, no `pending`: las dos
  * mitades del motor arrancan JUNTAS (ver `analysis-runtime`), así que una
  * fuente sin resolver está trabajando, no esperando turno. Con la corrida ya
- * terminada vuelve a `pending`, que es lo honesto para una fuente que nunca
- * llegó a reportar.
+ * terminada vuelve a `pending`, honesto para una fuente que nunca reportó.
  */
 export function stepStateOf(
   state: LiveSourceState | undefined,
@@ -97,8 +91,7 @@ function rasterSteps(run: LiveRunSnapshot): AnalysisStep[] {
 }
 
 /**
- * Las cuatro tarjetas de la fase `analizando`, en el orden en que el motor las
- * resuelve. `null` no es un caso: sin snapshot vivo se devuelve el esqueleto
+ * `null` no es un caso de error: sin snapshot vivo se devuelve el esqueleto
  * con todo en curso, que es lo que corresponde mostrar mientras la corrida
  * existe pero este proceso no la tiene en memoria.
  */

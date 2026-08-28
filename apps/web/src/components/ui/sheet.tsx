@@ -12,7 +12,6 @@ export type BottomSheetProps = {
   onClose: () => void;
   title: string;
   children: ReactNode;
-  /** Acciones fijas al pie (por ejemplo "Zoom a la geometría"). */
   footer?: ReactNode;
 };
 

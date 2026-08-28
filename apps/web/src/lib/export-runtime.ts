@@ -1,53 +1,32 @@
 /**
- * El trabajo de exportación: vivo, asíncrono, y con cada artefacto aislado del
- * resto.
+ * El trabajo de exportación: asíncrono, con cada artefacto aislado del resto.
+ * SOLO SERVIDOR (toca `node:fs`, `node:os` y el servicio raster).
  *
- * **SOLO SERVIDOR.** Toca `node:fs`, `node:os` y el servicio raster.
+ * Es un job y no una descarga síncrona porque armar el bundle (varios GeoTIFF,
+ * hasta 40 shapefiles, el ZIP) toma minutos: un request síncrono se cortaría
+ * a los 60s del navegador sin progreso real. `startExportRun` devuelve un id
+ * enseguida; la URL (`/descargas/$jobId`) y el progreso (`3/7`, bytes reales
+ * por archivo) sobreviven a un F5.
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * POR QUÉ ES UN JOB Y NO UNA DESCARGA SÍNCRONA (§7.1)
- * ─────────────────────────────────────────────────────────────────────────────
- * Bajar el bundle completo significa traer varios GeoTIFF del servicio Python,
- * recortar y escribir hasta 40 shapefiles y armar el ZIP. Eso son minutos, no
- * segundos. Una descarga síncrona lo resolvería con un request colgado que el
- * navegador corta a los 60 s, sin nada que mostrarle al usuario mientras tanto
- * y sin forma de recuperar el trabajo si se recarga la página.
+ * Cada artefacto se genera en su propio `try`: un NDVI que falla queda en
+ * `error` con motivo y Reintentar, sin tumbar el resto del bundle (regresión
+ * #3 del inventario). Por eso NO usa `buildVectorBundleFiles` de
+ * `@territorio/geo` (arma todo el bloque vectorial de una pasada — una
+ * excepción se llevaría las otras 39 capas); usa sus primitivas
+ * (`clipFeaturesToAoi`, `writeShapefileSet`, `projectGeometry`) capa por capa,
+ * y arma `campos_shapefile.csv` con el mapa `{nombre largo → nombre DBF}` que
+ * devuelve `writeShapefileSet` (H6: el DBF trunca nombres a 10 caracteres y
+ * un lector descarta en silencio la columna tapada).
  *
- * Acá es un job: `startExportRun` devuelve un id enseguida, el id vive en la
- * URL (`/descargas/$jobId`) y el progreso es real —`3/7` artefactos, con bytes
- * reales apenas cada archivo existe— en vez de un spinner indeterminado.
+ * Los bytes viven en un directorio temporal por job, no en memoria: los
+ * tamaños que muestra la pantalla son reales (`fs.stat`) y un bundle de
+ * cientos de MB no se acumula en el heap. El ZIP se arma al momento de la
+ * descarga y se transmite (archiver leyendo de disco), nunca se materializa
+ * entero.
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * AISLAMIENTO POR ARTEFACTO
- * ─────────────────────────────────────────────────────────────────────────────
- * Cada artefacto se genera en su propio `try`. Un NDVI que el servicio no puede
- * entregar deja la fila en `error` con el motivo y un botón Reintentar, y el
- * resto del bundle sigue siendo descargable. Es la regresión #3 del inventario
- * aplicada a la descarga: una fuente caída no puede tumbar el entregable entero.
- *
- * Por eso este módulo NO usa `buildVectorBundleFiles` de `@territorio/geo`, que
- * arma todo el bloque vectorial de una sola pasada: una excepción en una capa
- * se llevaría puestas las otras 39. Usa las primitivas de ese mismo paquete
- * —`clipFeaturesToAoi`, `writeShapefileSet`, `projectGeometry`— una capa por
- * vez, y arma a mano el `campos_shapefile.csv` con el mapa
- * `{nombre largo → nombre DBF}` que `writeShapefileSet` devuelve (H6: el DBF
- * trunca los nombres a 10 caracteres y un lector descarta en silencio la
- * columna tapada).
- *
- * ─────────────────────────────────────────────────────────────────────────────
- * DÓNDE VIVEN LOS BYTES
- * ─────────────────────────────────────────────────────────────────────────────
- * En un directorio temporal por job, no en memoria. Dos razones: los tamaños
- * que muestra la pantalla son los REALES (`fs.stat`, no un estimado), y un
- * bundle de cientos de MB no se acumula en el heap del servidor. El ZIP se
- * arma al momento de la descarga y se **transmite** (archiver leyendo de disco
- * hacia la respuesta), nunca se materializa entero.
- *
- * El registro de jobs es un `Map` de módulo, igual que `analysis-runtime.ts` y
- * con el mismo límite conocido: es estado POR PROCESO. Detrás de un balanceador
- * con varias instancias, un job iniciado en una instancia sólo se ve y se baja
- * desde esa instancia. Mover el registro a una tabla y el directorio a un
- * almacenamiento compartido es un cambio local a este archivo.
+ * El registro de jobs es un `Map` de módulo (como `analysis-runtime.ts`):
+ * estado POR PROCESO. Detrás de un balanceador con varias instancias, un job
+ * sólo se ve y se baja desde la instancia que lo creó.
  */
 import { ZipArchive } from 'archiver';
 import { createWriteStream } from 'node:fs';
@@ -66,9 +45,9 @@ import {
   type DbfField,
   type Feature,
 } from '@territorio/geo';
-// `clipFeaturesToAoi` vive en el punto de entrada server-only del paquete:
-// su módulo (`export/bundle`) importa `archiver` y usa `Buffer`. Este archivo
-// ya es Node-only (`node:fs`, `node:os`), así que el deep import es gratis.
+// `clipFeaturesToAoi` vive en el entry point server-only del paquete (su
+// módulo `export/bundle` importa `archiver` y usa `Buffer`); este archivo ya
+// es Node-only, el deep import es gratis.
 import { clipFeaturesToAoi } from '@territorio/geo/server';
 
 import { getRasterApi } from './api';
@@ -94,24 +73,13 @@ import {
 
 import type { TerritorioAnalysis } from './analysis-contract';
 
-/* -------------------------------------------------------------------------- */
-/* Configuración                                                               */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Cuánto vive un bundle generado. Pasado ese plazo el directorio se borra y el
- * job pasa a `expirado` — un estado con su propia pantalla, no un 404 mudo.
- */
+/** Pasado este plazo el directorio se borra y el job pasa a `expirado` (pantalla propia, no 404 mudo). */
 const BUNDLE_TTL_MS = 60 * 60_000;
 
 /** Cuánto sobrevive el REGISTRO del job después de expirar, para poder decirlo. */
 const JOB_RETENTION_MS = BUNDLE_TTL_MS + 30 * 60_000;
 
 const ENGINE_VERSION = 'territorio-base 2.0 (TanStack + services/api)';
-
-/* -------------------------------------------------------------------------- */
-/* Estado                                                                      */
-/* -------------------------------------------------------------------------- */
 
 export type ExportJobStatus =
   'generando' | 'listo' | 'parcial' | 'error' | 'cancelado' | 'expirado';
@@ -175,11 +143,9 @@ type ExportJob = {
   artifacts: Map<string, JobArtifact>;
   order: string[];
   /**
-   * Campos DBF por ARCHIVO, para el `campos_shapefile.csv`.
-   *
-   * Por archivo y no por capa porque una capa que mezcla geometrías produce dos
-   * shapefiles (`…_lineas`, `…_puntos`) con anchos de campo distintos: indexar
-   * por capa dejaría dos filas iguales en el CSV con largos que se contradicen.
+   * Campos DBF por ARCHIVO (no por capa), para el `campos_shapefile.csv`: una
+   * capa con geometrías mixtas produce dos shapefiles (`…_lineas`, `…_puntos`)
+   * con anchos de campo distintos, y por capa el CSV tendría filas contradictorias.
    */
   fieldMap: Map<string, { layer: string; fields: DbfField[] }>;
   abort: AbortController;
@@ -192,10 +158,6 @@ const jobs = new Map<string, ExportJob>();
 function newJobId(): string {
   return `exp_${crypto.randomUUID().replace(/-/g, '').slice(0, 20)}`;
 }
-
-/* -------------------------------------------------------------------------- */
-/* Instantáneas                                                                */
-/* -------------------------------------------------------------------------- */
 
 function snapshotArtifact(artifact: JobArtifact): ExportArtifactSnapshot {
   return {
@@ -238,13 +200,8 @@ function snapshot(job: ExportJob): ExportJobSnapshot {
     finishedAt: job.finishedAt?.toISOString() ?? null,
     expiresAt: job.expiresAt.toISOString(),
     error: job.error,
-    /*
-      `generando` también excluye: `openExportBundle` responde 409 mientras el
-      job corre, así que ofrecer el enlace apenas hay UN artefacto listo llevaba
-      a una pantalla de texto plano «El bundle todavía se está generando.» en
-      lugar de una descarga. El estado del botón tiene que coincidir con lo que
-      la ruta del ZIP realmente hace.
-    */
+    // `generando` excluye porque `openExportBundle` responde 409 mientras el job
+    // corre; el estado del botón tiene que coincidir con lo que la ruta del ZIP hace.
     downloadable:
       job.status !== 'expirado' && job.status !== 'generando' && ready.length > 0,
   };
@@ -271,18 +228,10 @@ export async function awaitExportRun(jobId: string): Promise<void> {
   await jobs.get(jobId)?.completion;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Acceso al servicio raster                                                   */
-/* -------------------------------------------------------------------------- */
-
-/*
-  `lib/api.ts` mantiene el token privado a propósito y no expone una descarga
-  de bytes: su cliente devuelve JSON validado o URLs. Bajar un GeoTIFF es un
-  `fetch` crudo con `Authorization`, así que las cabeceras se arman acá, con los
-  MISMOS nombres de variable que `api.ts` (`API_TOKEN`, `TERRITORIO_API_TOKEN`).
-  Es duplicación conocida y acotada a estas cuatro líneas; la alternativa era
-  editar un archivo de otro workstream para agregarle un método.
-*/
+// `lib/api.ts` mantiene el token privado a propósito y sólo devuelve JSON o
+// URLs, no bytes. Bajar un GeoTIFF es un `fetch` crudo con `Authorization`,
+// con los MISMOS nombres de variable que `api.ts` (duplicación conocida,
+// acotada a estas cuatro líneas).
 function rasterAuthHeaders(): Record<string, string> {
   const token = process.env.API_TOKEN ?? process.env.TERRITORIO_API_TOKEN;
   return token === undefined || token.trim() === ''
@@ -340,10 +289,6 @@ async function* readWebStream(stream: ReadableStream<Uint8Array>): AsyncGenerato
     reader.releaseLock();
   }
 }
-
-/* -------------------------------------------------------------------------- */
-/* Escritura de un artefacto vectorial                                         */
-/* -------------------------------------------------------------------------- */
 
 type VectorSource = { base: string; features: Feature[] };
 
@@ -494,10 +439,6 @@ async function writeVectorArtifact(
   return entries;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Escritura de un artefacto raster                                            */
-/* -------------------------------------------------------------------------- */
-
 function rasterFilename(analysis: TerritorioAnalysis, layer: string): string {
   const declared = analysis.layers.find((candidate) => candidate.layer === layer);
   return declared?.download_filename ?? `${fileSlug(layer)}.tif`;
@@ -537,10 +478,6 @@ async function writeRasterArtifact(
   if (bytes === 0) throw new Error('El servicio raster devolvió un archivo vacío.');
   return [path];
 }
-
-/* -------------------------------------------------------------------------- */
-/* Documentos                                                                  */
-/* -------------------------------------------------------------------------- */
 
 const ENTRY_DESCRIPTIONS: readonly { suffix: string; text: string }[] = [
   { suffix: '.tif', text: 'Raster recortado al AOI (GeoTIFF, DEFLATE, nodata explícito).' },
@@ -627,11 +564,8 @@ async function writeDocuments(job: ExportJob): Promise<void> {
   }
 
   const planned = omissions(job.plan, job.selectedIds);
-  /*
-    Lo que se pidió y no entró: tanto lo que falló como lo que resultó no
-    aplicable. Los dos casos tienen que quedar escritos — el ZIP no puede
-    limitarse a no traer el archivo.
-  */
+  // Lo que se pidió y no entró: fallado o no aplicable. Ambos quedan escritos,
+  // el ZIP no puede limitarse a no traer el archivo.
   const failed = job.order
     .map((id) => job.artifacts.get(id))
     .filter(
@@ -757,16 +691,9 @@ async function markDocument(job: ExportJob, id: string, entries: string[]): Prom
   artifact.entries = entries;
 }
 
-/* -------------------------------------------------------------------------- */
-/* El ciclo del job                                                            */
-/* -------------------------------------------------------------------------- */
-
-/*
-  Toma el ID y no el objeto porque el objeto se muta acá adentro: `no-param-reassign`
-  prohíbe escribir sobre las propiedades de un parámetro, y con razón — el caller
-  no debería tener que adivinar si le devolvimos el artefacto mutado o no. La
-  búsqueda en el mapa deja la mutación contenida en una variable local.
-*/
+// Toma el ID y no el objeto porque el objeto se muta acá adentro y
+// `no-param-reassign` prohíbe escribir sobre las propiedades de un parámetro;
+// la búsqueda en el mapa deja la mutación contenida en una variable local.
 async function runArtifact(
   job: ExportJob,
   artifactId: string,
@@ -889,14 +816,10 @@ export function startExportRun(input: StartExportInput): { jobId: string } {
   const rasters = input.plan.artifacts.filter((artifact) => artifact.kind === 'raster');
   const documents = input.plan.artifacts.filter((artifact) => artifact.kind === 'documento');
 
-  /*
-    El job registra SÓLO lo que el usuario pidió, más lo que pidió y no se
-    puede hacer. Las capas que ofreció el modal y nadie tildó no son asunto de
-    esta pantalla: con 39 capas MEPyD disponibles, listarlas todas convertiría
-    `Exportando… 3/45` en un número sin sentido y llenaría la pantalla de filas
-    grises que el usuario ya decidió no bajar. Que existen y por qué no están
-    lo dicen el modal (antes) y el `LEEME.txt` (después).
-  */
+  // El job registra SÓLO lo pedido (más lo pedido que no se puede hacer). Las
+  // capas ofrecidas y no tildadas no entran: con 39 capas MEPyD disponibles,
+  // listarlas todas volvería `Exportando… 3/45` un número sin sentido. Que
+  // existen y por qué no están lo dicen el modal (antes) y `LEEME.txt` (después).
   const requested = (plan: ExportArtifactPlan): boolean =>
     isIncluded(plan, selectedIds) || selectedIds.has(plan.id);
 
@@ -977,10 +900,6 @@ function scheduleCleanup(jobId: string): void {
   job.cleanupTimer = expire;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Reintento por artefacto (§7.1)                                              */
-/* -------------------------------------------------------------------------- */
-
 /**
  * Vuelve a generar UN artefacto. Es lo que hay detrás de
  * `NDVI · error (STAC timeout) [Reintentar]`: el resto del bundle no se toca y
@@ -1015,10 +934,6 @@ export async function retryExportArtifact(
   job.finishedAt = new Date();
   return snapshot(job);
 }
-
-/* -------------------------------------------------------------------------- */
-/* La descarga: el ZIP se transmite, no se acumula                             */
-/* -------------------------------------------------------------------------- */
 
 export type BundleStream = {
   filename: string;

@@ -2,14 +2,11 @@
 #
 # Servicio raster de Territorio Base.
 #
-# Base Debian (bookworm-slim), NO Alpine: rasterio/pyproj/shapely publican wheels
-# manylinux contra glibc. Con musl habría que compilar GDAL y PROJ a mano —
-# `01-engine-decision-memo.md` marca esto explícitamente y el devcontainer del repo
-# ya era `python:1-3.11-bookworm`.
+# Base Debian (bookworm-slim), no Alpine: rasterio/pyproj/shapely publican
+# wheels manylinux contra glibc; con musl habría que compilar GDAL y PROJ a
+# mano (ver 01-engine-decision-memo.md).
 
-# ---------------------------------------------------------------------------
 # Etapa 1 — dependencias
-# ---------------------------------------------------------------------------
 FROM python:3.11-slim-bookworm AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /uvx /bin/
@@ -34,9 +31,7 @@ COPY src/ ./src/
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
-# ---------------------------------------------------------------------------
 # Etapa 2 — runtime
-# ---------------------------------------------------------------------------
 FROM python:3.11-slim-bookworm AS runtime
 
 # curl para el HEALTHCHECK; ca-certificates para HTTPS contra Planetary Computer y WRI.

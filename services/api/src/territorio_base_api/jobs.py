@@ -107,8 +107,6 @@ class JobStore:
         settings.analyses_dir.mkdir(parents=True, exist_ok=True)
         settings.coastal_dir.mkdir(parents=True, exist_ok=True)
 
-    # -- persistencia ------------------------------------------------------
-
     def job_dir(self, job_id: str) -> Path:
         return self.settings.analyses_dir / job_id
 
@@ -155,8 +153,6 @@ class JobStore:
                 removed += 1
         return removed
 
-    # -- API ---------------------------------------------------------------
-
     def get(self, job_id: str) -> Job | None:
         return self._jobs.get(job_id)
 
@@ -172,8 +168,6 @@ class JobStore:
         self._jobs[job.id] = job
         self.persist(job)
         return job
-
-    # -- eventos -----------------------------------------------------------
 
     def subscribe(self, job: Job) -> asyncio.Queue:
         queue: asyncio.Queue = asyncio.Queue()
@@ -198,8 +192,6 @@ class JobStore:
     @staticmethod
     def is_sentinel(item: Any) -> bool:
         return item is _SENTINEL
-
-    # -- ejecución ---------------------------------------------------------
 
     def launch(
         self,

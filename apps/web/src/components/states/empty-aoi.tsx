@@ -10,10 +10,9 @@ export type EmptyAoiStateProps = {
 };
 
 /**
- * Estado "sin AOI" (§8). Dos tarjetas apiladas de 72px, sin selector de
- * datasets y sin botón de enviar: el análisis arranca solo cuando el polígono
- * cierra. Los límites de tamaño y formato se imprimen ACÁ, no en una ayuda
- * aparte (§13).
+ * Estado "sin AOI" (§8): sin selector de datasets ni botón de enviar — el
+ * análisis arranca solo al cerrar el polígono. Límites de tamaño y formato
+ * van acá, no en una ayuda aparte (§13).
  */
 export function EmptyAoiState({ onDraw, onFiles }: EmptyAoiStateProps) {
   const [dragging, setDragging] = useState(false);

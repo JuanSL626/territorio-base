@@ -16,37 +16,27 @@ import { formatNumber } from '~/lib/format';
 /**
  * MAPA ESTÁTICO EN SVG — el mapa del reporte.
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * POR QUÉ SVG Y NO UN CANVAS GL
- * ─────────────────────────────────────────────────────────────────────────────
- * §6.6 es explícito: **no se imprime la página GL viva**. Esri sigue sacando
- * cajas grises en blanco pasados ~16 mapas vivos por pasada de impresión, y un
- * reporte de 8 secciones con un mapa cada una entra justo en esa zona. Este
- * componente dibuja las mismas geometrías que el mapa interactivo con `<path>`:
- * sale idéntico en pantalla, en PDF y en papel, no pide una sola petición de
- * red, y no depende de que el navegador tenga WebGL.
+ * Por qué SVG y no un canvas GL: §6.6 es explícito, no se imprime la página
+ * GL viva. Esri sigue sacando cajas grises en blanco pasados ~16 mapas vivos
+ * por pasada de impresión, y un reporte de 8 secciones con un mapa cada una
+ * entra justo en esa zona. Este componente dibuja las mismas geometrías que
+ * el mapa interactivo con `<path>`: sale idéntico en pantalla, en PDF y en
+ * papel, no pide una sola petición de red, y no depende de que el navegador
+ * tenga WebGL. En pantalla ancha el mapa pegajoso puede ser el mapa GL
+ * cuando exista; en móvil (§9) y en `/imprimir` este SVG es la respuesta
+ * correcta, no un reemplazo pobre.
  *
- * En pantalla ancha el mapa pegajoso puede ser el mapa GL cuando exista; en
- * móvil (§9) y en `/imprimir` este SVG es la respuesta correcta, no un
- * reemplazo pobre.
- *
- * ─────────────────────────────────────────────────────────────────────────────
- * REGRESIONES DEL INVENTARIO QUE ESTE ARCHIVO TIENE QUE RESPETAR
- * ─────────────────────────────────────────────────────────────────────────────
- * · #1 (rasters espejados): la proyección va de lon/lat a Mercator y **invierte
- *   Y explícitamente** (`y` crece hacia el sur en SVG, la latitud crece hacia el
- *   norte). Verificado contra la convención de bounds, no heredado.
+ * Regresiones del inventario que este archivo tiene que respetar:
+ * · #1 (rasters espejados): la proyección va de lon/lat a Mercator y invierte
+ *   Y explícitamente (`y` crece hacia el sur en SVG, la latitud crece hacia
+ *   el norte). Verificado contra la convención de bounds, no heredado.
  * · #4 (polígonos de amenaza ilegibles): relleno bajo + borde fuerte, y el
  *   estilo se calcula DENTRO de la iteración, sin closures tardíos.
  * · #5 (puntos como pines default): los puntos son círculos coloreados por
  *   capa, nunca marcadores genéricos.
- * · #7 (un color por grupo): el color sale del `legend.color` de CADA capa del
- *   registro, que ya está ciclado por capa.
+ * · #7 (un color por grupo): el color sale del `legend.color` de CADA capa
+ *   del registro, que ya está ciclado por capa.
  */
-
-/* -------------------------------------------------------------------------- */
-/* Proyección                                                                  */
-/* -------------------------------------------------------------------------- */
 
 /** Lienzo fijo 1600×1000 — el mismo tamaño que pide §6.6 para el PNG impreso. */
 const VIEW_W = 1600;
@@ -117,10 +107,6 @@ function makeProjection(bounds: Bbox): Projection {
   };
 }
 
-/* -------------------------------------------------------------------------- */
-/* Geometría → path                                                            */
-/* -------------------------------------------------------------------------- */
-
 function ringPath(ring: readonly (readonly number[])[], project: Projector): string {
   let path = '';
   for (const [index, position] of ring.entries()) {
@@ -147,7 +133,6 @@ function linePath(line: readonly (readonly number[])[], project: Projector): str
 
 type Drawn = { paths: string[]; points: [number, number][] };
 
-/** Aplana cualquier geometría GeoJSON a paths + puntos, sin perder nada. */
 function drawGeometry(geometry: Geometry, project: Projector, into: Drawn): Drawn {
   switch (geometry.type) {
     case 'Point': {
@@ -196,10 +181,6 @@ function shapeOf(geometry: Geometry, project: Projector): Drawn {
   return drawGeometry(geometry, project, { paths: [], points: [] });
 }
 
-/* -------------------------------------------------------------------------- */
-/* Estilo por capa                                                             */
-/* -------------------------------------------------------------------------- */
-
 type ShapeStyle = {
   stroke: string;
   strokeWidth: number;
@@ -236,10 +217,6 @@ function styleFor(layer: LayerDef, highlighted: boolean): ShapeStyle {
   };
 }
 
-/* -------------------------------------------------------------------------- */
-/* Escala                                                                      */
-/* -------------------------------------------------------------------------- */
-
 const NICE_SCALE_M = [50, 100, 200, 500, 1000, 2000, 5000, 10_000, 20_000, 50_000];
 
 /**
@@ -265,10 +242,6 @@ function scaleBar(projection: Projection): { widthUnits: number; label: string }
     label: chosen >= 1000 ? `${formatNumber(chosen / 1000, 0)} km` : `${formatNumber(chosen, 0)} m`,
   };
 }
-
-/* -------------------------------------------------------------------------- */
-/* Componente                                                                  */
-/* -------------------------------------------------------------------------- */
 
 export type StaticMapGeometries = {
   aoi: TerritorioAnalysis['aoi_geometry'] | null;
@@ -296,7 +269,6 @@ export function geometriesOf(analysis: TerritorioAnalysis): StaticMapGeometries 
 export type StaticMapProps = {
   state: ReportMapState;
   geometries: StaticMapGeometries;
-  /** Texto alternativo. Sale del `caption` del estado más lo que se dibujó. */
   title: string;
   className?: string;
 };
@@ -470,11 +442,11 @@ export function StaticMap({ state, geometries, title, className }: StaticMapProp
               />
             ))}
 
-        {/* Norte y escala: sin ellos esto es un dibujo, no un mapa. */}
         {/*
-          Norte y escala dimensionados para el LIENZO de 1600×1000: un texto de
-          18 unidades queda en 8 px cuando el SVG se reduce a la columna, que es
-          ilegible en pantalla y peor en papel.
+          Norte y escala: sin ellos esto es un dibujo, no un mapa. Dimensionados
+          para el LIENZO de 1600×1000: un texto de 18 unidades queda en 8px
+          cuando el SVG se reduce a la columna, ilegible en pantalla y peor en
+          papel.
         */}
         <g transform={`translate(${String(VIEW_W - 78)}, 34)`} aria-hidden="true">
           <path d="M0 40 L15 0 L30 40 L15 29 Z" fill="var(--fg-muted)" />
@@ -498,7 +470,6 @@ export function StaticMap({ state, geometries, title, className }: StaticMapProp
   );
 }
 
-/** Leyenda del mapa del reporte: las capas activas de ese paso, con su swatch. */
 export function StaticMapLegend({ state }: { state: ReportMapState }) {
   const entries: { id: string; label: string; classes: LegendClass[]; color?: string }[] = [];
 
@@ -543,10 +514,6 @@ export function StaticMapLegend({ state }: { state: ReportMapState }) {
     </ul>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Extensiones                                                                 */
-/* -------------------------------------------------------------------------- */
 
 function walkPositions(geometry: Geometry, visit: (lon: number, lat: number) => void): void {
   switch (geometry.type) {

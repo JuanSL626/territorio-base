@@ -1,29 +1,25 @@
 /**
  * Scrollytelling del §6.1: qué sección está "activa" mientras se scrollea.
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * POR QUÉ NO HAY UNA LIBRERÍA ACÁ
- * ─────────────────────────────────────────────────────────────────────────────
- * El brief pide scrollama con `offset: 0.55` y, explícitamente, que el
- * mecanismo sea **IntersectionObserver y no polling de scroll**. Scrollama es
- * un envoltorio de ~2 kB sobre IntersectionObserver; el envoltorio es este
- * archivo. Se evita así sumar una dependencia al `package.json` de otro
- * workstream y, sobre todo, un listener de `scroll` en el hilo principal, que
- * es lo que hace que un sidecar largo se sienta pegajoso en un teléfono.
+ * Por qué no hay una librería acá: el brief pide scrollama con `offset: 0.55`
+ * y, explícitamente, que el mecanismo sea IntersectionObserver y no polling
+ * de scroll. Scrollama es un envoltorio de ~2 kB sobre IntersectionObserver;
+ * el envoltorio es este archivo. Se evita así sumar una dependencia al
+ * `package.json` de otro workstream y, sobre todo, un listener de `scroll`
+ * en el hilo principal, que es lo que hace que un sidecar largo se sienta
+ * pegajoso en un teléfono.
  *
  * El mecanismo: una LÍNEA horizontal imaginaria al 55 % de la altura del
  * viewport. `rootMargin` recorta la raíz del observador a esa línea (0 px de
  * alto), así que sólo reporta la sección que la está cruzando. Es exactamente
  * el `offset` de scrollama, sin su bucle de resize.
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * POR QUÉ `data-step-id` Y NO UNA REF POR SECCIÓN
- * ─────────────────────────────────────────────────────────────────────────────
- * Un `ref` callback por sección obliga a mantener un cache de callbacks para no
- * desobservar y volver a observar todo en cada render, y ese cache se lee
- * durante el render. Marcar el elemento con un atributo y buscarlo desde el
- * efecto deja TODO el trabajo con el DOM fuera del render: el efecto consulta
- * el contenedor, observa lo que encuentra y lee el id del propio elemento.
+ * Por qué `data-step-id` y no una ref por sección: un `ref` callback por
+ * sección obliga a mantener un cache de callbacks para no desobservar y
+ * volver a observar todo en cada render, y ese cache se lee durante el
+ * render. Marcar el elemento con un atributo y buscarlo desde el efecto deja
+ * TODO el trabajo con el DOM fuera del render: el efecto consulta el
+ * contenedor, observa lo que encuentra y lee el id del propio elemento.
  */
 import { useEffect, useState, type RefObject } from 'react';
 

@@ -8,7 +8,6 @@
   problema de layout permanente.
 */
 
-/** Metros por píxel en la proyección Web Mercator, a una latitud y un zoom. */
 export function metersPerPixel(latitude: number, zoom: number): number {
   const EQUATOR_METERS_PER_PIXEL_AT_Z0 = 156_543.033_928;
   return (EQUATOR_METERS_PER_PIXEL_AT_Z0 * Math.cos((latitude * Math.PI) / 180)) / 2 ** zoom;
@@ -21,16 +20,11 @@ const NICE_STEPS = [
 ];
 
 export type ScaleBar = {
-  /** Ancho en píxeles que hay que dibujar. */
   widthPx: number;
   /** `500 m` / `2 km`, con el formato español del §10. */
   label: string;
 };
 
-/**
- * Barra de escala de a lo sumo `maxWidthPx`, redondeada al paso 1-2-5 más
- * grande que entre.
- */
 export function scaleBar(latitude: number, zoom: number, maxWidthPx = 90): ScaleBar {
   const perPixel = metersPerPixel(latitude, zoom);
   if (!Number.isFinite(perPixel) || perPixel <= 0) return { widthPx: 0, label: '—' };

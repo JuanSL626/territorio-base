@@ -17,11 +17,6 @@ export type ServiceDownStripProps = {
   onDismiss: () => void;
 };
 
-/**
- * Franja ámbar de 28px bajo el topbar (§8). Nombra el servicio CONCRETO y su
- * reintento — "Overpass no responde — reintentando (2/5)" —, se descarta a
- * mano y se limpia sola al recuperarse.
- */
 export function ServiceDownStrip({ incidents, onDismiss }: ServiceDownStripProps) {
   if (incidents.length === 0) return null;
 

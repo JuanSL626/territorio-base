@@ -29,7 +29,6 @@ function TabIcon({ id }: { id: MobileTab }) {
   }
 }
 
-/** Barra inferior de 56px del layout móvil (§9). Objetivos táctiles ≥44px. */
 export function MobileTabBar({ value, onChange, reportDisabled }: MobileTabBarProps) {
   return (
     <nav

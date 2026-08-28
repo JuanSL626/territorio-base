@@ -53,10 +53,6 @@ import {
  * estados que ya existe (§8). Un gráfico en blanco no es una opción.
  */
 
-/* -------------------------------------------------------------------------- */
-/* Envoltorio común                                                            */
-/* -------------------------------------------------------------------------- */
-
 export type SectionShellProps = {
   section: ReportSection;
   /** Mapa en línea: en móvil va ARRIBA de cada sección, en vez del pegajoso. */
@@ -94,10 +90,6 @@ export function SectionShell({ section, inlineMap, children, className }: Sectio
     </section>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Descargas por capa (⤓ del §6.4)                                             */
-/* -------------------------------------------------------------------------- */
 
 /**
  * Id del registro → capa raster del servicio.
@@ -161,10 +153,6 @@ export function downloadForLayer(
     filename: entry.download_filename,
   };
 }
-
-/* -------------------------------------------------------------------------- */
-/* Portada                                                                     */
-/* -------------------------------------------------------------------------- */
 
 export type SectionProps = {
   analysis: TerritorioAnalysisSummary;
@@ -261,10 +249,6 @@ export function PortadaSection({ analysis, section, inlineMap }: SectionProps) {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Topografía                                                                  */
-/* -------------------------------------------------------------------------- */
-
 export function TopografiaSection({
   analysis,
   section,
@@ -339,10 +323,6 @@ export function TopografiaSection({
     </SectionShell>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Vegetación                                                                  */
-/* -------------------------------------------------------------------------- */
 
 export function VegetacionSection({
   analysis,
@@ -457,12 +437,7 @@ export function VegetacionSection({
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Hidrología                                                                  */
-/* -------------------------------------------------------------------------- */
-
 export type HydrologySectionProps = SectionProps & {
-  /** Acción de mapa embebida en la prosa: encuadrar el cauce más cercano. */
   nearestAction?: { active: boolean; onToggle: () => void };
 };
 
@@ -570,10 +545,6 @@ export function HidrologiaSection({
     </SectionShell>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Áreas protegidas                                                            */
-/* -------------------------------------------------------------------------- */
 
 export type ProtectedSectionProps = SectionProps & {
   overlapAction?: { active: boolean; onToggle: () => void };
@@ -712,10 +683,6 @@ export function AreasProtegidasSection({
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Riesgo costero                                                              */
-/* -------------------------------------------------------------------------- */
-
 export function RiesgoCosteroSection({
   analysis,
   section,
@@ -779,10 +746,6 @@ export function RiesgoCosteroSection({
     </SectionShell>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Contexto RD (MEPyD)                                                         */
-/* -------------------------------------------------------------------------- */
 
 /** Columnas dinámicas: el esquema de atributos es distinto por capa (§6). */
 function columnsOf(features: readonly Record<string, string | number | boolean | null>[]): string[] {

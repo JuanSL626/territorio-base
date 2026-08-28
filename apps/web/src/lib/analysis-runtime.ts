@@ -1,11 +1,7 @@
 /**
  * El orquestador: un análisis en curso, vivo, en el proceso del servidor.
+ * SOLO SERVIDOR.
  *
- * **SOLO SERVIDOR.**
- *
- * ─────────────────────────────────────────────────────────────────────────────
- * QUÉ HACE Y POR QUÉ ASÍ
- * ─────────────────────────────────────────────────────────────────────────────
  * Un análisis tiene dos mitades que tardan lo mismo y no dependen una de otra:
  * el raster (job asíncrono en el servicio Python) y el vector (Overpass + WDPA
  * + MEPyD, en este proceso). Arrancan **juntas** y se esperan al final. Nada de
@@ -46,10 +42,6 @@ import type {
   TerritorioAnalysis,
 } from './analysis-contract';
 import type { Aoi } from '@territorio/geo';
-
-/* -------------------------------------------------------------------------- */
-/* Estado vivo                                                                 */
-/* -------------------------------------------------------------------------- */
 
 /** Estado de una fuente MIENTRAS corre. `pending` sólo existe acá (§0.5). */
 export type LiveSourceState = 'pending' | SourceStatus['state'];
@@ -126,10 +118,6 @@ export async function awaitRun(analysisId: string): Promise<void> {
   await runs.get(analysisId)?.completion;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Persistencia                                                                */
-/* -------------------------------------------------------------------------- */
-
 /**
  * Tope de tamaño del `result_json`. SQLite aguanta blobs grandes, pero una fila
  * de decenas de MB convierte cada lectura del reporte en una deserialización
@@ -154,10 +142,6 @@ function errorSummary(analysis: TerritorioAnalysis): string {
   if (failed.length === 0) return 'Falló el análisis.';
   return `No respondió ninguna fuente: ${failed.map((source) => source.service).join(', ')}.`;
 }
-
-/* -------------------------------------------------------------------------- */
-/* La mitad raster                                                             */
-/* -------------------------------------------------------------------------- */
 
 /**
  * Lo único que la mitad raster necesita del estado vivo. Se pasa como callbacks
@@ -237,10 +221,6 @@ async function runRaster(
   hooks.onSourceState(job.result == null ? 'error' : 'ok');
   return { available: true, job };
 }
-
-/* -------------------------------------------------------------------------- */
-/* Lanzar                                                                      */
-/* -------------------------------------------------------------------------- */
 
 export type StartRunInput = {
   userId: string;
@@ -361,10 +341,6 @@ export async function startRun(input: StartRunInput): Promise<{ analysisId: stri
 
   return { analysisId: row.id };
 }
-
-/* -------------------------------------------------------------------------- */
-/* Adjuntar la inundación costera a un análisis ya persistido                   */
-/* -------------------------------------------------------------------------- */
 
 /**
  * El legacy guardaba la inundación costera sólo en `session_state`, así que

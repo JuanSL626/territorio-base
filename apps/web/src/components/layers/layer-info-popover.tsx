@@ -8,16 +8,10 @@ import { Popover } from '~/components/ui/popover';
 
 export type LayerInfoPopoverProps = {
   layer: LayerDef;
-  /** Se deshabilita sin AOI: no hay nada que recortar todavía. */
   canDownload: boolean;
   onDownload: () => void;
 };
 
-/**
- * Popover ⓘ del §4.3 (NO un modal): fuente enlazada, versión, resolución,
- * licencia, una frase de método, y el botón que evita tener que clickear
- * feature por feature para bajar una capa.
- */
 export function LayerInfoPopover({ layer, canDownload, onDownload }: LayerInfoPopoverProps) {
   const { source } = layer;
 

@@ -8,7 +8,7 @@ export type AccordionSectionProps = {
   title: ReactNode;
   open: boolean;
   onToggle: () => void;
-  /** 0 = grupo, 1 = subgrupo MEPyD (indenta 16px por nivel, §4.2). */
+  /** 0 = grupo, 1 = subgrupo MEPyD. */
   level?: 0 | 1;
   trailing?: ReactNode;
   children: ReactNode;

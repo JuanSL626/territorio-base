@@ -8,16 +8,14 @@ import { type ExportArtifactStatus, groupArtifacts } from '~/lib/export-contract
 import { formatBytes } from '~/lib/format';
 
 /*
-  La lista de artefactos de un trabajo en curso (§7.1).
-
-  La regla: **cada fila falla sola**. `NDVI · error (STAC timeout) [Reintentar]`
-  convive con seis filas verdes, y el bundle se puede bajar igual con lo que sí
-  se generó. Un error de artefacto no es un error de trabajo.
+  Lista de artefactos de un trabajo en curso (§7.1). Regla: cada fila falla
+  sola — `NDVI · error (STAC timeout) [Reintentar]` convive con seis filas
+  verdes, y el bundle se puede bajar igual con lo que sí se generó.
 
   `omitido` y `error` se pintan distinto a propósito. `omitido` = el análisis
-  nunca produjo ese dato (o el usuario lo destildó): reintentar daría lo mismo,
-  así que no hay botón. `error` = la generación falló (red, disco, el servicio
-  raster): ahí sí.
+  nunca produjo ese dato (o el usuario lo destildó): reintentar daría lo
+  mismo, así que no hay botón. `error` = la generación falló (red, disco, el
+  servicio raster): ahí sí.
 */
 
 const TONE: Record<ExportArtifactStatus, BadgeTone> = {

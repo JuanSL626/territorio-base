@@ -8,7 +8,6 @@ import { useBreakpoint } from '~/lib/use-media-query';
 
 export type AppShellProps = {
   topbar: ReactNode;
-  /** Franja ámbar de servicio caído; se renderiza bajo el topbar (§8). */
   serviceStrip?: ReactNode;
   panelTab: LeftPanelTab;
   onPanelTabChange: (tab: LeftPanelTab) => void;
@@ -18,25 +17,17 @@ export type AppShellProps = {
   inspector: ReactNode;
   inspectorOpen: boolean;
   onInspectorClose: () => void;
-  /**
-   * Hay reporte que abrir: AOI dibujado **y** análisis terminado. Gobierna el
-   * `disabled` de la pestaña móvil `Reporte`.
-   */
+  /** AOI dibujado **y** análisis terminado; gobierna el `disabled` de la pestaña móvil `Reporte`. */
   hasAoi: boolean;
   /**
-   * Navega a `/reporte/{analysisId}`. La pestaña móvil `Reporte` sólo cambiaba
-   * `mobileTab` y no llevaba a ninguna parte: quedaba marcada como activa
-   * sobre el mapa, sin reporte.
+   * Navega a `/reporte/{analysisId}`. Antes la pestaña `Reporte` sólo cambiaba
+   * `mobileTab` sin navegar a ninguna parte, y quedaba marcada activa sobre
+   * el mapa sin reporte.
    */
   onReport?: () => void;
 };
 
-/**
- * Shell del §2 con las reglas responsive del §9.
- *
- * Principio 1 del brief: el mapa ES la página. Los paneles se acoplan a los
- * costados o encima, nunca por encima del mapa en el flujo de scroll.
- */
+/** Shell del §2 (reglas responsive del §9): el mapa ES la página, los paneles nunca lo tapan en el flujo de scroll. */
 export function AppShell({
   topbar,
   serviceStrip,
@@ -59,12 +50,9 @@ export function AppShell({
 
   /*
     §9, 1280-1439: abrir el inspector colapsa el panel izquierdo a riel y al
-    cerrarlo se restaura.
-
-    Es DERIVADO, no un efecto con setState: el estado guardado sigue siendo
-    "¿lo colapsó el usuario a mano?", y el colapso automático se calcula en el
-    render. Así no hay render en cascada y, sobre todo, no hay dos fuentes de
-    verdad que puedan desincronizarse.
+    cerrarlo se restaura. Es DERIVADO, no un efecto con setState: el estado
+    guardado sigue siendo "¿lo colapsó el usuario a mano?" y el colapso
+    automático se calcula en el render, sin dos fuentes de verdad.
   */
   const autoCollapsed = breakpoint === 'standard' && inspectorOpen && !collapsed;
   const effectiveCollapsed = collapsed || autoCollapsed;
@@ -95,8 +83,6 @@ export function AppShell({
         {serviceStrip}
         <main className="relative min-h-0 flex-1">{map}</main>
 
-        {/* §9 y §12.17: hoja NO modal, con manija Y ✕, y NUNCA apilada — una
-            hoja reemplaza a la anterior en vez de abrir una segunda. */}
         <BottomSheet
           open={sheetTab !== null && !inspectorOpen}
           title={sheetTab === 'analisis' ? 'Análisis' : 'Capas'}

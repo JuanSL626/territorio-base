@@ -43,7 +43,6 @@ const AOI_GEOMETRY: AreaGeometry = {
   ],
 };
 
-/** El mismo rectángulo en Costa Rica: fuera de RD. */
 const AOI_OUTSIDE_RD: AreaGeometry = {
   type: 'Polygon',
   coordinates: [

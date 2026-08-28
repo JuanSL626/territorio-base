@@ -65,10 +65,9 @@ export function Button({
 }
 
 export type IconButtonProps = Omit<ButtonProps, 'leadingIcon' | 'children' | 'fullWidth'> & {
-  /** Obligatorio: ningún control queda sin nombre accesible (§13). */
+  /** Obligatorio: todo control necesita nombre accesible (§13). */
   label: string;
   icon: ReactNode;
-  /** Etiqueta visible de 11px debajo del icono — la usan Dibujar y Subir AOI. */
   showLabel?: boolean;
 };
 

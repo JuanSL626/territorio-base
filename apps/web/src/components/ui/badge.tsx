@@ -13,7 +13,6 @@ const TONES: Record<BadgeTone, string> = {
   info: 'bg-info-soft text-info',
 };
 
-/** Pastilla de conteo del §4.2: 18px, sólo se dibuja si hay algo que contar. */
 export function CountBadge({ count, label }: { count: number; label: string }) {
   if (count <= 0) return null;
   return (

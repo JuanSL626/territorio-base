@@ -5,17 +5,14 @@ import { DATASET_CITATIONS } from '@territorio/geo/export/sources';
 import { InfoIcon } from '~/components/ui/icons';
 
 /*
-  El bloque de atribución/licencias del §7.2: SIEMPRE visible bajo las pestañas,
-  no detrás de un click.
-
-  Es la puerta de licencias de Protected Planet suavizada a una divulgación —
-  sin muro de radio-buttons que nadie lee y todos aceptan — pero con la
-  contrapartida que la hace honesta: **el texto de licencia viaja adentro del
-  ZIP**, en `FUENTES.txt`, tanto si el usuario leyó esto como si no.
+  Bloque de atribución/licencias (§7.2): SIEMPRE visible bajo las pestañas,
+  no detrás de un click. Es la puerta de licencias de Protected Planet
+  suavizada a una divulgación, con la contrapartida que la hace honesta: el
+  texto de licencia viaja adentro del ZIP, en `FUENTES.txt`, lo haya leído
+  el usuario o no.
 */
 
 export type AttributionNoticeProps = {
-  /** Ids de `DATASET_CITATIONS` de lo que está tildado ahora mismo. */
   datasetIds: ReadonlySet<string>;
 };
 

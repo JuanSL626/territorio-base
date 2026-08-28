@@ -4,16 +4,11 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 /**
- * Libraries that look like the right answer and are not.
- *
- * `01-engine-decision-memo.md` closes with: "Do not build anything on geoblaze,
- * georaster, loam, or geojson-validation in any option — all stale to abandoned,
- * and the first two don't do what their names suggest." `03-critique-2.md` (H13)
- * adds that `geoblaze.median` is *zonal*, not temporal, so a developer who reaches
- * for it while porting the NDVI composite ships a plausible, wrong number.
- *
- * A lint rule is the only place that warning survives contact with a new
- * contributor, so it lives here instead of in a document nobody re-reads.
+ * `01-engine-decision-memo.md`: do not build on geoblaze, georaster, loam, or
+ * geojson-validation — all stale to abandoned. `03-critique-2.md` (H13) adds
+ * that `geoblaze.median` is *zonal*, not temporal, so porting the NDVI
+ * composite with it ships a plausible, wrong number. A lint rule is the only
+ * place this warning survives contact with a new contributor.
  */
 const bannedGeoLibraries = [
   {
@@ -40,11 +35,9 @@ const bannedGeoLibraries = [
 export const ignores = [
   '**/node_modules/**',
   '**/dist/**',
-  // `TB_DIST_DIR` da salidas paralelas (`dist-a`, `dist-b`, …) para correr los
-  // dos halves del plan de validación a la vez. `.gitignore` ya las ignora con
-  // `dist-*/`; sin la línea equivalente acá, `pnpm lint` levanta decenas de
-  // miles de errores del bundle generado y el gate falla por el build, no por
-  // el código. Ver `apps/web/vite.config.ts`.
+  // `TB_DIST_DIR` da salidas paralelas (`dist-a`, `dist-b`, …). Sin esta línea
+  // `pnpm lint` levanta decenas de miles de errores del bundle generado. Ver
+  // `apps/web/vite.config.ts`.
   '**/dist-*/**',
   '**/.output/**',
   '**/.vinxi/**',

@@ -33,32 +33,28 @@ import { useMediaQuery } from '~/lib/use-media-query';
 /**
  * EL CUERPO DEL STORY MAP (§6).
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * FORMA: SIDECAR
- * ─────────────────────────────────────────────────────────────────────────────
- * Narrativa que scrollea de un lado, mapa pegajoso del otro. Cada sección es un
- * `.step`; al entrar en el viewport activa SU estado de mapa (capas, opacidad,
- * encuadre, resaltado) y el mapa hace un diff contra el actual. Al salir hacia
- * arriba se restaura solo, porque el estado anterior es simplemente el de la
- * sección anterior: no hay una pila de órdenes imperativas que desincronizar.
+ * Forma: sidecar. Narrativa que scrollea de un lado, mapa pegajoso del otro.
+ * Cada sección es un `.step`; al entrar en el viewport activa SU estado de
+ * mapa (capas, opacidad, encuadre, resaltado) y el mapa hace un diff contra
+ * el actual. Al salir hacia arriba se restaura solo, porque el estado
+ * anterior es simplemente el de la sección anterior: no hay una pila de
+ * órdenes imperativas que desincronizar.
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * DE DÓNDE SALEN LOS DATOS, Y POR QUÉ EN DOS PEDIDOS
- * ─────────────────────────────────────────────────────────────────────────────
- * El *loader* de la ruta precarga el RESUMEN (sin geometrías): con eso ya se
- * renderiza en el servidor el reporte entero — portada, métricas, conclusiones,
- * fuentes —, así que la primera pintada tiene todo el contenido, es compartible
- * y se imprime aunque el JavaScript no llegue nunca.
+ * De dónde salen los datos, y por qué en dos pedidos: el *loader* de la ruta
+ * precarga el RESUMEN (sin geometrías) — con eso ya se renderiza en el
+ * servidor el reporte entero (portada, métricas, conclusiones, fuentes), así
+ * que la primera pintada tiene todo el contenido, es compartible y se
+ * imprime aunque el JavaScript no llegue nunca.
  *
  * Las GEOMETRÍAS del análisis completo se piden después, desde el cliente, y
- * sólo alimentan el mapa. Son varios MB de polígonos MEPyD que la narrativa no
- * usa: meterlos en el payload de SSR retrasaría el texto para adelantar un
- * dibujo. Mientras llegan, el panel del mapa muestra su esqueleto y la
+ * sólo alimentan el mapa. Son varios MB de polígonos MEPyD que la narrativa
+ * no usa: meterlos en el payload de SSR retrasaría el texto para adelantar
+ * un dibujo. Mientras llegan, el panel del mapa muestra su esqueleto y la
  * narrativa ya se lee entera.
  *
- * En `/imprimir` el loader precarga el análisis COMPLETO: la vista de impresión
- * no puede depender de un fetch de cliente que quizá no termine antes de que el
- * navegador abra el diálogo de impresión.
+ * En `/imprimir` el loader precarga el análisis COMPLETO: la vista de
+ * impresión no puede depender de un fetch de cliente que quizá no termine
+ * antes de que el navegador abra el diálogo de impresión.
  */
 
 export type ReportSectionId = ReportSection['id'];
@@ -68,10 +64,6 @@ export type ReportBodyProps = {
   /** La variante de impresión reemplaza el mapa pegajoso por figuras estáticas (§6.6). */
   print?: boolean;
 };
-
-/* -------------------------------------------------------------------------- */
-/* Acciones de mapa embebidas en la prosa (§6.3)                               */
-/* -------------------------------------------------------------------------- */
 
 type MapOverrideKind = 'hidrologia-cercana' | 'ap-solape';
 
@@ -117,10 +109,6 @@ function applyOverride(
     caption: 'Áreas protegidas que se solapan con el polígono, resaltadas.',
   };
 }
-
-/* -------------------------------------------------------------------------- */
-/* Cuerpo                                                                      */
-/* -------------------------------------------------------------------------- */
 
 export function ReportBody({ analysisId, print = false }: ReportBodyProps) {
   const summaryQuery = useAnalysisSummary(analysisId);
@@ -172,10 +160,6 @@ export function ReportBody({ analysisId, print = false }: ReportBodyProps) {
     currentSection === undefined
       ? null
       : applyOverride(currentSection.map, activeOverride, geometries);
-
-  /* ---------------------------------------------------------------------- */
-  /* Estados de carga / rechazo                                              */
-  /* ---------------------------------------------------------------------- */
 
   if (summary === null) {
     const refusal =

@@ -3,7 +3,6 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { cn } from '~/lib/cn';
 
 export type PopoverProps = {
-  /** Render prop del disparador: recibe el cableado de aria y el handler. */
   trigger: (props: {
     'aria-expanded': boolean;
     'aria-controls': string;
@@ -12,7 +11,6 @@ export type PopoverProps = {
   }) => ReactNode;
   title: string;
   children: ReactNode;
-  /** §4.3: el popover de ⓘ mide 300px y ancla a la derecha. */
   width?: number;
   align?: 'left' | 'right';
   className?: string;

@@ -121,11 +121,6 @@ app.add_middleware(
 )
 
 
-# ---------------------------------------------------------------------------
-# Salud
-# ---------------------------------------------------------------------------
-
-
 @app.get(
     "/healthz",
     tags=["salud"],
@@ -135,11 +130,6 @@ app.add_middleware(
 )
 async def healthz(store: StoreDep) -> HealthResponse:
     return HealthResponse(status="ok", version=__version__, jobs_in_flight=store.in_flight)
-
-
-# ---------------------------------------------------------------------------
-# Análisis
-# ---------------------------------------------------------------------------
 
 
 def _job_to_model(job: Job) -> AnalysisJob:
@@ -248,7 +238,6 @@ async def stream_analysis_events(analysis_id: str, store: StoreDep, request: Req
     async def event_source() -> AsyncIterator[dict]:
         try:
             sent_steps = 0
-            # Replay: lo que ya pasó antes de que este cliente se conectara.
             for event in list(job.progress):
                 sent_steps = max(sent_steps, event["step"])
                 yield {"event": "progress", "data": json.dumps(event, ensure_ascii=False)}
@@ -285,11 +274,6 @@ async def stream_analysis_events(analysis_id: str, store: StoreDep, request: Req
             store.unsubscribe(job, queue)
 
     return EventSourceResponse(event_source())
-
-
-# ---------------------------------------------------------------------------
-# Capas
-# ---------------------------------------------------------------------------
 
 
 def _spec_or_404(layer: str):
@@ -451,11 +435,6 @@ async def get_analysis_raster(analysis_id: str, layer: str, store: StoreDep) -> 
     spec = _spec_or_404(layer)
     path = _raster_path(store.job_dir(analysis_id), layer)
     return FileResponse(path, media_type="image/tiff", filename=spec.download_filename)
-
-
-# ---------------------------------------------------------------------------
-# Inundación costera (Aqueduct) — on-demand y cacheada
-# ---------------------------------------------------------------------------
 
 
 @app.get(

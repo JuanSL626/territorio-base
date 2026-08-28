@@ -143,7 +143,6 @@ function decode(data: Uint8Array | string): string {
   return new TextDecoder('utf-8').decode(data);
 }
 
-/** Parsea un KML (texto o bytes) a AOI. */
 export function loadAoiFromKml(data: Uint8Array | string): Aoi {
   const text = decode(data);
   let collection: unknown;

@@ -1,14 +1,14 @@
 /*
   Mapas base — 02-design-brief.md §3.3.
 
-  REGLA DURA: ninguno pide API key ni registro. El legacy corría sobre OSM sin
-  token y la migración no puede introducir una credencial nueva para poder
-  dibujar el fondo. Los tres proveedores de acá sirven tiles públicos.
+  REGLA DURA: ninguno pide API key ni registro. El legacy corría sobre OSM
+  sin token y la migración no puede introducir una credencial nueva sólo
+  para dibujar el fondo. Los tres proveedores de acá sirven tiles públicos.
 
   El modo oscuro NO cambia de proveedor: reusa el mismo raster con
-  `raster-brightness-*` / `raster-saturation` (§10, "el basemap se cambia con
-  el tema"). Traer un segundo proveedor sólo para el modo oscuro sería una
-  dependencia más que mantener y una atribución más que explicar.
+  `raster-brightness-*`/`raster-saturation` (§10). Traer un segundo
+  proveedor sólo para el modo oscuro sería una dependencia más que mantener
+  y una atribución más que explicar.
 */
 
 import type { RasterLayerSpecification, StyleSpecification } from 'maplibre-gl';
@@ -24,10 +24,6 @@ export type BasemapDef = {
   maxzoom: number;
 };
 
-/**
- * OSM estándar. Es el basemap del legacy (folium, centro `[18.453, -69.571]`)
- * y el único que se puede usar sin ninguna gestión previa.
- */
 const OSM: BasemapDef = {
   id: 'light',
   label: 'Claro (OpenStreetMap)',
@@ -41,7 +37,6 @@ const OSM: BasemapDef = {
   maxzoom: 19,
 };
 
-/** Relieve sombreado + curvas de nivel. Sin key, CC-BY-SA. */
 const OPENTOPO: BasemapDef = {
   id: 'terrain',
   label: 'Relieve (OpenTopoMap)',
@@ -73,7 +68,6 @@ export const BASEMAPS: Record<BasemapId, BasemapDef> = {
   satellite: ESRI_IMAGERY,
 };
 
-/** Orden del selector de mapa base de la toolbar (§2, botón ⑤). */
 export const BASEMAP_ORDER: BasemapId[] = ['light', 'terrain', 'satellite'];
 
 /** Fondo del canvas por tema, para que no parpadee blanco en modo oscuro. */
@@ -98,11 +92,9 @@ export const BASEMAP_SOURCE_ID = 'tb-basemap';
 export const BASEMAP_LAYER_ID = 'tb-basemap-layer';
 
 /**
- * Estilo completo, listo para `new maplibregl.Map({ style })` o `setStyle`.
- *
  * Se devuelve un objeto NUEVO en cada llamada a propósito: MapLibre muta el
- * estilo que recibe, y compartir la misma referencia entre dos mapas (o entre
- * dos `setStyle`) deja basura de la corrida anterior.
+ * estilo que recibe, y compartir la misma referencia entre dos mapas (o
+ * entre dos `setStyle`) deja basura de la corrida anterior.
  */
 export function basemapStyle(id: BasemapId, dark: boolean): StyleSpecification {
   const basemap = BASEMAPS[id];

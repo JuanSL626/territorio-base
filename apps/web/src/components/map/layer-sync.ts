@@ -1,12 +1,10 @@
 /*
   Sincronizador de capas: estado deseado → mutaciones mínimas sobre el mapa.
 
-  ───────────────────────────────────────────────────────────────────────────
-  POR QUÉ EXISTE
-  ───────────────────────────────────────────────────────────────────────────
-  Con ~45 capas en el registro (39 de ellas MEPyD, alguna con ~1 600 puntos),
-  reconstruir fuentes y capas en cada render es la diferencia entre un mapa
-  fluido y uno que traba el hilo principal cada vez que se mueve un slider.
+  Por qué existe: con ~45 capas en el registro (39 de ellas MEPyD, alguna con
+  ~1 600 puntos), reconstruir fuentes y capas en cada render es la diferencia
+  entre un mapa fluido y uno que traba el hilo principal cada vez que se
+  mueve un slider.
 
   Este módulo hace UNA cosa: comparar lo deseado contra lo ya montado y aplicar
   sólo la diferencia.
@@ -100,7 +98,6 @@ export class LayerSyncer {
     this.highlight = null;
   }
 
-  /** Ids de capa de estilo que aceptan click (§5.1). Sólo vectoriales. */
   interactiveLayerIds(): string[] {
     const ids: string[] = [];
     for (const entry of this.mounted.values()) {
@@ -141,10 +138,6 @@ export class LayerSyncer {
 
     this.raiseHighlight();
   }
-
-  /* ---------------------------------------------------------------------- */
-  /* Alta                                                                    */
-  /* ---------------------------------------------------------------------- */
 
   private mount(item: DesiredLayer): void {
     const sourceId = sourceIdFor(item.layer.id);
@@ -192,12 +185,7 @@ export class LayerSyncer {
 
   /**
    * Id de la capa ya montada que va INMEDIATAMENTE arriba de `key`.
-   * `undefined` = va al tope.
-   *
-   * El orden lo define `sortKey`: banda por rol (raster < relleno < borde <
-   * línea < punto < AOI) y, dentro de la banda, el índice del registro. O sea:
-   * el z-order del mapa es el mismo orden que muestra el panel de capas, sin
-   * una segunda lista que mantener sincronizada.
+   * `undefined` = va al tope. El orden lo define `sortKey` (ver `layer-style.ts`).
    */
   private beforeIdFor(key: number): string | undefined {
     let bestId: string | undefined;
@@ -214,10 +202,6 @@ export class LayerSyncer {
 
     return bestId;
   }
-
-  /* ---------------------------------------------------------------------- */
-  /* Actualización                                                           */
-  /* ---------------------------------------------------------------------- */
 
   private update(item: DesiredLayer): void {
     const entry = this.mounted.get(item.layer.id);
@@ -299,10 +283,6 @@ export class LayerSyncer {
     if (this.map.getSource(sourceId) !== undefined) this.map.removeSource(sourceId);
     this.mounted.delete(layerId);
   }
-
-  /* ---------------------------------------------------------------------- */
-  /* Resaltado del feature seleccionado (§5.1)                               */
-  /* ---------------------------------------------------------------------- */
 
   setHighlight(specs: readonly StyledLayer[], layerId: string, featureId: string): void {
     if (this.highlight?.layerId === layerId && this.highlight.featureId === featureId) return;

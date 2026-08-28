@@ -16,7 +16,6 @@ export type SegmentedControlProps<TId extends string> = {
   className?: string;
 };
 
-/** Control segmentado de VISTAS (§2): 5 ítems, 32px de alto, etiqueta de 12px. */
 export function SegmentedControl<TId extends string>({
   options,
   value,

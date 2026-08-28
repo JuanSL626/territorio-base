@@ -7,9 +7,7 @@
  * que se puede importar este módulo desde un componente sin arrastrar
  * better-sqlite3 ni el token del servicio raster.
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * INVARIANTES
- * ─────────────────────────────────────────────────────────────────────────────
+ * Invariantes:
  * 1. **Toda lectura está scopeada al dueño.** `getAnalysisForUser` filtra por
  *    `user_id`; no existe (ni acá ni en `@territorio/db`) un accesor por id
  *    suelto. Un id adivinado devuelve `no-encontrado`, no el AOI de otro.
@@ -47,10 +45,6 @@ import {
 import { getRasterApi } from './api';
 import { getAnalysisForUser, getDb, listAnalysesForUser } from './db';
 import { fetchSession, type SessionUser } from './session';
-
-/* -------------------------------------------------------------------------- */
-/* Resultados                                                                  */
-/* -------------------------------------------------------------------------- */
 
 /** Motivos de rechazo. Cerrados a propósito: cada uno tiene su pantalla. */
 export type AnalysisRefusalReason =
@@ -98,10 +92,6 @@ async function currentUser(): Promise<SessionUser | null> {
   return await fetchSession();
 }
 
-/* -------------------------------------------------------------------------- */
-/* Validadores                                                                 */
-/* -------------------------------------------------------------------------- */
-
 /*
   El GeoJSON entra como `unknown` a propósito: quien sabe validarlo es
   `@territorio/geo` (`loadAoiFromGeoJson`, que además une varias geometrías en
@@ -139,10 +129,6 @@ function parseAoi(value: unknown): { ok: true; aoi: Aoi } | AnalysisRefusal {
     );
   }
 }
-
-/* -------------------------------------------------------------------------- */
-/* Lanzar un análisis                                                          */
-/* -------------------------------------------------------------------------- */
 
 /**
  * Valida el AOI, aplica el guard de tamaño, crea la fila y lanza las dos
@@ -188,10 +174,6 @@ export const startAnalysis = createServerFn({ method: 'POST' })
     return { ok: true, analysisId };
   });
 
-/* -------------------------------------------------------------------------- */
-/* Progreso                                                                    */
-/* -------------------------------------------------------------------------- */
-
 /**
  * Foto del progreso vivo. Barata: no toca la base ni el servicio raster, sólo
  * lee el `Map` del proceso que alimenta el SSE.
@@ -220,10 +202,6 @@ export const cancelAnalysis = createServerFn({ method: 'POST' })
     if (user === null) return { ok: false };
     return { ok: cancelRun(data.analysisId, user.id) };
   });
-
-/* -------------------------------------------------------------------------- */
-/* Leer un análisis                                                            */
-/* -------------------------------------------------------------------------- */
 
 async function readOwned(
   analysisId: string,
@@ -302,10 +280,6 @@ export const listAnalyses = createServerFn({ method: 'GET' }).handler(
     }));
   },
 );
-
-/* -------------------------------------------------------------------------- */
-/* Inundación costera, on demand                                               */
-/* -------------------------------------------------------------------------- */
 
 /**
  * Pide (o reusa de caché) la inundación costera de un análisis y **la adjunta

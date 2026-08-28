@@ -7,15 +7,10 @@ import { getLayer } from '~/layers/registry';
 import { ATTRIBUTION_LINE } from '~/layers/sources';
 
 export type BottomClusterProps = {
-  /** Ids de las capas visibles, para la leyenda compacta. */
   visibleLayers: readonly string[];
   scaleLabel: string;
 };
 
-/**
- * Cúmulo inferior izquierdo (§2): escala, atribución y la pastilla de leyenda
- * compacta para quien colapsó el panel izquierdo.
- */
 export function BottomCluster({ visibleLayers, scaleLabel }: BottomClusterProps) {
   const [open, setOpen] = useState(false);
   const layers = visibleLayers

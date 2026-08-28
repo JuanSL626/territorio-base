@@ -37,9 +37,7 @@ import { getLayer, LAYER_REGISTRY } from '~/layers/registry';
 import { useMediaQuery } from '~/lib/use-media-query';
 
 /*
-  ══════════════════════════════════════════════════════════════════════════════
   EL MAPA. La página ES esto (principio 1 del brief); los paneles se le acoplan.
-  ══════════════════════════════════════════════════════════════════════════════
 
   Reparto de responsabilidades — este archivo cablea, no decide:
     · `basemaps.ts`      qué mapas base hay (todos SIN API key).
@@ -69,19 +67,15 @@ export type MapPadding = { top: number; right: number; bottom: number; left: num
 
 export type { PolygonGeometry } from './draw';
 
-/** Estado del inspector calculado por el mapa (§5.1 y §5.3). */
 export type MapInspectorState = {
   candidates: InspectorCandidate[];
   feature: InspectorFeature | null;
 };
 
-/** Acciones imperativas que el inspector y la toolbar necesitan del mapa. */
 export type MapController = {
   /** Drill-down de la pila de resultados de un click en varias capas (§5.1). */
   pickLayer: (layerId: string) => void;
-  /** Vuelve de un feature a la lista de resultados. */
   back: () => void;
-  /** "Zoom a la geometría" del §5.3. */
   zoomToSelection: () => void;
   zoomToAoi: () => void;
   /** Resalta sin seleccionar: el hover del teclado sobre la lista de resultados. */
@@ -97,11 +91,10 @@ export type MapController = {
   tableFor: (layerId: string, limit: number) => LayerTable | null;
 };
 
-/** Resultado de `MapController.tableFor`. */
 export type LayerTable = {
   layerId: string;
   layerLabel: string;
-  /** Elementos de la capa dentro del AOI. Puede ser mayor que `rows.length`. */
+  /** Puede ser mayor que `rows.length` (ver `LAYER_TABLE_LIMIT`). */
   total: number;
   rows: InspectorFeature[];
 };
@@ -110,7 +103,6 @@ export type MapCanvasProps = {
   basemap: BasemapId;
   visibleLayers: readonly string[];
   opacity: Readonly<Record<string, number>>;
-  /** Id del AOI del servidor; `undefined` mientras no haya zona de estudio. */
   aoiId: string | undefined;
   bbox: Bbox | null;
   selection: Selection | null;
@@ -120,24 +112,13 @@ export type MapCanvasProps = {
   onBboxChange: (bbox: Bbox) => void;
   onAoiDrawn: (geometry: PolygonGeometry) => void;
 
-  /* ------------------------------------------------------------------ */
-  /* Todo lo de abajo es OPCIONAL: el shell existente compila sin tocarlo */
-  /* ------------------------------------------------------------------ */
+  // Todo lo de abajo es OPCIONAL: el shell existente compila sin tocarlo.
 
   /** El resultado que pinta el mapa. `null` = todavía no hay análisis. */
   analysis?: TerritorioAnalysis | null;
-  /**
-   * Base absoluta del servicio raster para los PNG de overlay.
-   *
-   * El servicio devuelve rutas relativas y el browser necesita absolutas. Si
-   * el servicio exige `API_TOKEN` no hay base pública y hay que proxear: ver
-   * `publicRasterBaseUrl()` en `~/lib/api.ts`. Sin base, las capas raster
-   * reportan su estado en la fila del panel en vez de mostrar una imagen rota.
-   */
+  /** Ver `publicRasterBaseUrl()` en `~/lib/api.ts` para cuándo no hay base pública. */
   rasterBaseUrl?: string;
-  /** Polígono libre o rectángulo — las dos únicas herramientas del legacy. */
   drawMode?: DrawMode;
-  /** Herramienta activa de la toolbar del §2. */
   tool?: MapTool | null;
   onToolDone?: () => void;
   onBasemapChange?: (next: BasemapId) => void;
@@ -162,7 +143,6 @@ const DEFAULT_ZOOM = 13;
 
 const REGISTRY_INDEX = new Map(LAYER_REGISTRY.map((layer, index) => [layer.id, index]));
 
-/** Clave de caché de una ubicación de overlay: capa + URL exacta del PNG. */
 function cacheKeyOf(ref: RasterOverlayRef): string {
   return `${ref.layerId}|${ref.pngUrl ?? ''}`;
 }
@@ -276,10 +256,7 @@ export function MapCanvas(props: MapCanvasProps) {
 
   const dark = useMediaQuery('(prefers-color-scheme: dark)');
 
-  /* ---------------------------------------------------------------------- */
-  /* Datos derivados — memoizados: su IDENTIDAD es la señal de cambio        */
-  /* ---------------------------------------------------------------------- */
-
+  // Datos derivados, memoizados: su IDENTIDAD es la señal de cambio.
   const vectorData = useMemo(() => buildVectorData(analysis), [analysis]);
   const overlays = useMemo(() => overlayRefs(analysis, rasterBaseUrl), [analysis, rasterBaseUrl]);
   const aoiGeometry = analysis?.aoi_geometry ?? null;
@@ -349,10 +326,7 @@ export function MapCanvas(props: MapCanvasProps) {
     return layers;
   }, [visibleLayers, opacity, vectorData, overlays, placements]);
 
-  /* ---------------------------------------------------------------------- */
-  /* Estado por capa para el panel (§4.3) y presencia para la leyenda (§5)   */
-  /* ---------------------------------------------------------------------- */
-
+  // Estado por capa para el panel (§4.3) y presencia para la leyenda (§5).
   const renderedLayers = useMemo(() => desired.map((item) => item.layer.id), [desired]);
 
   const runtime = useMemo(() => {
@@ -420,13 +394,9 @@ export function MapCanvas(props: MapCanvasProps) {
     return result;
   }, [analysis, placements]);
 
-  /* ---------------------------------------------------------------------- */
-  /* Pila de resultados del último click (§5.1)                              */
-  /* ---------------------------------------------------------------------- */
-
+  // Pila de resultados del último click (§5.1).
   const hitsRef = useRef<FeatureHit[]>([]);
 
-  /** Arma el contenido del inspector para un hit concreto de la pila. */
   const emitInspector = useCallback((hits: readonly FeatureHit[], focus: FeatureHit | null) => {
     const candidates = buildCandidates(hits);
     const feature =
@@ -441,10 +411,7 @@ export function MapCanvas(props: MapCanvasProps) {
     inspectRef.current?.({ candidates, feature });
   }, []);
 
-  /* ---------------------------------------------------------------------- */
-  /* Creación del mapa                                                       */
-  /* ---------------------------------------------------------------------- */
-
+  // Creación del mapa.
   useEffect(() => {
     const container = containerRef.current;
     if (container === null) return undefined;
@@ -540,10 +507,7 @@ export function MapCanvas(props: MapCanvasProps) {
     };
   }, []);
 
-  /* ---------------------------------------------------------------------- */
-  /* Cambio de mapa base                                                     */
-  /* ---------------------------------------------------------------------- */
-
+  // Cambio de mapa base.
   useEffect(() => {
     const map = mapRef.current;
     if (!ready || map === null) return;
@@ -572,10 +536,7 @@ export function MapCanvas(props: MapCanvasProps) {
     });
   }, [basemap, dark, ready]);
 
-  /* ---------------------------------------------------------------------- */
-  /* Overlays raster: bounds y leyenda del sidecar                           */
-  /* ---------------------------------------------------------------------- */
-
+  // Overlays raster: bounds y leyenda del sidecar.
   const overlayKey = visibleLayers.filter((id) => overlays.has(id)).join('|');
 
   useEffect(() => {
@@ -623,19 +584,12 @@ export function MapCanvas(props: MapCanvasProps) {
     }
   }, [overlayKey]);
 
-  /* ---------------------------------------------------------------------- */
-  /* Sincronización de capas                                                 */
-  /* ---------------------------------------------------------------------- */
-
   useEffect(() => {
     if (!ready || styleEpoch === 0) return;
     syncerRef.current?.sync(desired);
   }, [desired, ready, styleEpoch]);
 
-  /* ---------------------------------------------------------------------- */
-  /* Click y hover — un handler ATADO A LAS CAPAS, no un hit-test global     */
-  /* ---------------------------------------------------------------------- */
-
+  // Click y hover: un handler ATADO A LAS CAPAS, no un hit-test global.
   const interactiveIds = useMemo(
     () =>
       desired
@@ -741,10 +695,7 @@ export function MapCanvas(props: MapCanvasProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver arriba
   }, [interactiveKey, ready, styleEpoch, emitInspector]);
 
-  /* ---------------------------------------------------------------------- */
-  /* Resaltado del feature seleccionado                                      */
-  /* ---------------------------------------------------------------------- */
-
+  // Resaltado del feature seleccionado.
   useEffect(() => {
     const syncer = syncerRef.current;
     if (!ready || syncer === null || styleEpoch === 0) return;
@@ -787,10 +738,6 @@ export function MapCanvas(props: MapCanvasProps) {
     emitInspector([hit], hit);
   }, [selection, vectorData, emitInspector]);
 
-  /* ---------------------------------------------------------------------- */
-  /* Encuadre                                                                */
-  /* ---------------------------------------------------------------------- */
-
   const fitTo = useCallback((target: Bounds2D) => {
     const map = mapRef.current;
     if (map === null) return;
@@ -812,10 +759,6 @@ export function MapCanvas(props: MapCanvasProps) {
     restoredRef.current = true;
     fitTo(bbox);
   }, [ready, bbox, aoiGeometry, fitTo]);
-
-  /* ---------------------------------------------------------------------- */
-  /* Controlador imperativo para el inspector y la toolbar                   */
-  /* ---------------------------------------------------------------------- */
 
   const controller = useMemo<MapController>(
     () => ({
@@ -886,10 +829,6 @@ export function MapCanvas(props: MapCanvasProps) {
     if (ready) onReadyRef.current?.(controller);
   }, [ready, controller]);
 
-  /* ---------------------------------------------------------------------- */
-  /* Herramientas de la toolbar                                              */
-  /* ---------------------------------------------------------------------- */
-
   useEffect(() => {
     const draw = drawRef.current;
     if (!ready || draw === null) return;
@@ -913,10 +852,6 @@ export function MapCanvas(props: MapCanvasProps) {
     controller.zoomToAoi();
     onToolDoneRef.current?.();
   }, [tool, controller]);
-
-  /* ---------------------------------------------------------------------- */
-  /* Render                                                                  */
-  /* ---------------------------------------------------------------------- */
 
   return (
     <div

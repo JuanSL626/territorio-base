@@ -27,10 +27,6 @@ function layer(id: string): LayerDef {
   return found;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Regresión #4 — polígonos de amenaza apilados                                */
-/* -------------------------------------------------------------------------- */
-
 describe('regresión #4 — relleno bajo + borde fuerte', () => {
   const deslizamiento = layer('mepyd:amenazas/amenaza-de-deslizamiento');
 
@@ -70,10 +66,6 @@ describe('regresión #4 — relleno bajo + borde fuerte', () => {
   });
 });
 
-/* -------------------------------------------------------------------------- */
-/* Regresión #5 — puntos                                                       */
-/* -------------------------------------------------------------------------- */
-
 describe('regresión #5 — puntos como círculos, nunca pines', () => {
   const salud = layer('mepyd:infraestructuras-y-edificaciones/infraestructura-de-salud');
 
@@ -98,10 +90,6 @@ describe('regresión #5 — puntos como círculos, nunca pines', () => {
   });
 });
 
-/* -------------------------------------------------------------------------- */
-/* Regresión #7 — un color por capa                                            */
-/* -------------------------------------------------------------------------- */
-
 describe('regresión #7 — color por capa, no por grupo', () => {
   it('ninguna capa MEPyD comparte color con otra de su MISMO subgrupo', () => {
     const bySubgroup = new Map<string, string[]>();
@@ -125,10 +113,6 @@ describe('regresión #7 — color por capa, no por grupo', () => {
   });
 });
 
-/* -------------------------------------------------------------------------- */
-/* Color categórico                                                            */
-/* -------------------------------------------------------------------------- */
-
 describe('colorExpression', () => {
   it('hidrología pinta sus tres tipos con los hex EXACTOS del inventario §4', () => {
     const expression = colorExpression(layer('osm-hydro'));
@@ -144,10 +128,6 @@ describe('colorExpression', () => {
     expect(colorExpression(layer('wdpa'))).toBe('#d95f02');
   });
 });
-
-/* -------------------------------------------------------------------------- */
-/* Resaltado y orden                                                           */
-/* -------------------------------------------------------------------------- */
 
 describe('highlightSpecs', () => {
   it('filtra por el id sintético del feature, no por `feature-state`', () => {

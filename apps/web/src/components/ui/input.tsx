@@ -41,7 +41,6 @@ export type FieldProps = {
   children: (props: { id: string; describedBy: string | undefined; invalid: boolean }) => ReactNode;
 };
 
-/** Label + control + ayuda + error, con el cableado de aria ya resuelto. */
 export function Field({ label, hint, error, children }: FieldProps) {
   const id = useId();
   const hintId = `${id}-hint`;

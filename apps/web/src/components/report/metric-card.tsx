@@ -33,7 +33,6 @@ export type CardDownload =
 
 export type MetricCardProps = {
   title: string;
-  /** Capa del registro que alimenta la tarjeta. Gobierna ⓘ y la leyenda. */
   layerId?: string;
   /** ⤢ — `undefined` oculta la acción (secciones sin capa en el mapa). */
   onShowOnMap?: () => void;
@@ -41,7 +40,6 @@ export type MetricCardProps = {
   /** Nota al pie de 12 px. En los gráficos es el equivalente de texto. */
   footnote?: string;
   children: ReactNode;
-  /** Vista de impresión: sin controles, sin popovers, sin foco. */
   print?: boolean;
   className?: string;
 };

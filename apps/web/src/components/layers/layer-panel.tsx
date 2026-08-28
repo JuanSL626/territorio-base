@@ -12,9 +12,9 @@ import { buildLayerTree, LAYER_REGISTRY } from '~/layers/registry';
 import { isPinnedContext, MAX_VISIBLE_DATA_LAYERS, countVisibleDataLayers } from '~/layers/vistas';
 
 /**
- * La inundación costera no se puede dibujar con la fila genérica: necesita un
- * selector de escenario y el resultado del escenario elegido (§4, UC-24). Su
- * fila la reemplaza `CoastalControl`, que la ruta inyecta acá.
+ * La inundación costera no se puede dibujar con la fila genérica: necesita
+ * un selector de escenario y su resultado (§4, UC-24). `CoastalControl`
+ * reemplaza su fila y la ruta lo inyecta acá.
  */
 export const COASTAL_LAYER_ID = 'aqueduct';
 export const COASTAL_GROUP = 'Riesgo costero';
@@ -32,7 +32,6 @@ export type LayerPanelProps = {
   onRemove: (layerId: string) => void;
   onDownloadLayer: (layerId: string) => void;
   onRetryLayer: (layerId: string) => void;
-  /** Bloque de inundación costera; ocupa el lugar de la fila de `aqueduct`. */
   coastalControl?: ReactNode;
 };
 
@@ -104,8 +103,8 @@ export function LayerPanel(props: LayerPanelProps) {
 
       return (
         <div key={role}>
-          {/* §4.4 — el split medición/contexto se ROTULA en el panel; dejarlo
-              sólo en la documentación es el pecado documentado de GFW. */}
+          {/* §4.4 — el split medición/contexto se ROTULA en el panel: dejarlo
+              sólo en la documentación es el error clásico de GFW. */}
           <h4 className="bg-surface-2 text-11 text-fg-subtle flex h-6 items-center px-3 font-semibold tracking-wide uppercase">
             {ROLE_HEADERS[role]}
           </h4>

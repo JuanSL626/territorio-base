@@ -6,11 +6,9 @@
  * el modal (browser) y el runtime del job (servidor), y tienen que estar de
  * acuerdo sobre la lista de artefactos hasta el último id.
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * LA REGLA QUE GOBIERNA TODO ESTE ARCHIVO (design brief §7.2 y §13)
- * ─────────────────────────────────────────────────────────────────────────────
- * El menú de exportación se genera **desde lo que el análisis produjo de
- * verdad**, nunca desde una lista estática de formatos. Un raster que el
+ * La regla que gobierna todo este archivo (design brief §7.2 y §13): el menú
+ * de exportación se genera **desde lo que el análisis produjo de verdad**,
+ * nunca desde una lista estática de formatos. Un raster que el
  * servicio no pudo calcular y una capa vectorial cuya fuente estaba caída
  * aparecen igual en la lista — grises, sin checkbox, **con el motivo escrito**.
  *
@@ -31,10 +29,6 @@ import {
 import { formatNumber } from './format';
 
 import type { RasterLayer } from '@territorio/api-client';
-
-/* -------------------------------------------------------------------------- */
-/* Artefactos                                                                  */
-/* -------------------------------------------------------------------------- */
 
 /** Un artefacto es raster (GeoTIFF), vector (SHP + GeoJSON) o documento. */
 export type ExportArtifactKind = 'raster' | 'vector' | 'documento';
@@ -88,10 +82,6 @@ export type ExportPlan = {
   artifacts: ExportArtifactPlan[];
 };
 
-/* -------------------------------------------------------------------------- */
-/* Selección                                                                   */
-/* -------------------------------------------------------------------------- */
-
 export const EXPORT_CRS_OPTIONS = ['wgs84', 'utm'] as const;
 export type ExportCrsOption = (typeof EXPORT_CRS_OPTIONS)[number];
 
@@ -132,10 +122,6 @@ export function resolveOutputEpsg(crs: ExportCrsOption, utmEpsg: number): number
   return crs === 'utm' ? utmEpsg : 4326;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Grupos                                                                      */
-/* -------------------------------------------------------------------------- */
-
 /** El mismo orden que el panel de capas (`layers/registry.ts::GROUP_ORDER`). */
 export const EXPORT_GROUP_ORDER = [
   'Documentos',
@@ -173,10 +159,6 @@ export function groupArtifacts(artifacts: readonly ExportArtifactPlan[]): Export
   return known;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Rutas dentro del ZIP                                                        */
-/* -------------------------------------------------------------------------- */
-
 /** `Zona Norte, Puerto Plata` → `zona_norte_puerto_plata`, apto para archivo. */
 export function fileSlug(value: string): string {
   const slug = value
@@ -206,10 +188,6 @@ export function bundleFilename(aoiName: string, generatedAt: Date): string {
     .replace(/^-+|-+$/g, '');
   return `territorio-base_${slug === '' ? 'aoi' : slug}_${generatedAt.toISOString().slice(0, 10)}.zip`;
 }
-
-/* -------------------------------------------------------------------------- */
-/* Estimación de tamaño                                                        */
-/* -------------------------------------------------------------------------- */
 
 /*
   El estimado existe porque el §7.2 pide "ver un tamaño estimado" ANTES de
@@ -270,10 +248,6 @@ export function totalEstimatedBytes(plan: ExportPlan, selectedIds: ReadonlySet<s
     .filter((artifact) => selectedIds.has(artifact.id) || artifact.mandatory)
     .reduce((sum, artifact) => sum + artifact.estimatedBytes, 0);
 }
-
-/* -------------------------------------------------------------------------- */
-/* Construcción del plan                                                       */
-/* -------------------------------------------------------------------------- */
 
 /** El motivo mostrable de una fuente que no respondió durante el análisis. */
 function sourceReason(status: SourceStatus | undefined, id: AnalysisSourceId): string | null {
@@ -360,8 +334,6 @@ export function buildExportPlan(options: BuildExportPlanOptions): ExportPlan {
   const ndviResolutionM = analysis.params.ndvi_resolution_m;
   const artifacts: ExportArtifactPlan[] = [];
 
-  /* -- Documentos: siempre, y no se pueden destildar --------------------- */
-
   artifacts.push(
     {
       id: 'doc:leeme',
@@ -421,8 +393,6 @@ export function buildExportPlan(options: BuildExportPlanOptions): ExportPlan {
     },
   );
 
-  /* -- AOI: obligatorio -------------------------------------------------- */
-
   artifacts.push({
     id: 'vector:aoi',
     kind: 'vector',
@@ -437,8 +407,6 @@ export function buildExportPlan(options: BuildExportPlanOptions): ExportPlan {
     datasetId: null,
     featureCount: 1,
   });
-
-  /* -- Rasters: sólo lo que ESTA corrida produjo -------------------------- */
 
   const hasRasterJob = analysis.raster_job_id !== null;
   for (const layer of analysis.layers) {
@@ -486,8 +454,6 @@ export function buildExportPlan(options: BuildExportPlanOptions): ExportPlan {
       featureCount: null,
     });
   }
-
-  /* -- Vectores ---------------------------------------------------------- */
 
   const bySource = new Map(analysis.sources.map((source) => [source.id, source]));
 
@@ -642,10 +608,6 @@ function mepydArtifacts(
   return artifacts;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Lo que NO entra al bundle                                                   */
-/* -------------------------------------------------------------------------- */
-
 export type ExportOmission = { label: string; reason: string };
 
 /**
@@ -680,10 +642,6 @@ export function isIncluded(
 ): boolean {
   return artifact.mandatory || (artifact.selectable && selectedIds.has(artifact.id));
 }
-
-/* -------------------------------------------------------------------------- */
-/* Guard de tamaño, ANTES de arrancar el job — design brief §7.4               */
-/* -------------------------------------------------------------------------- */
 
 /*
   El §7.4 es explícito en la forma, no sólo en el número: el costo se explica

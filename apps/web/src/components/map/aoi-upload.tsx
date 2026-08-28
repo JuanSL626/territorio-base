@@ -8,21 +8,18 @@ import { formatBytes } from '~/lib/format';
 /*
   Subida de AOI — KML, KMZ y GeoJSON, parseados por `@territorio/geo`.
 
-  Dos cosas del inventario que este archivo existe para no repetir:
-
-  · UC-03 / TC-04: en el legacy un archivo corrupto reventaba con un traceback
-    crudo de Streamlit. `parseAoiFile` lanza `AoiParseError` con texto en
-    castellano mostrable, y acá se captura SIEMPRE — ningún fallo de parseo
-    llega a la consola como excepción no manejada.
-
-  · Regresión #8: el parser de KML/KMZ es una dependencia explícita y
-    declarada (`@tmcw/togeojson`, `@xmldom/xmldom`, `jszip` en el package.json
-    de `@territorio/geo`), no una que "estaba instalada".
+  Dos cosas del inventario que este archivo existe para no repetir: UC-03 /
+  TC-04, en el legacy un archivo corrupto reventaba con un traceback crudo de
+  Streamlit (`parseAoiFile` lanza `AoiParseError` con texto en castellano
+  mostrable, y acá se captura SIEMPRE); y la regresión #8, el parser de
+  KML/KMZ es una dependencia explícita y declarada (`@tmcw/togeojson`,
+  `@xmldom/xmldom`, `jszip` en el package.json de `@territorio/geo`), no una
+  que "estaba instalada".
 
   Y el §13: los límites duros se imprimen EN el dropzone, no en una página de
-  ayuda. Sólo se listan los formatos que el parser realmente acepta: ofrecer
-  "SHP zipeado" cuando `parseAoiFile` lo rechaza sería justamente el
-  antipatrón de ofrecer un formato que el backend no puede producir/consumir.
+  ayuda, y sólo se listan los formatos que el parser realmente acepta —
+  ofrecer "SHP zipeado" cuando `parseAoiFile` lo rechaza sería el antipatrón
+  de ofrecer un formato que el backend no puede producir/consumir.
 */
 
 /** §7.4: el límite se dice antes del clic, no después del timeout. */
@@ -31,9 +28,7 @@ export const ACCEPTED_AOI_EXTENSIONS = '.kml,.kmz,.geojson,.json';
 export const AOI_LIMITS_LINE = `máx. ${formatBytes(MAX_AOI_BYTES)} · KML, KMZ, GeoJSON · un solo polígono (varias geometrías se unen)`;
 
 export type AoiUploadProps = {
-  /** Lo prende el botón "Subir AOI" de la toolbar (§2, botón ②). */
   open: boolean;
-  /** Contenedor del mapa: es el que recibe el `drop`. */
   containerRef: RefObject<HTMLElement | null>;
   onClose: () => void;
   onLoaded: (aoi: Aoi) => void;

@@ -24,10 +24,6 @@ import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-or
 
 import type * as SqliteDriver from 'drizzle-orm/better-sqlite3';
 
-/* ------------------------------------------------------------------------- */
-/* Better Auth core                                                           */
-/* ------------------------------------------------------------------------- */
-
 export const user = sqliteTable(
   'user',
   {
@@ -139,10 +135,6 @@ export const rateLimit = sqliteTable(
   (table) => [index('rate_limit_key_idx').on(table.key)],
 );
 
-/* ------------------------------------------------------------------------- */
-/* App tables                                                                 */
-/* ------------------------------------------------------------------------- */
-
 /**
  * The only way to create an account.
  *
@@ -230,10 +222,6 @@ export const analysis = sqliteTable(
   ],
 );
 
-/* ------------------------------------------------------------------------- */
-/* The schema object, and the client type derived from it                     */
-/* ------------------------------------------------------------------------- */
-
 /**
  * Every table, keyed by the name Better Auth looks models up under.
  *
@@ -253,10 +241,6 @@ export const schema = {
 
 /** The typed Drizzle client. Lives here so modules can import it next to a table. */
 export type TerritorioDb = SqliteDriver.BetterSQLite3Database<typeof schema>;
-
-/* ------------------------------------------------------------------------- */
-/* Inferred row types                                                         */
-/* ------------------------------------------------------------------------- */
 
 export type User = typeof user.$inferSelect;
 export type NewUser = typeof user.$inferInsert;

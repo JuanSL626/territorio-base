@@ -20,9 +20,7 @@ import { buildLayerRuntime } from '~/components/layers/layer-runtime';
 import { type TerritorioAnalysis, DEFAULT_ANALYSIS_PARAMS } from '~/lib/analysis-contract';
 import { mepydLayerId, mergeAnalysis, type RasterOutcome } from '~/lib/analysis-merge';
 
-/* -------------------------------------------------------------------------- */
-/* Fixtures — un AOI real en Santo Domingo, dentro de RD_BBOX                  */
-/* -------------------------------------------------------------------------- */
+// Fixtures: un AOI real en Santo Domingo, dentro de RD_BBOX
 
 const AOI_GEOMETRY: AreaGeometry = {
   type: 'Polygon',
@@ -153,8 +151,6 @@ function analysisWith(overrides: {
   });
 }
 
-/* -------------------------------------------------------------------------- */
-
 describe('buildVectorData', () => {
   const data = buildVectorData(analysisWith({}));
 
@@ -203,9 +199,7 @@ describe('buildVectorData', () => {
   });
 });
 
-/* -------------------------------------------------------------------------- */
-/* Regresión #3 — "no se pudo consultar" ≠ "consulté y no hay nada"            */
-/* -------------------------------------------------------------------------- */
+// Regresión #3: "no se pudo consultar" ≠ "consulté y no hay nada"
 
 describe('buildLayerRuntime — el estado por fila (§4.3)', () => {
   function runtimeFor(analysis: TerritorioAnalysis) {

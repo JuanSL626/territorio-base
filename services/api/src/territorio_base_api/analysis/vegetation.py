@@ -26,7 +26,7 @@ NDVI_DENSITY_COLORS = ["#bfae96", "#fee08b", "#66bd63", "#1a9850"]
 def classify_ndvi_density(ndvi: xr.DataArray) -> xr.DataArray:
     """Índice de clase (0..3) de NDVI_DENSITY_CLASSES por píxel, NaN si no hay dato."""
     values = np.asarray(ndvi.values, dtype="float64")
-    edges = [hi for _, hi, _ in NDVI_DENSITY_CLASSES[:-1]]  # bordes internos: [0.2, 0.4, 0.6]
+    edges = [hi for _, hi, _ in NDVI_DENSITY_CLASSES[:-1]]
     classified = np.full(values.shape, np.nan)
     valid = np.isfinite(values)
     classified[valid] = np.digitize(values[valid], edges)

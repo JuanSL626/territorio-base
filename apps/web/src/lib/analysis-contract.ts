@@ -7,10 +7,8 @@
  * Es puro: sin `fetch`, sin base de datos, sin server functions. Se puede
  * importar desde un componente sin arrastrar `node:fs` al bundle.
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * LO QUE ESTE ARCHIVO EXISTE PARA NO PERDER — regresión #3 del inventario
- * ─────────────────────────────────────────────────────────────────────────────
- * En el legacy, un servicio externo caído (Overpass, WDPA) tumbaba el análisis
+ * Lo que este archivo existe para no perder (regresión #3 del inventario):
+ * en el legacy, un servicio externo caído (Overpass, WDPA) tumbaba el análisis
  * entero: topografía y vegetación ya descargadas se perdían con él. El arreglo
  * fue aislar por fuente, con un booleano `available` que distingue **"no se
  * pudo consultar"** de **"consulté y no hay nada"**. No es un detalle de
@@ -49,10 +47,6 @@ import type {
   TopographyResult,
   VegetationResult,
 } from '@territorio/api-client';
-
-/* -------------------------------------------------------------------------- */
-/* Fuentes                                                                     */
-/* -------------------------------------------------------------------------- */
 
 /**
  * Las cuatro fuentes que un análisis consulta, y que fallan **por separado**.
@@ -107,10 +101,6 @@ export const SOURCE_SERVICE_NAMES: Record<AnalysisSourceId, string> = {
   'areas-protegidas': 'WDPA (UNEP-WCMC)',
   mepyd: 'MEPyD — Sistema de Información para la GRD y la AC',
 };
-
-/* -------------------------------------------------------------------------- */
-/* Geometrías vectoriales que viajan con el resultado                          */
-/* -------------------------------------------------------------------------- */
 
 /**
  * Feature de hidrología con geometría, para el mapa. El `distance_m` ya está
@@ -195,10 +185,6 @@ export type MepydLayerGeo = {
 
 /** Una capa MEPyD que falló. El legacy las descartaba en silencio (§5). */
 export type MepydLayerFailure = { group: string; label: string; reason: string };
-
-/* -------------------------------------------------------------------------- */
-/* El resultado                                                                */
-/* -------------------------------------------------------------------------- */
 
 export type AnalysisParams = {
   /** 10 m por default; 20 m es la alternativa del guard de tamaño (§7.4). */
@@ -310,10 +296,6 @@ export function toSummary(analysis: TerritorioAnalysis): TerritorioAnalysisSumma
   };
 }
 
-/* -------------------------------------------------------------------------- */
-/* Derivados que toda la UI necesita y nadie debería recalcular                */
-/* -------------------------------------------------------------------------- */
-
 export function findSource(
   analysis: Pick<TerritorioAnalysis, 'sources'>,
   id: AnalysisSourceId,
@@ -329,10 +311,6 @@ export function downSources(analysis: Pick<TerritorioAnalysis, 'sources'>): Sour
 export function isTerminalStatus(status: AnalysisStatus): boolean {
   return status === 'ok' || status === 'partial' || status === 'error';
 }
-
-/* -------------------------------------------------------------------------- */
-/* Validación en el borde de la base de datos                                  */
-/* -------------------------------------------------------------------------- */
 
 /*
   `analysis.result_json` es una columna JSON de SQLite: lo que salió de acá hace
@@ -544,10 +522,6 @@ export function parseStoredAnalysis(value: unknown): TerritorioAnalysis | null {
   const parsed = territorioAnalysisSchema.safeParse(value);
   return parsed.success ? (parsed.data as TerritorioAnalysis) : null;
 }
-
-/* -------------------------------------------------------------------------- */
-/* Guard de tamaño del AOI — design brief §7.4                                 */
-/* -------------------------------------------------------------------------- */
 
 /**
  * El veredicto de tamaño, y la razón por la que vive acá y no sólo en el

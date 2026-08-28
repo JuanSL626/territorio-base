@@ -1,16 +1,14 @@
 /*
-  Estado por capa, derivado del análisis. Módulo PURO.
+  Estado por capa, derivado del análisis. Módulo PURO. Principio 5 del
+  brief: nada se computa ni falla en silencio — toda capa tiene un estado
+  explícito `pending | ok | empty | error | skipped` visible en su fila
+  (§4.3, §8 "Layer load error"), no un checkbox vivo sobre una capa que no
+  puede pintar nada.
 
-  Principio 5 del brief: **nada se computa ni falla en silencio**. Toda capa
-  tiene un estado explícito `pending | ok | empty | error | skipped` visible en
-  su propia fila (§4.3, §8 "Layer load error"), y no un checkbox vivo sobre una
-  capa que no puede pintar nada.
-
-  La distinción que este archivo existe para preservar es la regresión #3 del
-  inventario: `available: false` ("no se pudo consultar el servicio") NO es lo
-  mismo que `found: 0` ("consulté y no hay nada"). La primera es `error` con el
-  nombre del servicio y un reintento; la segunda es `empty` — un resultado
-  válido. Colapsarlas en "lista vacía" es exactamente el bug.
+  Regresión #3: `available: false` ("no se pudo consultar el servicio") NO
+  es lo mismo que `found: 0` ("consulté y no hay nada"). La primera es
+  `error` con el nombre del servicio y un reintento; la segunda es `empty`,
+  un resultado válido. Colapsarlas en "lista vacía" es exactamente el bug.
 */
 
 import { RASTER_LAYER_BY_ID } from '../map/overlays';
@@ -52,7 +50,6 @@ const EMPTY_RUNTIME: LayerRuntime = {
   detail: 'El servicio respondió, y dentro de este AOI no hay nada de esta capa.',
 };
 
-/** Qué fuente alimenta cada capa del registro. */
 function sourceOf(layer: LayerDef): AnalysisSourceId {
   if (layer.id === 'osm-hydro') return 'hidrologia';
   if (layer.id === 'wdpa') return 'areas-protegidas';
@@ -64,7 +61,6 @@ export type LayerRuntimeInput = {
   analysis: TerritorioAnalysis | null;
   /** Elementos por capa vectorial, del índice de `vector-data.ts`. */
   featureCounts: ReadonlyMap<string, number>;
-  /** Capas raster que la corrida produjo de verdad. */
   producedRasters: ReadonlySet<string>;
 };
 
@@ -151,12 +147,6 @@ function vectorRuntime(
   return { status: 'ok', featureCount: count };
 }
 
-/**
- * Estado de TODAS las capas del registro.
- *
- * Sin análisis todavía, cada capa de datos reporta `skipped · sin AOI`: es el
- * estado gris con razón inline del §4.3, no un checkbox que promete algo.
- */
 const NO_AOI: LayerRuntime = {
   status: 'skipped',
   reason: 'sin AOI',
@@ -182,16 +172,16 @@ export function buildLayerRuntime(input: LayerRuntimeInput): Record<string, Laye
 
     if (source === 'raster') {
       /*
-        `slope-classes` es el caso vivo: el registro la declara (es la capa por
+        `slope-classes` es el caso vivo: el registro la declara (capa por
         defecto de la vista Topografía) pero el servicio raster NO emite un
-        raster de clases de pendiente — emite `slope` continuo. El brief §4.3
-        dice que se reclasifica en el cliente desde el continuo, y eso hoy no
-        se puede: el PNG ya viene con la rampa aplicada y leer el GeoTIFF en el
+        raster de clases de pendiente, sólo `slope` continuo. El brief §4.3
+        pide reclasificar en el cliente desde el continuo, y eso hoy no se
+        puede: el PNG ya viene con la rampa aplicada, y leer el GeoTIFF en el
         browser está prohibido por el memo (geoblaze/georaster, §caveats).
 
-        Se dice con todas las letras en la fila en vez de mostrar "sin datos en
-        el AOI", que sería mentir: el AOI SÍ tiene datos, lo que falta es que
-        el servicio produzca esta capa.
+        Se dice con todas las letras en la fila en vez de "sin datos en el
+        AOI", que sería mentir: el AOI SÍ tiene datos, falta que el servicio
+        produzca esta capa.
       */
       runtime[layer.id] =
         RASTER_LAYER_BY_ID[layer.id] === undefined

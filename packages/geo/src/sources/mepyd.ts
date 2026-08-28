@@ -265,7 +265,7 @@ export const MEPYD_LAYERS: readonly MepydGroupDef[] = [
   },
 ];
 
-/** Las 35 capas en orden plano, para iterar. */
+/** Las 39 capas en orden plano, para iterar. */
 export const MEPYD_LAYERS_FLAT: readonly MepydLayerDef[] = MEPYD_LAYERS.flatMap((g) => g.layers);
 
 /** `true` si el bbox del AOI intersecta `RD_BBOX`. Idéntico a `is_in_rd`. */

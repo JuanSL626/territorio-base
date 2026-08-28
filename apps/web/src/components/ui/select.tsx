@@ -4,7 +4,6 @@ import { cn } from '~/lib/cn';
 
 export type SelectProps = SelectHTMLAttributes<HTMLSelectElement>;
 
-/** `<select>` nativo: en tablet la barra de vistas colapsa a un desplegable (§9). */
 export function Select({ className, children, ...props }: SelectProps) {
   return (
     <select

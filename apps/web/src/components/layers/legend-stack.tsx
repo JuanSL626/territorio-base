@@ -9,7 +9,6 @@ import { getLayer } from '~/layers/registry';
 import { cn } from '~/lib/cn';
 
 export type LegendStackProps = {
-  /** Ids visibles, en el orden en que el usuario los ve en el panel. */
   visibleLayers: readonly string[];
   /**
    * Ids que el mapa está pintando de verdad. Una capa prendida cuyo dato no
@@ -27,15 +26,12 @@ export type LegendStackProps = {
 /**
  * Leyendas apiladas sobre el mapa (§5 de la tarea, §2 del brief).
  *
- * El legacy las apilaba **calculando un offset por leyenda**, y bastaba una
- * capa con una clase de más para que dos se superpusieran. Acá el apilado es
- * una columna flex con `gap` y `overflow-y`: no hay ninguna posición
- * calculada, así que no hay nada que se pueda desincronizar. La altura está
- * topeada contra el viewport y el bloque scrollea adentro — nunca crece por
- * encima del mapa ni tapa la toolbar.
- *
- * Sólo entran capas VISIBLES, y sólo con las clases que el AOI tiene de verdad
- * adentro (WorldCover es disperso — ver `legend-model.ts`).
+ * El legacy las apilaba calculando un offset por leyenda, y bastaba una capa
+ * con una clase de más para que dos se superpusieran. Acá el apilado es una
+ * columna flex con `gap` y `overflow-y`: no hay ninguna posición calculada,
+ * nada que se pueda desincronizar. La altura está topeada contra el
+ * viewport y el bloque scrollea adentro — nunca crece por encima del mapa
+ * ni tapa la toolbar.
  */
 export function LegendStack({
   visibleLayers,
@@ -46,12 +42,6 @@ export function LegendStack({
 }: LegendStackProps) {
   const [open, setOpen] = useState(!compact);
 
-  /*
-    `renderedLayers` es la lista de capas que el mapa está pintando de verdad.
-    Cuando llega, MANDA: una capa prendida cuyo dato todavía no existe (o no
-    existió nunca) no aporta leyenda. Dibujarla igual era la regresión #4 — un
-    color en la leyenda sin un solo píxel de ese color en el mapa.
-  */
   const painted = renderedLayers === undefined ? null : new Set(renderedLayers);
 
   const blocks = visibleLayers

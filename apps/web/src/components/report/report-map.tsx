@@ -22,7 +22,6 @@ import { cn } from '~/lib/cn';
 export type ReportMapPanelProps = {
   state: ReportMapState;
   geometries: StaticMapGeometries | null;
-  /** `true` mientras se descargan las geometrías para el mapa. */
   loading: boolean;
   sticky: boolean;
   className?: string;
@@ -63,7 +62,6 @@ export function ReportMapPanel({
       <div
         className={cn(
           'relative min-h-0 flex-1',
-          // Sin `fly` no hay transición: el paso cambia de golpe.
           state.fly ? 'transition-opacity duration-300' : null,
         )}
       >

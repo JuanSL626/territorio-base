@@ -11,7 +11,6 @@ export type DatasetCitation = {
   id: string;
   /** Cómo se llama la capa en la UI. */
   layer: string;
-  /** Nombre oficial del dataset. */
   officialName: string;
   provider: string;
   endpoint: string;

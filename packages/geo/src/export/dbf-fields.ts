@@ -29,7 +29,6 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-/** Tipos DBF que este escritor emite. */
 export type DbfFieldType = 'C' | 'N' | 'L' | 'D';
 
 export type DbfField = {
@@ -38,7 +37,6 @@ export type DbfField = {
   /** Nombre efectivo en el `.dbf`: ASCII, ≤ 10 bytes, único dentro del archivo. */
   name: string;
   type: DbfFieldType;
-  /** Ancho en bytes del valor. */
   length: number;
   decimals: number;
 };

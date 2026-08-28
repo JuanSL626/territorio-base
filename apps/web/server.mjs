@@ -1,20 +1,14 @@
 /*
-  Servidor SSR de producción.
-
-  `vite build` de TanStack Start (v1.168, sin Nitro) NO emite un servidor que
-  escuche: emite `dist/server/server.js`, un módulo cuyo export default es
-  `{ fetch(request): Promise<Response> }` — un handler Web Fetch — y
-  `dist/client/`, los assets estáticos. Quien despliega pone el host.
-
-  Esto es ese host, escrito contra Node 24 y CERO dependencias: `Request`,
-  `Response`, `Headers` y los streams web son globales desde Node 18, y
-  `Readable.toWeb/fromWeb` cierra el puente con `node:http`. Sumar `srvx` o
-  `@hono/node-server` traería un paquete más al lockfile para ~120 líneas que
-  no cambian nunca.
+  `vite build` de TanStack Start (v1.168, sin Nitro) no emite un servidor que
+  escuche: emite `dist/server/server.js` (export default `{ fetch(request):
+  Promise<Response> }`, un handler Web Fetch) y `dist/client/` con los
+  assets. Quien despliega pone el host — esto es ese host, contra Node 24 y
+  cero dependencias (`Request`/`Response`/`Headers`/streams web son globales
+  desde Node 18; `Readable.toWeb/fromWeb` cierra el puente con `node:http`).
 
   Se usa igual en Docker (`CMD ["node", "server.mjs"]`) y en local
   (`pnpm --filter @territorio/web start`), así que lo que corre en producción
-  es exactamente lo que se puede probar en la laptop.
+  es lo mismo que se prueba en la laptop.
 
   Variables: PORT (3000), HOST (0.0.0.0).
 */
@@ -27,17 +21,8 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
-/*
-  El directorio de salida es parametrizable con `TB_DIST_DIR`, la MISMA
-  variable que lee `apps/web/vite.config.ts`. Los dos halves del plan de
-  validación corren en paralelo y con un `dist/` fijo el build de uno pisa el
-  del otro a mitad de sesión:
-
-      TB_DIST_DIR=dist-a pnpm --filter @territorio/web build
-      TB_DIST_DIR=dist-a PORT=3000 pnpm --filter @territorio/web start
-
-  Sin la variable, `dist/` como siempre.
-*/
+// Misma variable `TB_DIST_DIR` que lee `apps/web/vite.config.ts`, para que
+// build y start apunten siempre al mismo directorio. Default: `dist/`.
 const DIST_DIR = resolve(here, process.env.TB_DIST_DIR ?? 'dist');
 const CLIENT_DIR = join(DIST_DIR, 'client');
 const SERVER_ENTRY = join(DIST_DIR, 'server', 'server.js');
@@ -51,15 +36,11 @@ if (!existsSync(SERVER_ENTRY)) {
   );
 }
 
-/** El handler Web Fetch que emitió el build. */
 const { default: handler } = await import(SERVER_ENTRY);
 
-/*
-  Content-Type por extensión. Sólo las extensiones que Vite puede emitir en
-  `dist/client` — nada de una tabla MIME completa, que sería código muerto.
-  Cualquier otra cosa sale como octet-stream, que el browser descarga en vez de
-  ejecutar: el default seguro.
-*/
+// Sólo las extensiones que Vite puede emitir en `dist/client`, no una tabla
+// MIME completa. Cualquier otra cosa sale como octet-stream (default seguro:
+// el browser la descarga en vez de ejecutarla).
 const MIME = new Map(
   Object.entries({
     '.js': 'text/javascript; charset=utf-8',
@@ -85,13 +66,11 @@ const MIME = new Map(
   }),
 );
 
-/**
- * Ruta en disco de un asset estático, o `null`.
- *
- * `normalize` colapsa `..` ANTES del join, así que `/assets/../../.env` no
- * puede salirse de `dist/client`. La comprobación de prefijo es el segundo
- * cinturón.
- */
+/*
+  `normalize` colapsa `..` antes del join, así que `/assets/../../.env` no
+  puede salirse de `dist/client`. La comprobación de prefijo es el segundo
+  cinturón.
+*/
 function staticPathFor(pathname) {
   let decoded;
   try {
@@ -112,17 +91,13 @@ function staticPathFor(pathname) {
 }
 
 /*
-  Casi todo lo que hay en dist/client lleva hash de contenido en el nombre
-  (`index-BE7mPk5K.js`), o sea que es inmutable por construcción: un cambio de
-  contenido es un nombre nuevo, y `immutable` le ahorra al browser hasta la
-  revalidación condicional.
-
-  «Casi». Los dos archivos del worker de MapLibre se emiten con su nombre
-  EXACTO y sin hash, porque el nombre es parte del contrato: MapLibre arma la
-  URL en runtime como `new URL('./maplibre-gl-worker.mjs', import.meta.url)`
-  (ver `vite.config.ts`). Servirlos con `immutable` sería cachear para siempre,
-  bajo un nombre estable, algo que un `pnpm up maplibre-gl` cambia. De ahí la
-  distinción: hash en el nombre ⇒ inmutable; sin hash ⇒ revalidación obligada.
+  Casi todo en dist/client lleva hash de contenido en el nombre
+  (`index-BE7mPk5K.js`): inmutable por construcción. Excepción: los dos
+  archivos del worker de MapLibre se emiten sin hash porque el nombre es
+  parte del contrato con la URL que MapLibre arma en runtime (ver
+  `vite.config.ts`) — cachearlos como `immutable` bajo un nombre estable
+  rompería con cada `pnpm up maplibre-gl`. De ahí la distinción: hash ⇒
+  inmutable, sin hash ⇒ revalidación obligada.
 */
 const HASHED_NAME = /-[A-Za-z0-9_-]{8}\.[a-z0-9]+$/;
 
@@ -143,15 +118,13 @@ async function serveStatic(res, filePath) {
   await pipeline(createReadStream(filePath), res);
 }
 
-/**
- * `IncomingMessage` → `Request`.
- *
- * El origen sale de `X-Forwarded-Proto`/`X-Forwarded-Host` cuando hay un proxy
- * delante (Caddy, nginx, Traefik). Better Auth compara ese origen contra
- * `BETTER_AUTH_URL` para el chequeo de CSRF y para el flag `Secure` de la
- * cookie: si acá se hardcodeara `http://`, detrás de TLS terminado el login
- * fallaría con un error de origen y no de configuración.
- */
+/*
+  El origen sale de `X-Forwarded-Proto`/`X-Forwarded-Host` cuando hay un
+  proxy delante (Caddy, nginx, Traefik). Better Auth compara ese origen
+  contra `BETTER_AUTH_URL` para CSRF y para el flag `Secure` de la cookie: si
+  acá se hardcodeara `http://`, detrás de TLS terminado el login fallaría con
+  un error de origen, no de configuración.
+*/
 function toWebRequest(req) {
   const proto = firstHeader(req.headers['x-forwarded-proto']) ?? 'http';
   const host = firstHeader(req.headers['x-forwarded-host']) ?? req.headers.host ?? `localhost:${PORT}`;

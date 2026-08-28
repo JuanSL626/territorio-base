@@ -14,7 +14,6 @@ export type ExportJobChip = {
   jobId: string;
   done: number;
   total: number;
-  /** Presente sólo cuando el bundle terminó. */
   sizeBytes?: number;
 };
 
@@ -38,9 +37,7 @@ export type TopbarProps = {
    * "sin AOI" para siempre.
    */
   hasAoi: boolean;
-  /** Superficie del AOI. `null` mientras el análisis no la devolvió. */
   areaHa: number | null;
-  /** El análisis terminó: recién ahí hay reporte que ver y datos que exportar. */
   analysisReady: boolean;
   onAoiAction: (action: AoiAction) => void;
   onReport: () => void;

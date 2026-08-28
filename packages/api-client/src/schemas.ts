@@ -44,10 +44,6 @@ import type {
   SchemaVegetationSummary,
 } from './generated/schema.ts';
 
-/* -------------------------------------------------------------------------- */
-/* Uniones cerradas del contrato                                               */
-/* -------------------------------------------------------------------------- */
-
 /**
  * Estados de un job. `partial` es un desenlace real y esperado: alguna fuente
  * falló pero hay resultado utilizable (regresión #3).
@@ -79,10 +75,6 @@ export const COASTAL_PRESETS = [
   '2080 · RCP8.5 (pesimista) — 1000 años (extremo)',
 ] as const;
 export type CoastalPreset = (typeof COASTAL_PRESETS)[number];
-
-/* -------------------------------------------------------------------------- */
-/* Esquemas de respuesta                                                       */
-/* -------------------------------------------------------------------------- */
 
 /** `campo?: T | null` de FastAPI: puede faltar o venir en `null`. */
 function nullish<T extends z.ZodType>(schema: T): z.ZodOptional<z.ZodNullable<T>> {
@@ -238,10 +230,6 @@ export const presetsResponseSchema = z.object({
   presets: z.array(z.string()),
 });
 
-/* -------------------------------------------------------------------------- */
-/* Tipos públicos (los mismos que los generados, con nombres cortos)           */
-/* -------------------------------------------------------------------------- */
-
 export type ErrorResponse = SchemaErrorResponse;
 export type HealthResponse = SchemaHealthResponse;
 export type AoiInfo = SchemaAoiInfo;
@@ -259,10 +247,6 @@ export type OverlayMetadata = SchemaOverlayMetadata;
 export type CoastalSummary = SchemaCoastalSummary;
 export type CoastalResponse = SchemaCoastalResponse;
 export type PresetsResponse = SchemaPresetsResponse;
-
-/* -------------------------------------------------------------------------- */
-/* Prueba de paridad zod ↔ tipos generados                                     */
-/* -------------------------------------------------------------------------- */
 
 /**
  * Igualdad de tipos estricta (no bidireccional-por-asignabilidad: eso dejaría

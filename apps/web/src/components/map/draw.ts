@@ -33,7 +33,6 @@ export type DrawState = {
   vertexCount: number;
   /** Área del polígono en curso, en hectáreas. `null` con menos de 3 vértices. */
   areaHa: number | null;
-  /** Posición del cursor en píxeles, para el rótulo flotante de área. */
   cursor: { x: number; y: number } | null;
   /** `true` cuando el próximo clic sobre el primer vértice cierra el polígono. */
   canClose: boolean;
@@ -54,7 +53,6 @@ const LAYER_FIRST = 'tb-draw-first';
 /** Igual que `--accent` del §10, pero literal: este módulo no lee CSS. */
 const DRAW_COLOR = '#1f6feb';
 
-/** Radio en px del anillo que cierra el polígono al hacerle clic. */
 const CLOSE_TOLERANCE_PX = 12;
 
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] };
@@ -151,16 +149,9 @@ export class AoiDrawController {
     return this.mode !== null;
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Estilo                                                                  */
-  /* ---------------------------------------------------------------------- */
-
   /**
-   * Crea (o recrea) la fuente y las capas del dibujo.
-   *
-   * Es idempotente porque `setStyle` — el cambio de mapa base — borra TODO el
-   * estilo, y el dibujo tiene que poder rearmarse sin perder los vértices que
-   * el usuario ya puso.
+   * Idempotente porque `setStyle` (cambio de mapa base) borra TODO el estilo,
+   * y el dibujo tiene que poder rearmarse sin perder los vértices ya puestos.
    */
   ensureStyle(): void {
     if (this.map.getSource(DRAW_SOURCE_ID) === undefined) {
@@ -246,10 +237,6 @@ export class AoiDrawController {
     this.pulseTimer = null;
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Render                                                                  */
-  /* ---------------------------------------------------------------------- */
-
   private currentRing(): Position[] {
     if (this.mode === 'rectangle') {
       const anchor = this.rectangleAnchor;
@@ -308,10 +295,6 @@ export class AoiDrawController {
       canClose: this.mode === 'polygon' && this.vertices.length >= 3,
     });
   }
-
-  /* ---------------------------------------------------------------------- */
-  /* Eventos                                                                 */
-  /* ---------------------------------------------------------------------- */
 
   private readonly onClick = (event: MapMouseEvent): void => {
     if (this.mode !== 'polygon') return;

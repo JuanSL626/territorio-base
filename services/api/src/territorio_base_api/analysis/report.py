@@ -72,7 +72,6 @@ def run_analysis(
     """Corre el pipeline raster completo. Nunca lanza por una fuente caída."""
     rasters: dict[str, xr.DataArray] = {}
 
-    # --- Topografía --------------------------------------------------------
     progress(STEP_DEM)
     topography: dict = {"available": False, "error": None, "summary": None}
     try:
@@ -87,7 +86,7 @@ def run_analysis(
         log.warning("Topografía no disponible: %s", exc, exc_info=True)
         topography["error"] = _reason(exc)
 
-    # --- Vegetación: NDVI y WorldCover son fuentes independientes ----------
+    # NDVI y WorldCover son fuentes independientes.
     progress(STEP_NDVI)
     ndvi_summary: dict | None = None
     ndvi_error: str | None = None

@@ -16,12 +16,12 @@ import { formatNumber } from '~/lib/format';
 export type LayerRuntime = {
   status: LayerStatus;
   /**
-   * Razón CORTA del chip: "sin AOI", "sin datos", "sin escenas S2". Corta en
-   * serio — la fila mide 48 px y la etiqueta de la capa tiene prioridad sobre
-   * el chip; un motivo largo deja el nombre de la capa en "Ame…".
+   * Razón CORTA del chip ("sin AOI", "sin datos"…): la fila mide 48px y la
+   * etiqueta de la capa tiene prioridad, un motivo largo deja el nombre en
+   * "Ame…". `detail` (sin límite de largo) es la explicación completa, como
+   * `title` del chip.
    */
   reason?: string;
-  /** La explicación completa, como `title` del chip. Sin límite de largo. */
   detail?: string;
   featureCount?: number;
 };
@@ -33,7 +33,6 @@ export type LayerRowProps = {
   runtime: LayerRuntime;
   pinned: boolean;
   canDownload: boolean;
-  /** Sliders con stepper numérico por debajo de 1024px (§9). */
   touch: boolean;
   onToggle: (next: boolean) => void;
   onOpacityChange: (value: number) => void;
@@ -43,19 +42,17 @@ export type LayerRowProps = {
 };
 
 /**
- * Fila de capa de 48px con el orden de controles FIJO del §4.3:
- *   muestra · checkbox+etiqueta · (espaciador) · ⓘ · ◐ · ✕
- * El slider de opacidad aparece como sub-fila de 32px debajo, no flotando.
+ * Fila de capa de 48px con el orden de controles FIJO (§4.3): muestra ·
+ * checkbox+etiqueta · (espaciador) · ⓘ · ◐ · ✕. El slider de opacidad es una
+ * sub-fila de 32px debajo, no flotando.
  *
- * NO hay handle de reordenar ni editor de cortes de clase, y es deliberado:
- *   · el ⠿ prometía arrastrar para cambiar el z-order y no había ningún drag
- *     implementado detrás — un asa que no agarra nada;
- *   · los cortes de clase editables guardaban un número y no reclasificaban
- *     nada: las capas clasificadas llegan como PNG YA rasterizado por el
- *     servicio (ver la nota de `slope-classes` en `layer-runtime.ts`), así que
- *     el cliente no tiene los valores por píxel con los que reclasificar.
- * Un control visible que no hace nada es peor que un control ausente: promete
- * una capacidad que el sistema no tiene.
+ * NO hay handle de reordenar ni editor de cortes de clase — deliberado: el
+ * ⠿ prometía arrastrar para cambiar el z-order sin ningún drag implementado
+ * detrás, y los cortes de clase editables guardaban un número sin
+ * reclasificar nada (las capas clasificadas llegan como PNG ya rasterizado
+ * por el servicio — ver `slope-classes` en `layer-runtime.ts` — así que el
+ * cliente no tiene valores por píxel). Un control que no hace nada es peor
+ * que uno ausente.
  */
 export function LayerRow({
   layer,

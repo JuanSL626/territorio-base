@@ -5,16 +5,13 @@
  * Puro y sin JSX: la pantalla y la vista de impresión recorren exactamente la
  * misma lista, así que no pueden divergir en orden ni en qué se omite.
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * COREOGRAFÍA DEL MAPA (§6.3) — POR QUÉ ES DECLARATIVA
- * ─────────────────────────────────────────────────────────────────────────────
- * Cada sección declara el estado COMPLETO que quiere del mapa
- * (`{ layers, opacity, bounds, highlight }`) y el mapa hace un diff contra el
- * estado actual. Nunca "prendé esta capa" / "apagá aquella": una secuencia de
- * órdenes imperativas se desincroniza en cuanto el usuario scrollea rápido o
- * hacia arriba, que es exactamente lo que el brief pide evitar. Con estado
- * declarativo, salir de una sección hacia arriba es simplemente volver a
- * aplicar el estado de la anterior.
+ * Coreografía del mapa (§6.3), por qué es declarativa: cada sección declara
+ * el estado COMPLETO que quiere del mapa (`{ layers, opacity, bounds,
+ * highlight }`) y el mapa hace un diff contra el estado actual. Nunca
+ * "prendé esta capa" / "apagá aquella": una secuencia de órdenes imperativas
+ * se desincroniza en cuanto el usuario scrollea rápido o hacia arriba, que
+ * es justo lo que el brief pide evitar. Con estado declarativo, salir de una
+ * sección hacia arriba es simplemente volver a aplicar el estado anterior.
  *
  * El tope de 4 capas de datos visibles del §3.1 se aplica acá, no en el mapa.
  */
@@ -25,10 +22,6 @@ import type { Bbox } from '~/lib/search-params';
 import { MEPYD_GROUP } from '~/layers/mepyd';
 import { getLayer, LAYER_REGISTRY } from '~/layers/registry';
 import { type BasemapId, MAX_VISIBLE_DATA_LAYERS  } from '~/layers/vistas';
-
-/* -------------------------------------------------------------------------- */
-/* Secciones                                                                   */
-/* -------------------------------------------------------------------------- */
 
 export type ReportSectionId =
   | 'portada'
@@ -60,17 +53,11 @@ export type ReportMapState = {
 
 export type ReportSection = {
   id: ReportSectionId;
-  /** Rótulo corto de la navegación lateral. */
   eyebrow: string;
   title: string;
   map: ReportMapState;
-  /** Capas cuya fuente se cita al pie de la sección (§6.5a). */
   citedLayerIds: string[];
 };
-
-/* -------------------------------------------------------------------------- */
-/* Encuadre                                                                    */
-/* -------------------------------------------------------------------------- */
 
 const EARTH_METERS_PER_DEGREE = 111_320;
 
@@ -90,7 +77,6 @@ export function expandBbox(bbox: Bbox, meters: number): Bbox {
   return [minLon - dLon, minLat - dLat, maxLon + dLon, maxLat + dLat];
 }
 
-/** Margen mínimo para que el borde del AOI no quede pegado al marco. */
 function framed(bbox: Bbox, extraMeters = 0): Bbox {
   const [minLon, minLat, maxLon, maxLat] = bbox;
   const spanMeters = Math.max(
@@ -100,10 +86,6 @@ function framed(bbox: Bbox, extraMeters = 0): Bbox {
   );
   return expandBbox(bbox, Math.max(spanMeters * 0.12, 60) + extraMeters);
 }
-
-/* -------------------------------------------------------------------------- */
-/* Estado de mapa por sección                                                  */
-/* -------------------------------------------------------------------------- */
 
 /** Tope duro del §3.1 aplicado al reporte: el AOI no consume cupo. */
 function capLayers(ids: readonly string[]): string[] {
@@ -149,10 +131,6 @@ function mapState(input: {
     caption: input.caption,
   };
 }
-
-/* -------------------------------------------------------------------------- */
-/* Construcción de la lista                                                    */
-/* -------------------------------------------------------------------------- */
 
 /** Capas MEPyD del grupo Amenazas, que son las que el reporte destaca. */
 const MEPYD_HAZARD_SUBGROUP = 'Amenazas';
@@ -326,13 +304,8 @@ export function buildSections(
   return sections;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Datasets — insumo de la tabla fija del §6.5                                 */
-/* -------------------------------------------------------------------------- */
-
 export type DatasetRow = {
   source: SourceRef;
-  /** Capas de este análisis que salen de esa fuente. */
   layers: string[];
 };
 
@@ -435,10 +408,6 @@ export function datasetUsage(analysis: TerritorioAnalysisSummary): DatasetUsage 
 
   return { used: [...used.values()], unavailable };
 }
-
-/* -------------------------------------------------------------------------- */
-/* Identidad del AOI                                                           */
-/* -------------------------------------------------------------------------- */
 
 const DPA_GROUP = 'División Político-Administrativa';
 const DPA_LAYER = 'Municipios (límites, provincia, región, población)';

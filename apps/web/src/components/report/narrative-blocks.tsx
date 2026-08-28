@@ -63,7 +63,6 @@ export function ConclusionBlock({ conclusion }: { conclusion: Conclusion }) {
   );
 }
 
-/** Las conclusiones de una sección, en el orden en que las devuelve el modelo. */
 export function Conclusions({ items }: { items: readonly Conclusion[] }) {
   if (items.length === 0) return null;
   return (
@@ -77,7 +76,6 @@ export function Conclusions({ items }: { items: readonly Conclusion[] }) {
 
 export type StatusBannerProps = {
   banner: BannerCopy;
-  /** Detalle bajo el titular: nombre + designación + solape, etc. */
   children?: ReactNode;
 };
 

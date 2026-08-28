@@ -7,9 +7,7 @@
  * eso se puede probar la matriz completa de fuentes arriba/abajo sin levantar
  * un solo servicio (`analysis-merge.test.ts`).
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * REGRESIÓN #3 — la regla que este archivo hace cumplir
- * ─────────────────────────────────────────────────────────────────────────────
+ * Regresión #3 — la regla que este archivo hace cumplir:
  * Cada fuente entra como `SourceOutcome` (`@territorio/geo`): o trajo datos, o
  * no respondió. Nunca "lista vacía" para las dos cosas. La función NO tiene
  * ningún camino en el que el fallo de una fuente afecte a otra: los cuatro
@@ -52,10 +50,6 @@ import type { AnalysisJob, AnalysisStatus } from '@territorio/api-client';
 
 import { slugify } from '~/layers/mepyd';
 
-/* -------------------------------------------------------------------------- */
-/* Entradas                                                                    */
-/* -------------------------------------------------------------------------- */
-
 /**
  * El lado raster. `available: false` cubre las dos formas de "el servicio no
  * está": no se pudo crear el job, o el job terminó en `error`. En los dos
@@ -82,10 +76,6 @@ export type MergeAnalysisInput = {
   vector: VectorOutcomes;
   coastal?: CoastalRun | null;
 };
-
-/* -------------------------------------------------------------------------- */
-/* Utilidades                                                                  */
-/* -------------------------------------------------------------------------- */
 
 function reasonText(error: unknown, fallback: string): string {
   if (error instanceof Error) {
@@ -151,10 +141,6 @@ function joinByKey<Raw, Summary, Out>(
   }
   return out;
 }
-
-/* -------------------------------------------------------------------------- */
-/* Bloques                                                                     */
-/* -------------------------------------------------------------------------- */
 
 const EMPTY_RASTER = {
   topography: { available: false, error: null, summary: null },
@@ -415,10 +401,6 @@ function buildMepyd(
   };
 }
 
-/* -------------------------------------------------------------------------- */
-/* Estado global                                                               */
-/* -------------------------------------------------------------------------- */
-
 /**
  * `ok` sólo si todo lo consultado respondió; `error` sólo si nada respondió;
  * `partial` en el medio — que es el caso interesante y el que el legacy no
@@ -439,10 +421,6 @@ export function resolveAnalysisStatus(
   if (failed.length > 0) return 'partial';
   return rasterDegraded ? 'partial' : 'ok';
 }
-
-/* -------------------------------------------------------------------------- */
-/* La fusión                                                                   */
-/* -------------------------------------------------------------------------- */
 
 export function mergeAnalysis(input: MergeAnalysisInput): TerritorioAnalysis {
   const raster = buildRaster(input.raster);

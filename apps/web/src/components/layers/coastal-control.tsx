@@ -17,44 +17,32 @@ import { Slider } from '~/components/ui/slider';
 import { analysisKeys, useCoastalPresets, useRequestCoastal } from '~/lib/analysis-queries';
 
 /*
-  ─────────────────────────────────────────────────────────────────────────────
-  INUNDACIÓN COSTERA (WRI Aqueduct) — UC-24/UC-25, legacy TC-26..TC-31
-  ─────────────────────────────────────────────────────────────────────────────
-  Es la única capa del registro que NO sale del análisis inicial: se calcula
-  bajo demanda por escenario, porque cada preset es una lectura distinta de un
-  GeoTIFF global. Sin este control la capa `aqueduct` era inalcanzable —
-  aparecía en el panel con el chip "elegí escenario" y no había ningún lugar
-  donde elegirlo.
+  Inundación costera (WRI Aqueduct) — UC-24/UC-25, legacy TC-26..TC-31. Es la
+  única capa del registro que NO sale del análisis inicial: se calcula bajo
+  demanda por escenario, porque cada preset es una lectura distinta de un
+  GeoTIFF global. Sin este control la capa `aqueduct` era inalcanzable:
+  aparecía con el chip "elegí escenario" sin ningún lugar donde elegirlo.
 
-  Tres decisiones:
-
-  1. **Los 5 presets son strings exactos del contrato** (`COASTAL_PRESETS`), no
-     etiquetas que este componente inventa. Se piden al motor
-     (`useCoastalPresets`) y el contrato local es el respaldo si está caído.
-
-  2. **La caché es por preset** (`analysisKeys.coastal(id, preset)`, con
-     `staleTime: Infinity`). Volver a un escenario ya visitado no dispara
-     spinner ni round trip — TC-31, que era una queja explícita del legacy.
-
-  3. **Los tres mensajes de resultado son los del reporte**
-     (`coastalConclusions`), no una segunda redacción. "No hay cobertura",
-     "sin inundación proyectada" y el porcentaje con profundidad máxima tienen
-     que decir LO MISMO en el panel y en el reporte, o una de las dos miente.
+  Tres decisiones: (1) los 5 presets son strings exactos del contrato
+  (`COASTAL_PRESETS`), no etiquetas inventadas acá — se piden al motor
+  (`useCoastalPresets`) y el contrato local es el respaldo si está caído.
+  (2) La caché es por preset (`analysisKeys.coastal(id, preset)`,
+  `staleTime: Infinity`): volver a un escenario ya visitado no dispara
+  spinner ni round trip (TC-31, queja explícita del legacy). (3) Los tres
+  mensajes de resultado son los del reporte (`coastalConclusions`), no una
+  segunda redacción — tienen que decir LO MISMO en el panel y en el reporte,
+  o una de las dos miente.
 */
 
 export type CoastalControlProps = {
-  /** La capa `aqueduct` del registro: de ahí salen etiqueta, leyenda y fuente. */
   layer: LayerDef;
   runtime: LayerRuntime;
-  /** Id del análisis. Sin él no hay a qué adjuntarle el escenario. */
   analysisId: string | undefined;
-  /** La capa `aqueduct` está prendida en el mapa. */
   visible: boolean;
   opacity: number;
   onToggleVisible: (next: boolean) => void;
   onOpacityChange: (value: number) => void;
   onDownload: () => void;
-  /** Sliders con stepper por debajo de 1024px (§9). */
   touch?: boolean;
 };
 
@@ -96,9 +84,8 @@ export function CoastalControl({
     `session_state` y nunca llegaba al reporte — inventario §9).
   */
   const scenario = useQuery<CoastalRun>({
-    // Misma forma que `analysisKeys.coastal(id, preset)`: la mutación escribe
-    // en esta ranura y la query la lee. Con `preset` sin elegir la query está
-    // deshabilitada, así que la clave nunca se usa.
+    // Misma forma que `analysisKeys.coastal(id, preset)`: la mutación escribe en
+    // esta ranura y la query la lee. Con `preset` sin elegir queda deshabilitada.
     queryKey: [...analysisKeys.coastals(), analysisId ?? '', preset ?? ''],
     queryFn: async (): Promise<CoastalRun> => {
       if (analysisId === undefined || preset === null) throw new Error('Falta el escenario.');
@@ -119,8 +106,6 @@ export function CoastalControl({
       data-testid="coastal-control"
       className="border-border-base/60 flex flex-col gap-2 border-b px-3 py-3 last:border-b-0"
     >
-      {/* Reemplaza a la fila genérica de la capa: mismo checkbox, mismo chip
-          de estado y misma ⓘ, más lo que sólo esta capa necesita. */}
       <div className="flex items-center gap-2">
         <span className="flex min-w-0 flex-1">
           <Checkbox

@@ -1,16 +1,14 @@
 /*
-  De dónde saca el BROWSER los PNG de overlay.
+  De dónde saca el BROWSER los PNG de overlay. El servicio raster devuelve
+  rutas relativas (`/analysis/{id}/overlay/dem.png`) servidas con CORS,
+  exponiendo `X-Bounds` a propósito; falta la base absoluta del lado cliente.
 
-  El servicio raster devuelve rutas relativas (`/analysis/{id}/overlay/dem.png`)
-  y las sirve con CORS, exponiendo `X-Bounds` a propósito. Lo único que falta
-  del lado del cliente es la base absoluta.
-
-  `lib/api.ts` es server-only (lee `process.env` y puede llevar `API_TOKEN`),
-  así que la base pública se publica como variable de Vite. Y hay un caso en
-  el que NO existe base pública: si el servicio exige `API_TOKEN`, una URL
-  desnuda daría 401 y hay que proxear por una ruta del servidor. En ese caso
-  esto devuelve `undefined` y las capas raster reportan su estado en la fila
-  del panel, en vez de dejar una imagen rota (§8, "Layer load error").
+  `lib/api.ts` es server-only (lee `process.env`, puede llevar `API_TOKEN`),
+  así que la base pública se publica como variable de Vite. Si el servicio
+  exige `API_TOKEN`, una URL desnuda daría 401 y hay que proxear por una ruta
+  del servidor — en ese caso NO hay base pública, esto devuelve `undefined` y
+  las capas raster reportan su estado en la fila del panel en vez de dejar
+  una imagen rota (§8, "Layer load error").
 */
 
 /** Puerto del `pnpm dev` de `services/api` y de su README. */

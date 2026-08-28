@@ -12,14 +12,14 @@
  * All policy — invite-gated sign-up, cookie attributes, rate limits, the
  * Drizzle adapter — lives in `@territorio/db`'s `buildAuthOptions`.
  *
- * ── Day-to-day auth does NOT go through here ─────────────────────────────────
+ * Day-to-day auth does NOT go through here.
  *
  * Sign-in, sign-up and sign-out are TanStack Start server functions in
  * `~/lib/session`, and session reading for route guards is `~/lib/auth-server`.
  * Use those. This export exists for the cases that need Better Auth's own HTTP
  * surface.
  *
- * ── Mounting the HTTP surface (optional, not required today) ─────────────────
+ * Mounting the HTTP surface (optional, not required today):
  *
  * Password-reset callbacks, email verification and the `better-auth/react`
  * client all speak HTTP to `basePath: '/api/auth'`. None are used yet. When one

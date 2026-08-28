@@ -3,20 +3,17 @@
   verdad adentro. Módulo PURO.
 
   Dos reglas del inventario §4 que sólo se pueden cumplir en tiempo de
-  ejecución, y por eso viven acá y no en el registro:
+  ejecución, y por eso viven acá y no en el registro: (1) sólo clases
+  presentes — la leyenda de WorldCover es DISPERSA (el motor omite clases
+  con 0 %, `worldcover_landcover_pct`), y lo mismo hidrología (sólo los
+  tipos `waterway`/`water_body`/`wetland` que el AOI trajo). (2) rampas con
+  extremos reales — `dem` usa mínimo/máximo del AOI y `slope` el percentil
+  98 (recorta outliers), números que calcula el servicio y llegan en el
+  sidecar del overlay (`vmin`/`vmax`), no en el registro.
 
-    · **Sólo clases presentes.** La leyenda de WorldCover es DISPERSA: el motor
-      omite las clases con 0 % (`worldcover_landcover_pct`), y la leyenda tiene
-      que omitirlas también. Lo mismo hidrología: se listan sólo los tipos
-      (`waterway` / `water_body` / `wetland`) que el AOI realmente trajo.
-    · **Rampas con los extremos reales.** `dem` usa el mínimo y el máximo del
-      AOI y `slope` el percentil 98 (recorta outliers). Esos números los
-      calcula el servicio y llegan en el sidecar del overlay (`vmin`/`vmax`),
-      no en el registro.
-
-  Cuando todavía no se sabe nada (`undefined`), se muestra la leyenda completa:
-  una leyenda de más es un detalle, una leyenda vacía sobre un mapa pintado es
-  un bug visible.
+  Cuando todavía no se sabe nada (`undefined`), se muestra la leyenda
+  completa: una leyenda de más es un detalle, una vacía sobre un mapa
+  pintado es un bug visible.
 */
 
 import type { LayerDef, LegendClass } from '~/layers/types';

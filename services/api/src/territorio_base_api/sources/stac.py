@@ -56,11 +56,8 @@ TREE_COVER_CLASS = 10
 SCL_VALID_CLASSES = (4, 5, 6, 7, 11)
 
 
-# ---------------------------------------------------------------------------
-# H1 — BOA_ADD_OFFSET de Sentinel-2 L2A
-# ---------------------------------------------------------------------------
-#
-# REGLA (documentada acá porque es la corrección más importante de todo el motor):
+# H1 — BOA_ADD_OFFSET de Sentinel-2 L2A. REGLA (documentada acá porque es la
+# corrección más importante de todo el motor):
 #
 #   Desde la *processing baseline* 04.00 (productos generados a partir del
 #   2022-01-25) los L2A de Copernicus se distribuyen con un desplazamiento
@@ -238,9 +235,7 @@ def clean_ndvi(ndvi):
     return np.where((arr >= -1.0) & (arr <= 1.0), arr, np.nan)
 
 
-# ---------------------------------------------------------------------------
-# H2 — selección de época de WorldCover
-# ---------------------------------------------------------------------------
+# H2 — selección de época de WorldCover.
 
 
 def worldcover_year(item: Any) -> int:
@@ -281,11 +276,6 @@ def select_worldcover_epoch(items: Sequence[Any]) -> tuple[list[Any], int]:
 
     newest = max(worldcover_year(it) for it in items)
     return [it for it in items if worldcover_year(it) == newest], newest
-
-
-# ---------------------------------------------------------------------------
-# Fetchers
-# ---------------------------------------------------------------------------
 
 
 def _client() -> pystac_client.Client:
@@ -356,7 +346,7 @@ def fetch_sentinel2_ndvi(
     red = ds["B04"].where(valid).astype("float32")
     nir = ds["B08"].where(valid).astype("float32")
 
-    # --- H1: offset aditivo BOA, por escena ---------------------------------
+    # H1: offset aditivo BOA, por escena.
     times = list(np.atleast_1d(ds["time"].values)) if "time" in ds.dims else []
     red_offsets = offset_dataarray(times, boa_offsets_by_day(items, "B04"))
     nir_offsets = offset_dataarray(times, boa_offsets_by_day(items, "B08"))
@@ -387,7 +377,7 @@ def fetch_worldcover(aoi: AOI, resolution_m: int = 10) -> xr.DataArray:
     if not items:
         raise RuntimeError("No se encontró cobertura de ESA WorldCover para esta zona.")
 
-    # --- H2: una sola época, no un max() sobre códigos de clase --------------
+    # H2: una sola época, no un max() sobre códigos de clase.
     items, epoch_year = select_worldcover_epoch(items)
 
     ds = odc.stac.load(

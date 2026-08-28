@@ -89,10 +89,8 @@ function MapWorkspace() {
   const [basemapOverride, setBasemapOverride] = useState<BasemapId | null>(null);
 
   /*
-    ────────────────────────────────────────────────────────────────────────
-    EL CICLO DE VIDA DEL ANÁLISIS
-    ────────────────────────────────────────────────────────────────────────
-    Un solo hook: lanza, sigue el progreso vivo, transiciona al resultado y
+    El ciclo de vida del análisis: un solo hook, lanza, sigue el progreso vivo,
+    transiciona al resultado y
     expone el error. La ruta ya no decide "¿terminó?" — antes lo hacía con
     `phase = hasAoi ? 'listo' : 'sin-aoi'`, que era falso desde el instante en
     que `startAnalysis` devuelve el id (~120 ms) hasta que el pipeline termina
@@ -333,10 +331,6 @@ function MapWorkspace() {
     })();
   }, [navigate, queryClient, router]);
 
-  /* ---------------------------------------------------------------------- */
-  /* Acciones del AOI (§2, popover del chip)                                 */
-  /* ---------------------------------------------------------------------- */
-
   const downloadAoi = () => {
     if (analysis === null) return;
     const geojson = {
@@ -365,10 +359,6 @@ function MapWorkspace() {
       search: (previous) => ({ ...previous, aoi: undefined, sel: undefined }),
     });
   };
-
-  /* ---------------------------------------------------------------------- */
-  /* Estado derivado del análisis                                            */
-  /* ---------------------------------------------------------------------- */
 
   const cards = useMemo(
     () => (analysis === null ? [] : buildAnalysisCards({ analysis, onRetry: flow.retry })),

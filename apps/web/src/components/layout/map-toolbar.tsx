@@ -10,16 +10,12 @@ export type MapToolbarProps = {
 };
 
 /**
- * Toolbar vertical arriba a la derecha (§2), independiente del sidebar: el AOI
- * es un objeto de primera clase, no un input de una capa. Los dos primeros
- * botones llevan etiqueta visible de 11px — esta audiencia no recibe controles
- * primarios sólo-icono (§13).
+ * Toolbar vertical (§2), independiente del sidebar: el AOI es de primera
+ * clase, no un input de una capa.
  *
- * `Medir` y `Comparar capas` NO están: existían, se marcaban `aria-pressed` y
- * no hacían absolutamente nada — ni medición, ni cortina de comparación, ni
- * consumidor en `map-canvas`. Un botón que se ilumina y no ejecuta nada le
- * enseña a la gente a desconfiar del resto de la barra, así que se quitan
- * hasta que haya implementación detrás.
+ * `Medir` y `Comparar capas` NO están: existían, se marcaban `aria-pressed`
+ * y no hacían nada — ni medición, ni cortina de comparación, ni consumidor
+ * en `map-canvas`. Se quitaron hasta que haya implementación real detrás.
  */
 export function MapToolbar({ activeTool, hasAoi, onTool }: MapToolbarProps) {
   return (

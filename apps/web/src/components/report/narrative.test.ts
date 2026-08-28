@@ -30,10 +30,6 @@ import {
   type TerritorioAnalysisSummary,
 } from '~/lib/analysis-contract';
 
-/* -------------------------------------------------------------------------- */
-/* Fixtures                                                                    */
-/* -------------------------------------------------------------------------- */
-
 function hydrology(overrides: Partial<HydrologySummary> = {}): HydrologySummary {
   return {
     available: true,
@@ -116,10 +112,6 @@ function analysis(overrides: Partial<TerritorioAnalysisSummary> = {}): Territori
     ...overrides,
   };
 }
-
-/* -------------------------------------------------------------------------- */
-/* Ramas                                                                       */
-/* -------------------------------------------------------------------------- */
 
 describe('branchOf', () => {
   it('«no se pudo consultar» gana sobre cualquier otra rama', () => {
@@ -224,10 +216,6 @@ describe('un servicio caído nunca se lee como una ausencia', () => {
     expect(lines.find((line) => line.id === 'hidrologia')?.value).toBe('Sin elementos en 500 m');
   });
 });
-
-/* -------------------------------------------------------------------------- */
-/* Conclusiones derivadas de los números                                       */
-/* -------------------------------------------------------------------------- */
 
 describe('conclusiones de topografía', () => {
   it('terreno mayormente llano: lo dice, con el porcentaje real', () => {

@@ -2,11 +2,8 @@
  * TanStack Query para todo el flujo del análisis: lanzar, seguir el progreso,
  * leer el resultado y pedir la inundación costera.
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * CLAVES
- * ─────────────────────────────────────────────────────────────────────────────
- * Todas cuelgan de `['analisis', …]` y van de lo general a lo específico, así
- * que invalidar es obvio y no hace falta acordarse de nada:
+ * Claves: todas cuelgan de `['analisis', …]` y van de lo general a lo
+ * específico, así que invalidar es obvio:
  *
  *   analysisKeys.all                  → todo
  *   analysisKeys.lists()              → la lista "mis análisis"
@@ -15,17 +12,12 @@
  *   analysisKeys.progress(id)         → el progreso vivo de uno
  *   analysisKeys.coastal(id, preset)  → un escenario costero de uno
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * SSR
- * ─────────────────────────────────────────────────────────────────────────────
- * Las *queryOptions* se exportan sueltas para que un `loader` de ruta haga
- * `queryClient.ensureQueryData(analysisQueryOptions(id))`: el resultado se
- * resuelve en el servidor, viaja dentro del payload deshidratado del router
+ * SSR: las *queryOptions* se exportan sueltas para que un `loader` de ruta
+ * haga `queryClient.ensureQueryData(analysisQueryOptions(id))` — el resultado
+ * se resuelve en el servidor, viaja en el payload deshidratado del router
  * (ver `~/router.tsx`) y el componente lo encuentra caliente en la primera
- * pintada — sin spinner y sin un segundo round trip.
- *
- * El progreso es la excepción: `staleTime: 0` y polling. No tiene sentido
- * hidratarlo, porque para cuando el HTML llega ya cambió.
+ * pintada. El progreso es la excepción (`staleTime: 0` y polling): no tiene
+ * sentido hidratarlo, porque para cuando el HTML llega ya cambió.
  */
 import {
   queryOptions,
@@ -58,10 +50,6 @@ import type { TerritorioAnalysis, TerritorioAnalysisSummary } from './analysis-c
 import type { LiveRunSnapshot } from './analysis-runtime';
 import type { CoastalPreset } from '@territorio/api-client';
 
-/* -------------------------------------------------------------------------- */
-/* Claves                                                                      */
-/* -------------------------------------------------------------------------- */
-
 export const analysisKeys = {
   all: ['analisis'] as const,
   lists: () => [...analysisKeys.all, 'lista'] as const,
@@ -75,10 +63,6 @@ export const analysisKeys = {
     [...analysisKeys.coastals(), analysisId, preset] as const,
   coastalPresets: () => [...analysisKeys.all, 'costera-presets'] as const,
 };
-
-/* -------------------------------------------------------------------------- */
-/* Tiempos                                                                     */
-/* -------------------------------------------------------------------------- */
 
 /*
   Un análisis terminado es INMUTABLE (salvo que se le adjunte la capa costera,
@@ -116,10 +100,6 @@ function pollWhileNotReady(result: { ok: true } | AnalysisRefusal | undefined): 
   if (result === undefined) return false;
   return !result.ok && result.reason === 'no-listo' ? RESULT_POLL_MS : false;
 }
-
-/* -------------------------------------------------------------------------- */
-/* Options                                                                     */
-/* -------------------------------------------------------------------------- */
 
 export function analysisQueryOptions(analysisId: string) {
   return queryOptions({
@@ -188,10 +168,6 @@ export function analysisProgressQueryOptions(analysisId: string, enabled: boolea
   });
 }
 
-/* -------------------------------------------------------------------------- */
-/* Hooks de lectura                                                            */
-/* -------------------------------------------------------------------------- */
-
 export function useAnalysis(analysisId: string): UseQueryResult<ReadAnalysisResult> {
   return useQuery(analysisQueryOptions(analysisId));
 }
@@ -236,10 +212,6 @@ export function useAnalysisProgress(
 
   return query;
 }
-
-/* -------------------------------------------------------------------------- */
-/* El flujo completo: lanzar → seguir → resultado                              */
-/* -------------------------------------------------------------------------- */
 
 /** Las cuatro pantallas que puede mostrar la pestaña ANÁLISIS (§8). */
 export type AnalysisPhase = 'sin-aoi' | 'analizando' | 'listo' | 'error';
@@ -365,10 +337,6 @@ export function useAnalysisFlow(analysisId: string | undefined): AnalysisFlow {
   };
 }
 
-/* -------------------------------------------------------------------------- */
-/* Mutaciones                                                                  */
-/* -------------------------------------------------------------------------- */
-
 export type StartAnalysisVariables = {
   /** GeoJSON del AOI: `Geometry`, `Feature` o `FeatureCollection`. */
   aoi: unknown;
@@ -457,10 +425,6 @@ export function useRequestCoastal(): UseMutationResult<
     },
   });
 }
-
-/* -------------------------------------------------------------------------- */
-/* Ayudas de lectura                                                           */
-/* -------------------------------------------------------------------------- */
 
 /** El análisis, o `null` si todavía no está o no es de este usuario. */
 export function analysisFromResult(

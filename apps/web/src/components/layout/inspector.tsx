@@ -19,7 +19,6 @@ export type InspectorFeature = {
   title: string;
   subtitle?: string;
   fields: InspectorField[];
-  /** Total de elementos de esa capa dentro del AOI: abre la vista de tabla. */
   layerFeatureCount: number;
   source: SourceRef;
 };
@@ -50,9 +49,9 @@ const TABS = [
 ] as const;
 
 /**
- * Inspector acoplado de 380px (§5.3), no un popup flotante anclado al click:
- * sobrevive el pan y el zoom, tiene lugar para acciones, y resuelve el caso
- * "el AOI intersecta 47 ríos" con el link a la tabla.
+ * Inspector acoplado (§5.3), no un popup flotante anclado al click: sobrevive
+ * el pan y el zoom, y resuelve el caso "el AOI intersecta 47 ríos" con el
+ * link a la tabla en vez de listar todo inline.
  */
 export function Inspector({
   open,

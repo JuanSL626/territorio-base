@@ -1,16 +1,12 @@
 /*
-  Análisis terminado → tarjetas de la pestaña ANÁLISIS (§3.4).
+  Análisis terminado → tarjetas de la pestaña ANÁLISIS (§3.4). Regla: las
+  tarjetas salen del MISMO cálculo que el reporte. `executiveSummary` ya está
+  escrito y probado en `report/narrative.ts`; recalcular acá "pendiente
+  media" o "solape con el AOI" crearía una segunda verdad que se
+  desincroniza del reporte con el primer cambio de copy.
 
-  La regla que este archivo existe para respetar: **las tarjetas salen del
-  MISMO cálculo que el reporte**. `executiveSummary` (una línea por tema, con
-  "No se pudo consultar" cuando la fuente no respondió) ya está escrito y
-  probado en `report/narrative.ts`; recalcular acá "pendiente media" o "solape
-  con el AOI" habría creado una segunda verdad que se desincroniza del reporte
-  con el primer cambio de copy.
-
-  Lo único propio de este panel es el REPARTO por tema —cambiar de vista
-  reordena las tarjetas, nunca las esconde— y la conversión de una fuente caída
-  en una tarjeta `no-data` con su botón de reintento, en vez de en un guion mudo.
+  Lo propio de este panel es el REPARTO por tema y la conversión de una
+  fuente caída en una tarjeta `no-data` con botón de reintento.
 */
 
 import type { AnalysisCard } from './analysis-panel';
@@ -25,7 +21,6 @@ import {
 } from '~/lib/analysis-contract';
 import { formatNumber } from '~/lib/format';
 
-/** A qué vista pertenece cada línea del resumen ejecutivo. */
 const LINE_THEME: Record<string, ThemeId> = {
   elevacion: 'topografia',
   vegetacion: 'vegetacion',
@@ -35,7 +30,6 @@ const LINE_THEME: Record<string, ThemeId> = {
   costera: 'riesgo-rd',
 };
 
-/** Y qué fuente la alimenta: una fuente caída reemplaza su tarjeta por `no-data`. */
 const LINE_SOURCE: Record<string, AnalysisSourceId> = {
   elevacion: 'raster',
   vegetacion: 'raster',
@@ -100,14 +94,9 @@ function MepydTally({ analysis }: { analysis: TerritorioAnalysis }) {
 
 export type BuildCardsInput = {
   analysis: TerritorioAnalysis;
-  /** Vuelve a leer el análisis: es el «Reintentar» de una tarjeta `no-data`. */
   onRetry: () => void;
 };
 
-/**
- * Las tarjetas de la fase `listo`, en el orden natural de las vistas. El panel
- * las reordena poniendo la vista activa primero (§3.4).
- */
 export function buildAnalysisCards({ analysis, onRetry }: BuildCardsInput): AnalysisCard[] {
   const summary = toSummary(analysis);
   const down = new Map(downSources(analysis).map((source) => [source.id, source]));

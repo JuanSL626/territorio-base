@@ -11,53 +11,26 @@ const srcDir = fileURLToPath(new URL('./src', import.meta.url));
 const here = fileURLToPath(new URL('.', import.meta.url));
 
 /*
-  Directorio de salida, parametrizable.
-
-  Los dos halves del plan de validación (`docs/migration/05-validation-plan.md`
-  §0.2) corren en paralelo contra dos servidores. Con un `dist/` fijo el
-  segundo build pisa el primero a mitad de sesión. `TB_DIST_DIR` le da a cada
-  instancia el suyo:
-
-      TB_DIST_DIR=dist-a pnpm --filter @territorio/web build
-      TB_DIST_DIR=dist-a PORT=3000 pnpm --filter @territorio/web start
-
-  `server.mjs` lee la MISMA variable, así que build y start siempre coinciden.
-  Sin la variable, todo sigue en `dist/` como antes.
+  Directorio de salida parametrizable: el plan de validación
+  (docs/migration/05-validation-plan.md §0.2) corre dos builds en paralelo
+  contra dos servidores, y con `dist/` fijo el segundo pisa al primero.
+  `TB_DIST_DIR` le da a cada instancia el suyo; `server.mjs` lee la misma
+  variable para que build y start coincidan. Sin ella, todo va a `dist/`.
 */
 const DIST_DIR = process.env.TB_DIST_DIR ?? 'dist';
 
 /*
-  ───────────────────────────────────────────────────────────────────────────
-  El worker de MapLibre en el build de producción
-  ───────────────────────────────────────────────────────────────────────────
-  MapLibre 6 arma la URL de su worker así (dist/maplibre-gl.mjs, minificado):
+  MapLibre 6 arma la URL de su worker con un template literal condicional
+  (`new URL(`./${cond ? a : b}`, import.meta.url)`): ningún bundler la resuelve
+  estáticamente, así que Rolldown no emite `maplibre-gl-worker.mjs` ni
+  `maplibre-gl-shared.mjs` (que el worker importa). En runtime el chunk pide
+  `GET /assets/maplibre-gl-worker.mjs`, recibe 404 → HTML de "no encontrado" →
+  el worker muere al parsearlo, sin ninguna excepción visible: sólo quedan el
+  basemap y los rasters (se decodifican en el hilo principal); AOI, hidrología,
+  WDPA, las 39 capas MEPyD y el inspector de features quedan muertos.
 
-      let t = e.endsWith('-dev.mjs') ? 'maplibre-gl-worker-dev.mjs'
-                                     : 'maplibre-gl-worker.mjs';
-      return new URL(`./${t}`, import.meta.url).href;
-
-  Es un template literal con una condicional adentro: NINGÚN bundler puede
-  analizarlo estáticamente. Rolldown no ve una referencia a un módulo, ve una
-  concatenación de strings — así que no emite `maplibre-gl-worker.mjs` ni su
-  hermano `maplibre-gl-shared.mjs` (el worker lo importa con
-  `from "./maplibre-gl-shared.mjs"`).
-
-  En el bundle, `import.meta.url` del chunk de maplibre es
-  `…/assets/maplibre-gl-<hash>.js`, o sea que el runtime pide
-  `GET /assets/maplibre-gl-worker.mjs` → 404 → el server SSR contesta con el
-  HTML de "no encontrado" → el worker muere al parsearlo.
-
-  Y el modo de falla es mudo: no hay excepción en el hilo principal. Sin worker
-  no se tesela ninguna fuente GeoJSON, `map.isStyleLoaded()` se queda en false y
-  `queryRenderedFeatures` devuelve `[]`. Observable: sólo se dibujan el basemap
-  y los overlays raster (se decodifican en el hilo principal); el borde del AOI,
-  hidrología, WDPA, las 39 capas MEPyD y TODO el inspector de features quedan
-  muertos en producción.
-
-  Este plugin copia los dos archivos tal cual, con su nombre exacto, dentro de
-  `<outDir>/assets/`, que es justo la URL que el runtime va a pedir. Se copian
-  verbatim a propósito: el worker y el shared vienen pre-bundleados de MapLibre
-  y el par tiene que quedar consistente entre sí.
+  Este plugin copia ambos archivos, verbatim y con su nombre exacto (deben
+  quedar consistentes entre sí), a `<outDir>/assets/`.
 */
 const MAPLIBRE_WORKER_FILES = ['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs'] as const;
 
@@ -82,11 +55,10 @@ function maplibreWorkerAssets(): Plugin {
       }
     },
     /*
-      Red de seguridad, y a propósito ruidosa. Si un día `emitFile` deja de
-      correr —otro plugin que cortocircuita `generateBundle`, un cambio de API
-      de Rolldown, un `assetsDir` distinto— el 404 del worker vuelve a ser
-      mudo: la app compila, arranca, dibuja el basemap, y ninguna capa
-      vectorial renderiza. Preferimos un build que falla a un mapa vacío.
+      Red de seguridad, a propósito ruidosa: si `emitFile` alguna vez no
+      corre (otro plugin, cambio de API de Rolldown, `assetsDir` distinto) el
+      404 del worker vuelve a ser mudo. Preferimos un build que falla a un
+      mapa vacío.
     */
     writeBundle(options) {
       const outDir = options.dir ?? resolve(here, DIST_DIR, 'client');
@@ -112,37 +84,28 @@ export default defineConfig({
     outDir: DIST_DIR,
   },
   /*
-    `maplibre-gl` NO puede pasar por el pre-bundler de dependencias de Vite.
+    `maplibre-gl` no puede pasar por el pre-bundler de Vite: en `pnpm dev` el
+    optimizador lo reescribe a `node_modules/.vite/deps/` sin copiar los
+    archivos hermanos del worker, así que la URL que calcula MapLibre (ver
+    `maplibreWorkerAssets` arriba) apunta a un archivo inexistente y el
+    worker da 404 en silencio. Excluirlo lo deja servido desde `node_modules`
+    vía `/@fs`, donde los hermanos sí están.
 
-    En `pnpm dev` el optimizador reescribe el módulo a `node_modules/.vite/deps/`
-    pero no copia al lado los archivos hermanos del worker, así que la URL que
-    MapLibre calcula (ver `maplibreWorkerAssets` arriba) apunta a un archivo que
-    no existe y el worker da 404 — en silencio. Excluirlo lo deja servido desde
-    `node_modules` vía `/@fs`, donde los hermanos SÍ están.
-
-    OJO — corrección de un comentario anterior que decía exactamente lo
-    contrario: esto **no** es un problema sólo de desarrollo, y este `exclude`
-    **no** arregla producción. El build de producción NO emite el chunk del
-    worker: eso lo arregla `maplibreWorkerAssets()`. Son dos mitades del mismo
-    bug y hacen falta las dos.
+    Esto es sólo de desarrollo — no arregla producción, que depende de
+    `maplibreWorkerAssets()`. Son dos mitades del mismo bug.
   */
   optimizeDeps: {
     exclude: ['maplibre-gl'],
   },
   ssr: {
     /*
-      `better-sqlite3` tiene que quedar FUERA del bundle SSR.
-
-      Inlinearlo arrastra `bindings@1.5.0`, que es CommonJS y referencia
-      `__filename` — que en ESM no existe. `getSession` explotaba con
-      `ReferenceError: __filename is not defined`, `session.ts` atrapa todo y
-      devuelve `null`, y el resultado era una app que arranca, sirve HTML y en
-      la que **nadie puede iniciar sesión jamás**, sin un solo error en los logs.
-
-      Externalizado, Node lo resuelve desde `node_modules` igual que en `dev`,
-      con su `.node` en su lugar. Esta línea reemplaza al parche que vivía en
-      `server.mjs` (definir `globalThis.__filename` + copiar el binding), ya
-      borrado.
+      `better-sqlite3` debe quedar FUERA del bundle SSR: inlinearlo arrastra
+      `bindings@1.5.0` (CommonJS, referencia `__filename`, inexistente en
+      ESM). `getSession` explotaba con `ReferenceError: __filename is not
+      defined`, `session.ts` atrapaba el error y devolvía `null` — la app
+      arrancaba y servía HTML normal, pero NADIE podía iniciar sesión, sin un
+      solo error en los logs. Externalizado, Node lo resuelve desde
+      `node_modules` igual que en `dev`, con su `.node` en su lugar.
     */
     external: ['better-sqlite3'],
   },

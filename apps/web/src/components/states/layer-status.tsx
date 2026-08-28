@@ -4,9 +4,7 @@ import { Badge, type BadgeTone } from '~/components/ui/badge';
 
 export type LayerStatusChipProps = {
   status: LayerStatus;
-  /** Razón corta: "sin AOI", "sin escenas S2", "servicio caído". */
   reason?: string;
-  /** Explicación completa, como `title`: el chip no tiene lugar para ella. */
   detail?: string;
   onRetry?: () => void;
 };

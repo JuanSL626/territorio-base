@@ -1,17 +1,16 @@
 /*
   `TerritorioAnalysis` → GeoJSON por capa del registro. Módulo PURO.
 
-  Un `FeatureCollection` por id de capa, con:
-    · un id sintético ESTABLE por feature (`__tbid`), que es lo que viaja en el
-      search param `sel=<layerId>:<featureId>` del §5.1 y lo que filtran las
-      capas de resaltado. No se usa el índice del array desnudo: para OSM y
-      WDPA hay un identificador real y usarlo hace que un link compartido
-      sobreviva a un reanálisis que reordene la lista.
-    · las propiedades que el `PopupConfig` de esa capa nombra, sin renombrar
-      nada: el inspector aplica los alias, este módulo no inventa esquemas.
+  Un `FeatureCollection` por id de capa, con un id sintético ESTABLE por
+  feature (`__tbid`) — viaja en el search param `sel=<layerId>:<featureId>`
+  del §5.1 y es lo que filtran las capas de resaltado. No se usa el índice
+  del array: para OSM y WDPA hay un identificador real, y usarlo hace que un
+  link compartido sobreviva a un reanálisis que reordene la lista. Las
+  propiedades son las que el `PopupConfig` de esa capa nombra sin renombrar
+  nada — el inspector aplica los alias, este módulo no inventa esquemas.
 
-  MEPyD llega con `outFields="*"` (inventario §6): sus atributos se copian tal
-  cual, sin curar ni descartar columnas.
+  MEPyD llega con `outFields="*"` (inventario §6): sus atributos se copian
+  tal cual, sin curar ni descartar columnas.
 */
 
 import { FEATURE_ID_KEY } from './layer-style';

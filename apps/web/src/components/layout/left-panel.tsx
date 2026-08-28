@@ -12,7 +12,7 @@ export type LeftPanelProps = {
   onTabChange: (tab: LeftPanelTab) => void;
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
-  /** Se colapsó solo por abrir el inspector en 1280-1439: se restaura al cerrarlo. */
+  /** true cuando se colapsó solo al abrir el inspector (1280-1439); se restaura al cerrarlo. */
   autoCollapsed: boolean;
   capas: ReactNode;
   analisis: ReactNode;
@@ -24,11 +24,7 @@ const TABS = [
   { id: 'analisis', label: 'Análisis' },
 ] as const;
 
-/**
- * Panel izquierdo del §2: 360px fijos, dos pestañas en UN solo slot (el patrón
- * de GFW: el mapa sigue siendo el elemento más grande, no hay segundo sidebar).
- * Colapsa a un riel de iconos de 48px.
- */
+/** Panel izquierdo (§2): capas y análisis en un solo slot con pestañas, no un segundo sidebar aparte del mapa. */
 export function LeftPanel({
   tab,
   onTabChange,

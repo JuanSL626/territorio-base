@@ -20,10 +20,7 @@ import { formatBytes, formatElapsed } from '~/lib/format';
 /**
  * `/descargas/$jobId` — la pantalla del trabajo de exportación (§7.1).
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * POR QUÉ EL ID VIVE EN LA URL
- * ─────────────────────────────────────────────────────────────────────────────
- * Porque un trabajo que dura minutos tiene que sobrevivir a un F5, a cerrar la
+ * Por qué el id vive en la URL: porque un trabajo que dura minutos tiene que sobrevivir a un F5, a cerrar la
  * pestaña y a pegarle el link a un colega. Todo el estado que hace falta para
  * volver a encontrarlo es este id: la pantalla no guarda nada en memoria del
  * cliente y se reconstruye entera desde el servidor en cada carga.

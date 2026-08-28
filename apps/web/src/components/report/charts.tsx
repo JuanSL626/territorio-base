@@ -8,14 +8,12 @@ import { formatPercent } from '~/lib/format';
  * figura: barras horizontales de porcentajes con las etiquetas exactas del
  * motor y los colores exactos del registro.
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * ACCESIBILIDAD, COMO CAMPO DE AUTORÍA Y NO COMO PARCHE (§6.4)
- * ─────────────────────────────────────────────────────────────────────────────
- * La barra es decoración (`aria-hidden`): la etiqueta y el valor son texto real
- * en el DOM, así que el gráfico se lee entero sin verlo. Además, cada figura
- * lleva su `textEquivalent` — la misma frase que se anuncia en el `figcaption`,
- * que la tarjeta muestra como nota al pie de 12 px, y que se reusa tal cual en
- * el Markdown/PDF exportado. Una sola frase, tres destinos: por eso la escribe
+ * Accesibilidad, como campo de autoría y no como parche (§6.4): la barra es
+ * decoración (`aria-hidden`), la etiqueta y el valor son texto real en el
+ * DOM, así que el gráfico se lee entero sin verlo. Cada figura lleva su
+ * `textEquivalent` — la misma frase que se anuncia en el `figcaption`, que
+ * la tarjeta muestra como nota al pie de 12px, y que se reusa tal cual en el
+ * Markdown/PDF exportado. Una sola frase, tres destinos: por eso la escribe
  * `narrative.ts` y no el componente, y por eso la pinta la TARJETA y no el
  * gráfico — si la pintaran los dos, saldría duplicada bajo cada barra.
  *
@@ -29,7 +27,6 @@ export type DistributionRow = {
   color: string;
 };
 
-/** Empareja las etiquetas del motor con los colores del registro (§4). */
 export function rowsFromClasses(
   values: Record<string, number> | null | undefined,
   classes: readonly LegendClass[],
@@ -52,7 +49,6 @@ export function rowsFromClasses(
 
 export type DistributionChartProps = {
   rows: readonly DistributionRow[];
-  /** La frase equivalente. Se anuncia y se muestra como nota al pie. */
   textEquivalent: string;
   emptyText: string;
 };
@@ -99,7 +95,6 @@ export function DistributionChart({ rows, textEquivalent, emptyText }: Distribut
 
 export type StatRow = { label: string; value: string };
 
-/** Fila de estadísticas de una tarjeta (elevación mín/máx, NDVI, etc.). */
 export function StatList({ stats }: { stats: readonly StatRow[] }) {
   return (
     <dl className="grid grid-cols-2 gap-x-4 gap-y-1">

@@ -34,7 +34,6 @@ export type AnalysisPanelProps = {
   cards: readonly AnalysisCard[];
   progress: readonly AnalysisThemeProgress[];
   elapsedMs: number;
-  /** Mensaje del motor cuando `phase === 'error'`. */
   errorMessage?: string | null;
   /**
    * AOI rechazado por tamaño (§7.4): el motor NO lo lanzó y espera una
@@ -46,7 +45,6 @@ export type AnalysisPanelProps = {
   onDraw: () => void;
   onFiles: (files: FileList) => void;
   onCancel: () => void;
-  /** Vuelve a leer el análisis desde la fase `error`. */
   onRetry?: () => void;
   onProceedLargeAoi: () => void;
   onDowngradeResolution: () => void;

@@ -8,16 +8,12 @@ import { groupArtifacts, type ExportArtifactPlan, type ExportPlan } from '~/lib/
 import { formatBytes, formatNumber } from '~/lib/format';
 
 /*
-  La lista de artefactos del §7.2, agrupada como el panel de capas.
-
-  La decisión de diseño que importa está en `ArtifactRow`: una capa que el
-  análisis NO produjo se renderiza igual que una que sí, pero gris, sin checkbox
-  y CON EL MOTIVO abajo. No se filtra de la lista.
-
-  Filtrarla sería más limpio y sería mentir: el usuario que exporta después de
-  que Overpass se cayó tiene que ver «Hidrología (OSM) — el servicio no
-  respondió» en la misma lista donde ve todo lo demás, o se lleva un ZIP
-  incompleto creyendo que el territorio no tiene ríos.
+  Lista de artefactos (§7.2), agrupada como el panel de capas. Una capa que
+  el análisis NO produjo se renderiza igual que una que sí, pero gris, sin
+  checkbox y CON EL MOTIVO abajo — no se filtra de la lista. Filtrarla sería
+  mentir: quien exporta después de que Overpass se cayó tiene que ver
+  «Hidrología (OSM) — el servicio no respondió», o se lleva un ZIP incompleto
+  creyendo que el territorio no tiene ríos.
 */
 
 export type ArtifactPickerProps = {

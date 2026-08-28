@@ -30,34 +30,24 @@ import {
 import { formatBytes, formatHectares } from '~/lib/format';
 
 /*
-  ─────────────────────────────────────────────────────────────────────────────
-  EL MODAL DE EXPORTACIÓN — design brief §7.2
-  ─────────────────────────────────────────────────────────────────────────────
-  Dos pestañas de ~520 px:
+  Modal de exportación — design brief §7.2. Dos pestañas de ~520px: "Datos"
+  (los artefactos que ESTE análisis produjo, agrupados como el panel de
+  capas, con CRS, recorte y tamaño estimado) e "Impresión" (secciones del
+  reporte, vista de impresión que produce el PDF, y el Markdown suelto).
+  Debajo de ambas, siempre visible, el bloque de atribución y licencias.
 
-    Datos      EL entregable: la lista de artefactos que ESTE análisis produjo,
-               agrupada como el panel de capas, con CRS, recorte y tamaño
-               estimado.
-    Impresión  el reporte: qué secciones, la vista de impresión (que es la que
-               produce el PDF) y el Markdown suelto.
+  No hay pestaña "Rápido" (imagen del mapa): existió como UI y nunca como
+  función — la captura de un canvas WebGL sólo puede hacerla quien tiene la
+  instancia de MapLibre (creada con `preserveDrawingBuffer`), componiendo
+  encima leyenda, escala y recorte al AOI, y nada de eso estaba implementado.
+  Se sacó entera: un control visible que no funciona es peor que uno ausente.
+  Si vuelve, vuelve con `onCaptureMap` cableado desde `routes/_app/index.tsx`
+  y el canvas de verdad detrás.
 
-  Debajo de las dos, siempre visible, el bloque de atribución y licencias.
-
-  ── Por qué NO hay pestaña "Rápido" (imagen del mapa) ────────────────────────
-  Existió como UI y nunca como función. La captura de un canvas WebGL sólo
-  puede hacerla quien tiene la instancia de MapLibre —creada con
-  `preserveDrawingBuffer`— y componer encima leyenda, escala y recorte al AOI;
-  nada de eso estaba implementado, así que la pestaña se abría con cuatro
-  checkboxes vivos y un cartel que pedía «abrí el modal desde el mapa» a alguien
-  que YA lo había abierto desde el mapa. Se sacó entera: un control visible que
-  no puede funcionar es peor que uno ausente. Si vuelve, vuelve con
-  `onCaptureMap` cableado desde `routes/_app/index.tsx` y el canvas de verdad
-  detrás.
-
-  Sobre "Exportar" no hay descarga: hay un JOB. El botón crea el trabajo y
-  navega a `/descargas/$jobId`, que es donde vive el progreso y donde termina
-  el botón de descarga. Un ZIP de varias capas tarda minutos y ese tiempo tiene
-  que ser navegable, recargable y compartible (§7.1).
+  "Exportar" no dispara una descarga: crea un JOB y navega a
+  `/descargas/$jobId`, donde vive el progreso y el botón de descarga real —
+  un ZIP de varias capas tarda minutos y ese tiempo tiene que ser navegable,
+  recargable y compartible (§7.1).
 */
 
 type TabId = 'datos' | 'impresion';
@@ -75,23 +65,18 @@ export type DownloadModalProps = {
    * y el modal lo dice: la lista NO se inventa desde el registro de capas.
    */
   analysisId?: string;
-  /** Nombre legible del AOI. Da nombre al ZIP. */
   aoiName?: string;
   /*
-    Props del shell anterior.
+    Props del shell anterior. `availableLayerIds` y `onSubmit` se aceptan y
+    NO se usan: la lista de artefactos sale del análisis (§7.2, nunca una
+    lista estática), así que ids de capas visibles no pueden alimentarla.
 
-    `availableLayerIds` y `onSubmit` se aceptan y NO se usan: la lista de
-    artefactos sale del análisis (§7.2, "generada desde lo que el análisis
-    produjo, nunca una lista estática"), así que una lista de ids de capas
-    visibles no puede alimentarla.
-
-    `aoiSlug` sí sirve: la ruta del mapa le pasa `search.aoi`, que en esta app
-    ES el id del análisis — `routes/_app/index.tsx` hace
-    `useMapAnalysis(search.aoi)` y ése lo resuelve con `analysisQueryOptions`.
-    Se usa como respaldo de `analysisId` para que Exportar funcione desde el
-    mapa sin tocar una ruta de otro workstream. Si el id no fuera un análisis,
-    el plan vuelve `no-encontrado` y el modal lo dice: el peor caso es un
-    mensaje, no un ZIP equivocado.
+    `aoiSlug` sí sirve: la ruta del mapa pasa `search.aoi`, que en esta app ES
+    el id del análisis (`routes/_app/index.tsx` hace
+    `useMapAnalysis(search.aoi)`, resuelto con `analysisQueryOptions`). Se usa
+    como respaldo de `analysisId` para que Exportar funcione desde el mapa sin
+    tocar otra ruta. Si el id no fuera un análisis, el plan vuelve
+    `no-encontrado`: el peor caso es un mensaje, no un ZIP equivocado.
   */
   availableLayerIds?: readonly string[];
   aoiSlug?: string;

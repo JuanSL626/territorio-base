@@ -8,10 +8,8 @@ import { formatHectares } from '~/lib/format';
 /**
  * Vista de impresión (§6.6).
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * POR QUÉ ESTA RUTA EXISTE EN VEZ DE UN `window.print()` SOBRE EL REPORTE
- * ─────────────────────────────────────────────────────────────────────────────
- * Nunca se imprime la página GL viva. El propio producto de Esri sigue sacando
+ * Por qué esta ruta existe en vez de un `window.print()` sobre el reporte:
+ * nunca se imprime la página GL viva. El propio producto de Esri sigue sacando
  * recuadros grises vacíos pasados ~16 mapas vivos en una misma pasada de
  * impresión, y un reporte de ocho secciones con un mapa cada una cae justo en
  * esa zona. Acá cada mapa es una figura SVG estática — las mismas geometrías,

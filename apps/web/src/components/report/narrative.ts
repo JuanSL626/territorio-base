@@ -5,19 +5,16 @@
  * idénticas en la pantalla, en la vista de impresión y (cuando exista) en el
  * Markdown exportado, y tienen que poder probarse sin montar React.
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * DOS REGLAS QUE GOBIERNAN TODO LO QUE SE ESCRIBE ACÁ
- * ─────────────────────────────────────────────────────────────────────────────
- * 1. **`available: false` nunca se lee como "no hay".** Es la regresión #3 del
- *    inventario y el motivo por el que existe el contrato: "no se pudo
- *    consultar" y "consulté y no hay nada" son dos hechos distintos, con dos
- *    colores y dos textos distintos (UC-13..20, TC-07..14). Las cuatro ramas de
- *    hidrología y de áreas protegidas se derivan acá, una sola vez, con los
- *    strings EXACTOS del legacy.
- * 2. **El análisis es DESCRIPTIVO.** Describe y contextualiza lo que muestran
- *    los datos; no recomienda, no autoriza, no prohíbe y no afirma qué régimen
- *    legal aplica. Un solape con la WDPA se enuncia como un hecho a verificar
- *    contra la delimitación oficial, nunca como una prohibición.
+ * Dos reglas gobiernan todo lo que se escribe acá:
+ * 1. `available: false` nunca se lee como "no hay". Es la regresión #3 del
+ *    inventario: "no se pudo consultar" y "consulté y no hay nada" son dos
+ *    hechos distintos, con dos colores y dos textos distintos (UC-13..20,
+ *    TC-07..14). Las cuatro ramas de hidrología y de áreas protegidas se
+ *    derivan acá, una sola vez, con los strings EXACTOS del legacy.
+ * 2. El análisis es DESCRIPTIVO: describe y contextualiza lo que muestran
+ *    los datos; no recomienda, no autoriza, no prohíbe y no afirma qué
+ *    régimen legal aplica. Un solape con la WDPA se enuncia como un hecho a
+ *    verificar contra la delimitación oficial, nunca como una prohibición.
  *
  * El registro de la audiencia es el de alguien que sabe leer un plano pero no
  * necesariamente un SIG: nada de "NDVI p90" sin decir qué significa.
@@ -27,10 +24,6 @@ import type { HydrologySummary, ProtectedAreasSummary } from '@territorio/geo';
 
 import { type CoastalRun, type TerritorioAnalysisSummary, SOURCE_DOWN_MESSAGES  } from '~/lib/analysis-contract';
 import { formatHectares, formatNumber, formatPercent } from '~/lib/format';
-
-/* -------------------------------------------------------------------------- */
-/* Tipos                                                                       */
-/* -------------------------------------------------------------------------- */
 
 /** El tono decide el color del bloque; es el mismo vocabulario de los banners. */
 export type ConclusionTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
@@ -70,7 +63,6 @@ function nonEmpty(value: string | null | undefined): string | null {
   return trimmed === '' ? null : trimmed;
 }
 
-/** Mayor valor de un `{etiqueta: porcentaje}`. `null` si el dict está vacío. */
 export function dominantEntry(
   record: Record<string, number> | null | undefined,
 ): { label: string; pct: number } | null {
@@ -88,14 +80,11 @@ function sumOf(record: Record<string, number> | null | undefined, labels: string
   return labels.reduce((total, label) => total + (record[label] ?? 0), 0);
 }
 
-/* -------------------------------------------------------------------------- */
-/* Banners de 4 estados — STRINGS EXACTOS DEL LEGACY                           */
-/* -------------------------------------------------------------------------- */
-
 /*
-  Los cuatro textos de cada fuente son citas literales del inventario §8
-  (TC-07..TC-14). No se reescriben, no se "mejoran" y no se traducen otra vez:
-  son el criterio de aceptación de esos casos de prueba.
+  Banners de 4 estados — STRINGS EXACTOS DEL LEGACY. Los cuatro textos de cada
+  fuente son citas literales del inventario §8 (TC-07..TC-14). No se
+  reescriben, no se "mejoran" y no se traducen otra vez: son el criterio de
+  aceptación de esos casos de prueba.
 */
 
 export const HYDROLOGY_BANNER = {
@@ -169,10 +158,6 @@ export function protectedBanner(summary: ProtectedAreasSummary): BannerCopy {
       return { state, tone: 'success', headline: PROTECTED_BANNER['sin-elementos'] };
   }
 }
-
-/* -------------------------------------------------------------------------- */
-/* Topografía                                                                  */
-/* -------------------------------------------------------------------------- */
 
 export const SLOPE_LABELS = {
   plano: 'Plano (0-5%)',
@@ -251,10 +236,6 @@ export function topographyConclusions(topography: TopographyResult): Conclusion[
 
   return out;
 }
-
-/* -------------------------------------------------------------------------- */
-/* Vegetación                                                                  */
-/* -------------------------------------------------------------------------- */
 
 export const NDVI_LABELS = {
   sinVegetacion: 'Sin vegetación / suelo desnudo o agua',
@@ -361,10 +342,6 @@ export function vegetationConclusions(vegetation: VegetationResult): Conclusion[
   return out;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Hidrología                                                                  */
-/* -------------------------------------------------------------------------- */
-
 export function hydrologyConclusions(summary: HydrologySummary): Conclusion[] {
   const banner = hydrologyBanner(summary);
   const out: Conclusion[] = [];
@@ -431,10 +408,6 @@ export function hydrologyConclusions(summary: HydrologySummary): Conclusion[] {
 
   return out;
 }
-
-/* -------------------------------------------------------------------------- */
-/* Áreas protegidas                                                            */
-/* -------------------------------------------------------------------------- */
 
 export function protectedConclusions(
   summary: ProtectedAreasSummary,
@@ -508,10 +481,6 @@ export function protectedConclusions(
 
   return out;
 }
-
-/* -------------------------------------------------------------------------- */
-/* Contexto RD (MEPyD)                                                         */
-/* -------------------------------------------------------------------------- */
 
 export const MEPYD_HAZARD_GROUP = 'Amenazas';
 
@@ -602,10 +571,6 @@ export function mepydConclusions(
   return out;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Riesgo costero (Aqueduct)                                                   */
-/* -------------------------------------------------------------------------- */
-
 /*
   El reporte Markdown del legacy NO incluía la inundación costera aunque el
   usuario la hubiera explorado: vivía sólo en `session_state["coastal_cache"]`
@@ -691,10 +656,6 @@ export function coastalConclusions(coastal: CoastalRun): Conclusion[] {
     },
   ];
 }
-
-/* -------------------------------------------------------------------------- */
-/* Resumen ejecutivo — §6.2, una línea por tema                                */
-/* -------------------------------------------------------------------------- */
 
 export type ExecutiveLine = { id: string; label: string; value: string; note?: string };
 
@@ -803,10 +764,6 @@ export function executiveSummary(analysis: TerritorioAnalysisSummary): Executive
 
   return lines;
 }
-
-/* -------------------------------------------------------------------------- */
-/* Equivalentes de texto de los gráficos (§6.4)                                */
-/* -------------------------------------------------------------------------- */
 
 /**
  * La frase que reemplaza al gráfico para quien no lo ve.

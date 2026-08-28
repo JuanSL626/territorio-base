@@ -29,10 +29,6 @@ import {
   type ProgressEvent,
 } from './schemas.ts';
 
-/* -------------------------------------------------------------------------- */
-/* Eventos                                                                     */
-/* -------------------------------------------------------------------------- */
-
 export type AnalysisProgress = ProgressEvent & { type: 'progress' };
 
 export type AnalysisStreamEvent =
@@ -54,10 +50,6 @@ export type AnalysisStreamEvent =
 export function isTerminalStreamEvent(event: AnalysisStreamEvent): boolean {
   return event.type === 'done' || event.type === 'failed' || event.type === 'stream-error';
 }
-
-/* -------------------------------------------------------------------------- */
-/* Parser de frames SSE                                                        */
-/* -------------------------------------------------------------------------- */
 
 export type SseFrame = { event: string; data: string };
 
@@ -98,10 +90,6 @@ export function createSseParser(): (chunk: string) => SseFrame[] {
     return frames;
   };
 }
-
-/* -------------------------------------------------------------------------- */
-/* Decodificación de un frame a evento tipado                                  */
-/* -------------------------------------------------------------------------- */
 
 function parseJson(text: string): unknown {
   try {
@@ -152,10 +140,6 @@ export function decodeFrame(frame: SseFrame): AnalysisStreamEvent | null {
       return null;
   }
 }
-
-/* -------------------------------------------------------------------------- */
-/* El stream                                                                   */
-/* -------------------------------------------------------------------------- */
 
 export type SseFetch = (input: string, init: RequestInit) => Promise<Response>;
 

@@ -6,15 +6,10 @@ import { cn } from '~/lib/cn';
 
 export type CheckboxProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'size'> & {
   label: ReactNode;
-  /** Se pinta bajo la etiqueta; usado por el chip de razón de una capa apagada. */
   description?: ReactNode;
   labelClassName?: string;
 };
 
-/**
- * Checkbox nativo (accesible por teclado sin esfuerzo) con el cuadro real
- * ocultado visualmente y un cuadro pintado con `peer`.
- */
 export function Checkbox({
   label,
   description,

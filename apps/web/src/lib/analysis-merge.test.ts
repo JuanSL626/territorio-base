@@ -47,10 +47,6 @@ import {
 
 import type { AnalysisJob } from '@territorio/api-client';
 
-/* -------------------------------------------------------------------------- */
-/* Fixtures                                                                    */
-/* -------------------------------------------------------------------------- */
-
 /** Un rectángulo chico en Santo Domingo: dentro de RD, y ≤500 ha. */
 const AOI_GEOMETRY: AreaGeometry = {
   type: 'Polygon',
@@ -236,10 +232,6 @@ function merge(options: { raster?: RasterOutcome; vector?: VectorOutcomes; aoi?:
   });
 }
 
-/* -------------------------------------------------------------------------- */
-/* Fusión feliz                                                                */
-/* -------------------------------------------------------------------------- */
-
 describe('mergeAnalysis — el camino completo', () => {
   it('arma el contrato del §3 con las dos mitades', () => {
     const result = merge();
@@ -302,10 +294,6 @@ describe('mergeAnalysis — el camino completo', () => {
     expect(layer?.features[0]?.properties.MUN_NOM).toBe('Santo Domingo Este');
   });
 });
-
-/* -------------------------------------------------------------------------- */
-/* La matriz: 3 fuentes × arriba/abajo                                          */
-/* -------------------------------------------------------------------------- */
 
 type Flags = { hydrology: boolean; protectedAreas: boolean; mepyd: boolean };
 
@@ -399,10 +387,6 @@ describe('mergeAnalysis — matriz de aislamiento de fallos (regresión #3)', ()
   }
 });
 
-/* -------------------------------------------------------------------------- */
-/* "No respondió" ≠ "no hay nada"                                              */
-/* -------------------------------------------------------------------------- */
-
 describe('mergeAnalysis — `available: false` no es "consulté y no hay nada"', () => {
   it('cero resultados deja `available: true`, `state: empty` y sin mensaje de error', () => {
     const result = merge({
@@ -434,10 +418,6 @@ describe('mergeAnalysis — `available: false` no es "consulté y no hay nada"',
     expect(result.status).toBe('partial');
   });
 });
-
-/* -------------------------------------------------------------------------- */
-/* Raster                                                                      */
-/* -------------------------------------------------------------------------- */
 
 describe('mergeAnalysis — el lado raster', () => {
   it('raster caído no borra el bloque vectorial (regresión #3, al revés)', () => {
@@ -503,10 +483,6 @@ describe('mergeAnalysis — el lado raster', () => {
     expect(result.sources.every((source) => source.available)).toBe(false);
   });
 });
-
-/* -------------------------------------------------------------------------- */
-/* MEPyD: los tres estados que no son "arriba/abajo"                           */
-/* -------------------------------------------------------------------------- */
 
 describe('mergeAnalysis — MEPyD', () => {
   it('AOI fuera de RD: `skipped`, sin llamadas, y NO degrada el análisis (UC-11)', () => {
@@ -599,10 +575,6 @@ describe('mergeAnalysis — MEPyD', () => {
   });
 });
 
-/* -------------------------------------------------------------------------- */
-/* resolveAnalysisStatus                                                       */
-/* -------------------------------------------------------------------------- */
-
 describe('resolveAnalysisStatus', () => {
   const source = (id: AnalysisSourceId, state: 'ok' | 'empty' | 'error' | 'skipped') => ({
     id,
@@ -639,10 +611,6 @@ describe('resolveAnalysisStatus', () => {
   });
 });
 
-/* -------------------------------------------------------------------------- */
-/* Contrato persistido                                                         */
-/* -------------------------------------------------------------------------- */
-
 describe('contrato persistido', () => {
   it('ida y vuelta por JSON: lo que se guarda se puede volver a leer', () => {
     const original = merge();
@@ -671,10 +639,6 @@ describe('contrato persistido', () => {
     expect('aoi_geometry' in summary).toBe(false);
   });
 });
-
-/* -------------------------------------------------------------------------- */
-/* Guard de tamaño del AOI (§7.4)                                              */
-/* -------------------------------------------------------------------------- */
 
 describe('guard de tamaño del AOI', () => {
   it('clasifica los tres tramos del §7.4', () => {

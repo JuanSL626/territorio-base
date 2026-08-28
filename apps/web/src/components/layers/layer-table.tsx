@@ -4,17 +4,15 @@ import { Dialog } from '~/components/ui/dialog';
 import { formatNumber } from '~/lib/format';
 
 /*
-  La vista de tabla del §5.3.
-
-  El inspector responde "¿qué es ESTE elemento?"; el link `Capa: {x} — N
-  elementos` responde la otra pregunta que el brief nombra explícitamente —
-  "el AOI intersecta 47 ríos, ¿cuáles?" —, que un panel de un feature por vez
-  no puede contestar. Hasta ahora ese link era un `() => undefined`.
+  Vista de tabla (§5.3). El inspector responde "¿qué es ESTE elemento?"; el
+  link `Capa: {x} — N elementos` responde "el AOI intersecta 47 ríos,
+  ¿cuáles?", que un panel de un feature por vez no puede contestar. Hasta
+  ahora ese link era un `() => undefined`.
 
   Las columnas NO se inventan acá: son los alias que ya calculó
-  `buildInspectorFeature` para cada elemento, o sea exactamente los mismos
-  campos (y con el mismo formato) que muestra el inspector. Para MEPyD, que
-  llega con `outFields="*"`, eso incluye las columnas dinámicas del servicio.
+  `buildInspectorFeature`, los mismos campos y formato que muestra el
+  inspector. Para MEPyD, que llega con `outFields="*"`, eso incluye las
+  columnas dinámicas del servicio.
 */
 
 /** Tope de filas que se dibujan. Una capa MEPyD puede traer miles. */
@@ -56,7 +54,6 @@ export function LayerTableDialog({ table, onClose }: LayerTableDialogProps) {
         <p className="text-12 text-fg-muted">Sin atributos.</p>
       ) : (
         <>
-          {/* El contenedor scrollea; la página nunca lo hace en horizontal. */}
           <div className="border-border-base rounded-panel overflow-x-auto border">
             <table className="w-full border-collapse text-left">
               <thead>

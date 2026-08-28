@@ -17,28 +17,23 @@
 name: territorio-base
 
 services:
-  # ───────────────────────────────────────────────────────────────────────────
-  # web — el servidor SSR de TanStack Start.
+  # web — servidor SSR de TanStack Start. Sirve HTML, assets y server
+  # functions; dueño de la sesión (Better Auth sobre SQLite) y de todo lo
+  # VECTORIAL: Overpass, WDPA, catálogo MEPyD, parseo KML/KMZ/GeoJSON y ZIP de
+  # descarga. Es el ÚNICO servicio expuesto al navegador.
   #
-  # Sirve el HTML, los assets del cliente y las server functions; es dueño de
-  # la sesión (Better Auth sobre SQLite) y de todo lo VECTORIAL: Overpass,
-  # WDPA, el catálogo MEPyD, el parseo de KML/KMZ/GeoJSON y el armado del ZIP
-  # de descarga. Es el ÚNICO servicio expuesto al navegador.
-  #
-  # Le habla al servicio raster server-to-server por la red interna de compose
-  # (`http://api:8787`). El browser no lo llama nunca — salvo por las URLs
-  # absolutas de los PNG de overlay, que es para lo que existe `VITE_API_URL`.
-  # ───────────────────────────────────────────────────────────────────────────
+  # Le habla al servicio raster server-to-server (`http://api:8787`). El
+  # browser no lo llama nunca, salvo las URLs absolutas de los PNG de overlay
+  # (`VITE_API_URL`).
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        # Build-time, no runtime: se hornea en el bundle del browser. Es la base
-        # ABSOLUTA con la que el navegador pide los PNG de overlay, así que tiene
-        # que ser una URL que el navegador pueda resolver — la pública del
-        # servicio raster, no `http://api:8787`, que sólo existe adentro de
-        # compose. Cambiarla obliga a `--build`.
+        # Build-time: se hornea en el bundle del browser. Debe ser la URL
+        # pública del servicio raster, resoluble por el navegador — no
+        # `http://api:8787`, que sólo existe adentro de compose. Cambiarla
+        # obliga a `--build`.
         VITE_API_URL: ${PUBLIC_API_URL:-http://localhost:8787}
     image: territorio-base/web:latest
     restart: unless-stopped
@@ -82,19 +77,15 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # ───────────────────────────────────────────────────────────────────────────
-  # api — el servicio raster (FastAPI + odc-stac, Python 3.11).
+  # api — servicio raster (FastAPI + odc-stac, Python 3.11). Dueño de la
+  # GRILLA DE PÍXELES y nada más: STAC/Planetary Computer, mosaico/recorte al
+  # AOI, NDVI, pendiente/orientación, WorldCover, WRI Aqueduct, export GeoTIFF
+  # y overlays PNG (porqué en `docs/migration/01-engine-decision-memo.md`).
   #
-  # La mitad Python de la arquitectura híbrida: es dueño de la GRILLA DE
-  # PÍXELES y de nada más — STAC/Planetary Computer, mosaico y recorte al AOI,
-  # NDVI, pendiente/orientación, WorldCover, WRI Aqueduct, export GeoTIFF y
-  # overlays PNG. El porqué está en `docs/migration/01-engine-decision-memo.md`.
-  #
-  # Es un servicio INTERNO. Se publica un puerto igual porque el navegador pide
-  # los PNG de overlay directo (por eso el servicio expone `X-Bounds` en CORS).
-  # Si se configura `TERRITORIO_API_TOKEN`, esas URLs pasan a exigir
-  # `Authorization` y hay que proxearlas desde el SSR — ver `apps/web/src/lib/api.ts`.
-  # ───────────────────────────────────────────────────────────────────────────
+  # Servicio INTERNO; se publica un puerto igual porque el navegador pide los
+  # PNG de overlay directo (el servicio expone `X-Bounds` en CORS). Con
+  # `TERRITORIO_API_TOKEN` configurado, esas URLs exigen `Authorization` y hay
+  # que proxearlas desde el SSR — ver `apps/web/src/lib/api.ts`.
   api:
     build:
       # Contexto acotado al servicio: no necesita nada del workspace npm, y así
@@ -135,19 +126,15 @@ services:
       retries: 3
     logging: *default-logging
 
-  # ───────────────────────────────────────────────────────────────────────────
-  # migrate — utilidad de un solo uso, NO un servicio.
-  #
-  # Vive detrás de un `profile`, así que `docker compose up` la ignora por
-  # completo. Se invoca a mano:
+  # migrate — utilidad de un solo uso, no un servicio. Vive detrás de un
+  # `profile`, así que `docker compose up` la ignora. Se invoca a mano:
   #
   #     docker compose run --rm migrate                       # crea/actualiza el esquema
   #     docker compose run --rm migrate node /app/packages/db/scripts/seed.ts --name "Tu Nombre"
   #
-  # Reusa la imagen de `web` (ahí están `packages/db/scripts` y las migraciones
-  # de drizzle) pero no depende de que `web` esté arriba: en el primer despliegue
-  # el esquema todavía no existe y `web` no tiene nada que servir.
-  # ───────────────────────────────────────────────────────────────────────────
+  # Reusa la imagen de `web` (trae `packages/db/scripts` y las migraciones de
+  # drizzle) pero no depende de que `web` esté arriba: en el primer despliegue
+  # el esquema todavía no existe.
   migrate:
     profiles: ["tools"]
     build:

@@ -6,11 +6,9 @@ import { fetchSession } from '~/lib/session';
 /**
  * `GET /descargas/$jobId/zip` — el ZIP, **transmitido**.
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * POR QUÉ ESTO ES UN HANDLER DE RUTA Y NO UNA SERVER FUNCTION
- * ─────────────────────────────────────────────────────────────────────────────
- * Una server function serializa su resultado a JSON y se invoca por RPC: no
- * puede devolver bytes binarios ni un `Content-Disposition`, y no se le puede
+ * Por qué esto es un handler de ruta y no una server function: una server
+ * function serializa su resultado a JSON y se invoca por RPC: no puede
+ * devolver bytes binarios ni un `Content-Disposition`, y no se le puede
  * apuntar un `<a href>`. Una descarga necesita las dos cosas — una URL que el
  * navegador pueda navegar y una respuesta con cabeceras de archivo — así que es
  * un handler HTTP de verdad.

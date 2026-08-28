@@ -1,9 +1,7 @@
 /**
  * TanStack Query para el flujo de exportación: plan, lanzar, seguir, reintentar.
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * CLAVES
- * ─────────────────────────────────────────────────────────────────────────────
+ * Claves:
  *   exportKeys.all              → todo
  *   exportKeys.plan(analysisId) → qué se puede bajar de ese análisis
  *   exportKeys.job(jobId)       → el estado de un trabajo
@@ -38,10 +36,6 @@ import {
 import type { ExportPlan, ExportSelection } from './export-contract';
 import type { ExportJobSnapshot } from './export-runtime';
 
-/* -------------------------------------------------------------------------- */
-/* Claves y tiempos                                                            */
-/* -------------------------------------------------------------------------- */
-
 export const exportKeys = {
   all: ['exportacion'] as const,
   plans: () => [...exportKeys.all, 'plan'] as const,
@@ -60,10 +54,6 @@ const JOB_POLL_MS = 1_200;
   costera recién explorada aparezca.
 */
 const PLAN_STALE_MS = 60_000;
-
-/* -------------------------------------------------------------------------- */
-/* Options                                                                     */
-/* -------------------------------------------------------------------------- */
 
 export function exportPlanQueryOptions(analysisId: string | undefined, aoiName?: string) {
   return queryOptions({
@@ -92,10 +82,6 @@ export function exportJobQueryOptions(jobId: string) {
   });
 }
 
-/* -------------------------------------------------------------------------- */
-/* Hooks de lectura                                                            */
-/* -------------------------------------------------------------------------- */
-
 export function useExportPlan(
   analysisId: string | undefined,
   aoiName?: string,
@@ -106,10 +92,6 @@ export function useExportPlan(
 export function useExportJob(jobId: string): UseQueryResult<ExportJobResult> {
   return useQuery(exportJobQueryOptions(jobId));
 }
-
-/* -------------------------------------------------------------------------- */
-/* Mutaciones                                                                  */
-/* -------------------------------------------------------------------------- */
 
 export type StartExportVariables = {
   analysisId: string;
@@ -195,10 +177,6 @@ export function useReportMarkdown(): UseMutationResult<
       await fetchReportMarkdown({ data: variables }),
   });
 }
-
-/* -------------------------------------------------------------------------- */
-/* Ayudas de lectura                                                           */
-/* -------------------------------------------------------------------------- */
 
 export function planFromResult(result: ExportPlanResult | undefined): ExportPlan | null {
   return result?.ok === true ? result.plan : null;

@@ -6,7 +6,7 @@
  * server, which talks to Better Auth and sets the httpOnly cookie on the
  * response — the credential never touches JavaScript, which is the point.
  *
- * ── There is no `useSession()` here, deliberately ────────────────────────────
+ * There is no `useSession()` here, deliberately.
  *
  * The signed-in user comes from **route context**, resolved server-side in
  * `beforeLoad` by `~/lib/auth-server`. That is the only source that is correct
@@ -24,7 +24,7 @@
  * }
  * ```
  *
- * ── Sign-up needs an invite code ─────────────────────────────────────────────
+ * Sign-up needs an invite code.
  *
  * Registration is closed. `signUp` requires `inviteCode`; without a valid,
  * unused, unexpired code the server refuses and returns

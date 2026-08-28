@@ -1,9 +1,8 @@
-# Workspace layout + the single source of truth for every shared dependency version.
+# Workspace layout + single source of truth for every shared dependency version.
 #
-# Rule: a package NEVER writes a version range in its package.json. It writes
-# "catalog:" and the version is resolved here. One line to bump, one line to audit.
-# Versions are pinned EXACTLY (no ^ / ~) so every workspace member and CI run
-# compiles the same bytes.
+# Rule: a package NEVER writes a version range in its package.json — it writes
+# "catalog:" and the version is resolved here. Versions are pinned EXACTLY
+# (no ^ / ~) so every workspace member and CI run compiles the same bytes.
 
 packages:
   - apps/*

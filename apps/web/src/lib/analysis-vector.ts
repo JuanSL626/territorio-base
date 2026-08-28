@@ -5,10 +5,8 @@
  * **SOLO SERVIDOR.** Hace red hacia servicios de terceros y lo llama
  * `analysis-server.ts` desde una server function.
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * REGRESIÓN #3 — por qué cada fuente tiene su propio `try`
- * ─────────────────────────────────────────────────────────────────────────────
- * Las tres corren en paralelo y **ninguna puede tumbar a las otras**. No se usa
+ * Regresión #3 — por qué cada fuente tiene su propio `try`: las tres corren en
+ * paralelo y **ninguna puede tumbar a las otras**. No se usa
  * `Promise.all` (que rechaza en cuanto una falla y deja las demás huérfanas)
  * sino un envoltorio por fuente que convierte la excepción en
  * `{ available: false, error }`. Esa unión es la que después distingue

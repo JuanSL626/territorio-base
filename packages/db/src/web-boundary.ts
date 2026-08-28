@@ -12,9 +12,7 @@
  * `asResponse: true` everywhere and why the instance here carries no
  * `tanstackStartCookies()` plugin — the caller owns the response.
  *
- * ── Error mapping ────────────────────────────────────────────────────────────
- *
- * The web layer switches on a small closed set of Spanish-facing codes. Mapping
+ * Error mapping: the web layer switches on a small closed set of Spanish-facing codes. Mapping
  * happens here, against Better Auth's machine-readable `body.code` and the
  * `INVITE_*` codes thrown by the invite gate — never against message text,
  * which is translated and will be reworded.

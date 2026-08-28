@@ -5,15 +5,13 @@
  * Puro y sin efectos: recibe el análisis y devuelve strings. Se testea sin
  * abrir un ZIP y sin levantar un servidor.
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * POR QUÉ `FUENTES.txt` ES OBLIGATORIO
- * ─────────────────────────────────────────────────────────────────────────────
- * El pedido es explícito: el entregable tiene que decir DE DÓNDE salió cada
- * dato. Un GeoTIFF suelto en la carpeta de descargas de alguien, seis meses
- * después, no tiene proveedor, ni resolución, ni licencia, ni fecha de
- * consulta — y en ese estado no sirve para una decisión territorial ni se puede
- * citar en un informe. Por eso el manifiesto de fuentes viaja ADENTRO del ZIP,
- * no en una pantalla, no en un pie de página, y no se puede destildar.
+ * Por qué `FUENTES.txt` es obligatorio: el pedido es explícito, el entregable
+ * tiene que decir DE DÓNDE salió cada dato. Un GeoTIFF suelto en la carpeta de
+ * descargas de alguien, seis meses después, no tiene proveedor, ni resolución,
+ * ni licencia, ni fecha de consulta — y en ese estado no sirve para una
+ * decisión territorial ni se puede citar en un informe. Por eso el manifiesto
+ * de fuentes viaja ADENTRO del ZIP, no en una pantalla, no en un pie de
+ * página, y no se puede destildar.
  *
  * Y por eso también lista lo que NO está: una capa que falló figura en
  * `FUENTES.txt` y en `LEEME.txt` con su motivo. La ausencia silenciosa de una
@@ -31,10 +29,6 @@ import { formatHectares, formatNumber, formatPercent } from './format';
 
 import type { TerritorioAnalysis } from './analysis-contract';
 
-/* -------------------------------------------------------------------------- */
-/* Helpers                                                                     */
-/* -------------------------------------------------------------------------- */
-
 function isoDay(date: Date): string {
   return date.toISOString().slice(0, 19).replace('T', ' ') + ' UTC';
 }
@@ -46,10 +40,6 @@ function csvCell(value: string): string {
 function rule(char: string, length: number): string {
   return char.repeat(length);
 }
-
-/* -------------------------------------------------------------------------- */
-/* FUENTES.txt                                                                 */
-/* -------------------------------------------------------------------------- */
 
 export type SourcesManifestOptions = {
   aoiName: string;
@@ -150,10 +140,6 @@ export function buildSourcesManifest(options: SourcesManifestOptions): string {
 
   return lines.join('\n');
 }
-
-/* -------------------------------------------------------------------------- */
-/* LEEME.txt                                                                   */
-/* -------------------------------------------------------------------------- */
 
 export type BundleEntryNote = {
   path: string;
@@ -279,10 +265,6 @@ export function buildBundleReadme(options: ReadmeOptions): string {
 
   return lines.join('\n');
 }
-
-/* -------------------------------------------------------------------------- */
-/* resumen.csv                                                                 */
-/* -------------------------------------------------------------------------- */
 
 export type SummaryRow = {
   tema: string;
@@ -639,10 +621,6 @@ export function buildSummaryCsv(analysis: TerritorioAnalysis): string {
   );
   return `${[header, ...rows].join('\n')}\n`;
 }
-
-/* -------------------------------------------------------------------------- */
-/* reporte.md                                                                  */
-/* -------------------------------------------------------------------------- */
 
 export type ReportOptions = {
   analysis: TerritorioAnalysis;

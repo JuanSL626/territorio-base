@@ -7,10 +7,6 @@ export type DrawingHudProps = {
   onCancel: () => void;
 };
 
-/**
- * HUD del estado "dibujando" (§8): lectura de área en vivo y los dos atajos
- * que la gente busca sin encontrarlos (Esc cancela, Retroceso deshace).
- */
 export function DrawingHud({ areaHa, vertexCount, onCancel }: DrawingHudProps) {
   return (
     <div

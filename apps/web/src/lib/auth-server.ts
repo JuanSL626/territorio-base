@@ -10,7 +10,7 @@
  * On client-side navigation the same `beforeLoad` runs in the browser — and
  * that is where the naive version of this file was expensive.
  *
- * ── Por qué el guard NO llama a `fetchSession()` directo ─────────────────────
+ * Por qué el guard NO llama a `fetchSession()` directo:
  *
  * `beforeLoad` no corre "cuando cambia la ruta": corre en CADA navegación del
  * router, incluidas las que sólo tocan search params. En esta app el mapa

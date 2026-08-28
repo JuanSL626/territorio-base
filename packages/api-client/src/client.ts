@@ -41,10 +41,6 @@ import {
 import type { SchemaAoiGeometry } from './generated/schema.ts';
 import type { z } from 'zod';
 
-/* -------------------------------------------------------------------------- */
-/* Tipos de entrada                                                            */
-/* -------------------------------------------------------------------------- */
-
 /** GeoJSON del AOI: `Geometry`, `Feature` o `FeatureCollection`. */
 export type AoiGeometryInput = SchemaAoiGeometry;
 
@@ -98,10 +94,6 @@ export type RasterApiClientOptions = {
 };
 
 const DEFAULT_TIMEOUT_MS = 30_000;
-
-/* -------------------------------------------------------------------------- */
-/* Normalización de fallos                                                     */
-/* -------------------------------------------------------------------------- */
 
 const STATUS_MESSAGES: Record<number, string> = {
   401: 'El servicio de análisis rechazó las credenciales (API_TOKEN).',
@@ -161,10 +153,6 @@ function transportFailure(error: unknown, url: string, timeoutMs: number): ApiFa
   });
 }
 
-/* -------------------------------------------------------------------------- */
-/* Cliente                                                                     */
-/* -------------------------------------------------------------------------- */
-
 export type RasterApiClient = ReturnType<typeof createRasterApiClient>;
 
 export function createRasterApiClient(options: RasterApiClientOptions) {
@@ -185,7 +173,6 @@ export function createRasterApiClient(options: RasterApiClientOptions) {
     return headers;
   }
 
-  /** Convierte una URL relativa del servicio en una absoluta y pedible. */
   function absoluteUrl(path: string): string {
     if (/^https?:\/\//i.test(path)) return path;
     return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
@@ -314,13 +301,9 @@ export function createRasterApiClient(options: RasterApiClientOptions) {
 
     absoluteUrl,
 
-    /* -- salud ------------------------------------------------------------ */
-
     async health(signal?: AbortSignal): Promise<ApiResult<HealthResponse>> {
       return await requestJson('/healthz', healthResponseSchema, { method: 'GET', signal });
     },
-
-    /* -- análisis --------------------------------------------------------- */
 
     /** `POST /analysis` → 202 con el job. NO espera a que termine. */
     async createAnalysis(
@@ -364,8 +347,6 @@ export function createRasterApiClient(options: RasterApiClientOptions) {
         token: options.token,
       });
     },
-
-    /* -- capas ------------------------------------------------------------ */
 
     /** URL absoluta del PNG. Se le puede pasar directo a MapLibre. */
     overlayUrl(analysisId: string, layer: RasterLayer, params?: OverlayParams): string {
@@ -443,8 +424,6 @@ export function createRasterApiClient(options: RasterApiClientOptions) {
         metadataUrl: metadataUrlHeader === null ? null : absoluteUrl(metadataUrlHeader),
       });
     },
-
-    /* -- inundación costera ----------------------------------------------- */
 
     async getCoastalPresets(signal?: AbortSignal): Promise<ApiResult<PresetsResponse>> {
       return await requestJson('/coastal/presets', presetsResponseSchema, {

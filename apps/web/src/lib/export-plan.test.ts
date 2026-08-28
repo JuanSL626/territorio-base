@@ -38,10 +38,6 @@ import {
 import type { LayerAvailability } from '@territorio/api-client';
 import type { AreaGeometry } from '@territorio/geo';
 
-/* -------------------------------------------------------------------------- */
-/* Fixtures                                                                    */
-/* -------------------------------------------------------------------------- */
-
 const AOI_GEOMETRY: AreaGeometry = {
   type: 'Polygon',
   coordinates: [
@@ -241,10 +237,6 @@ const byId = (analysis: TerritorioAnalysis, id: string) => {
   return found!;
 };
 
-/* -------------------------------------------------------------------------- */
-/* El plan sale del análisis, no de un catálogo                                 */
-/* -------------------------------------------------------------------------- */
-
 describe('buildExportPlan', () => {
   it('ofrece exactamente los rasters que la corrida produjo', () => {
     const artifacts = plan(analysisFixture()).artifacts.filter(
@@ -296,10 +288,6 @@ describe('buildExportPlan', () => {
     expect(dem.reason).toContain('servicio raster');
   });
 });
-
-/* -------------------------------------------------------------------------- */
-/* «No respondió» ≠ «no hay nada» — la regresión #3, en la descarga             */
-/* -------------------------------------------------------------------------- */
 
 describe('fuente caída vs. fuente vacía', () => {
   it('Overpass caído: la capa no es exportable y el motivo dice que el servicio no respondió', () => {
@@ -417,10 +405,6 @@ describe('fuente caída vs. fuente vacía', () => {
   });
 });
 
-/* -------------------------------------------------------------------------- */
-/* Obligatorios y omisiones                                                    */
-/* -------------------------------------------------------------------------- */
-
 describe('selección', () => {
   it('el AOI, el LEEME y el FUENTES son obligatorios y entran aunque no se los tilde', () => {
     const built = plan(analysisFixture());
@@ -460,10 +444,6 @@ describe('selección', () => {
     );
   });
 });
-
-/* -------------------------------------------------------------------------- */
-/* Guard de tamaño (§7.4)                                                      */
-/* -------------------------------------------------------------------------- */
 
 describe('decideExportSize', () => {
   const base = { artifactCount: 5, confirmed: false };
@@ -508,10 +488,6 @@ describe('decideExportSize', () => {
     expect(many).toBeGreaterThan(few);
   });
 });
-
-/* -------------------------------------------------------------------------- */
-/* Los documentos dicen la verdad                                              */
-/* -------------------------------------------------------------------------- */
 
 describe('documentos del bundle', () => {
   const generatedAt = new Date('2026-01-15T12:00:00.000Z');
