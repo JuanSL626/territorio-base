@@ -28,6 +28,7 @@ import {
   type SourceStatus,
   type TerritorioAnalysis,
 } from './analysis-contract';
+import { formatNumber } from './format';
 
 import type { RasterLayer } from '@territorio/api-client';
 
@@ -722,7 +723,14 @@ function mb(bytes: number): string {
 }
 
 function ha(value: number): string {
-  return `${Math.round(value).toLocaleString('es-DO')} ha`;
+  /*
+    `formatNumber` y no `toLocaleString`: el resto del producto escribe
+    `1 240,5 ha` (espacio fino de miles, coma decimal). `toLocaleString('es-DO')`
+    devolvía `3,000 ha`, que en esa misma convención se lee «3 hectáreas». Ver
+    la cabecera de `format.ts` — también evita el mismatch SSR/cliente por
+    datos de locale distintos entre Node y el navegador.
+  */
+  return `${formatNumber(value, 0)} ha`;
 }
 
 /**

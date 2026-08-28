@@ -22,6 +22,7 @@ import type { CoastalPreset } from '@territorio/api-client';
 import type { ReactNode } from 'react';
 import type { TerritorioAnalysisSummary } from '~/lib/analysis-contract';
 
+import { publicRasterBaseUrl } from '~/components/map/raster-base';
 import { NoDataCard } from '~/components/states/no-data';
 import {
   IUCN_LABELS,
@@ -136,7 +137,29 @@ export function downloadForLayer(
   if (url == null || url === '') {
     return { kind: 'unavailable', reason: 'El servicio no publicó una URL de descarga para esta capa.' };
   }
-  return { kind: 'ready', href: url, filename: entry.download_filename };
+  /*
+    `raster_url` viene RELATIVA al servicio raster (`/analysis/{id}/raster/dem.tif`),
+    no a la app web. Sin anteponer la base pública, el `<a download>` apunta al
+    origen del SSR, que responde el HTML de 404 — y el navegador lo guarda con
+    extensión `.tif`. Un archivo corrupto es peor que un botón deshabilitado, así
+    que sin base pública (servicio raster con token, ver `raster-base.ts`) la
+    tarjeta dice por qué no se puede bajar.
+  */
+  if (/^https?:\/\//i.test(url)) {
+    return { kind: 'ready', href: url, filename: entry.download_filename };
+  }
+  const base = publicRasterBaseUrl();
+  if (base === undefined) {
+    return {
+      kind: 'unavailable',
+      reason: 'El servicio raster no publica descargas directas en esta instalación: usá Exportar.',
+    };
+  }
+  return {
+    kind: 'ready',
+    href: `${base}${url.startsWith('/') ? '' : '/'}${url}`,
+    filename: entry.download_filename,
+  };
 }
 
 /* -------------------------------------------------------------------------- */

@@ -40,7 +40,13 @@ export type AoiUploadProps = {
   onError: (message: string) => void;
 };
 
-async function readAoi(file: File): Promise<Aoi> {
+/**
+ * Lee y parsea un archivo de AOI. Exportado porque el dropzone del panel
+ * (`states/empty-aoi.tsx`) tiene su PROPIO `input[type=file]` y su propio
+ * `drop`: sin esto su `FileList` no tenía a dónde ir, y elegir un archivo ahí
+ * no hacía absolutamente nada (o abría un segundo diálogo del sistema).
+ */
+export async function readAoiFile(file: File): Promise<Aoi> {
   if (file.size > MAX_AOI_BYTES) {
     throw new AoiParseError(
       `El archivo pesa ${formatBytes(file.size)} y el máximo es ${formatBytes(MAX_AOI_BYTES)}.`,
@@ -50,7 +56,7 @@ async function readAoi(file: File): Promise<Aoi> {
   return await parseAoiFile({ data, filename: file.name });
 }
 
-function messageOf(error: unknown): string {
+export function aoiErrorMessage(error: unknown): string {
   if (error instanceof AoiParseError) return error.message;
   if (error instanceof Error) return `No se pudo leer el archivo: ${error.message}`;
   return 'No se pudo leer el archivo.';
@@ -88,8 +94,8 @@ export function AoiUpload({ open, containerRef, onClose, onLoaded, onError }: Ao
     const take = (file: File | undefined) => {
       handlersRef.current.onClose();
       if (file === undefined) return;
-      readAoi(file).then(handlersRef.current.onLoaded, (error: unknown) => {
-        handlersRef.current.onError(messageOf(error));
+      readAoiFile(file).then(handlersRef.current.onLoaded, (error: unknown) => {
+        handlersRef.current.onError(aoiErrorMessage(error));
       });
     };
 
@@ -134,14 +140,17 @@ export function AoiUpload({ open, containerRef, onClose, onLoaded, onError }: Ao
           if (inputRef.current !== null) inputRef.current.value = '';
           handlersRef.current.onClose();
           if (file === undefined) return;
-          readAoi(file).then(handlersRef.current.onLoaded, (error: unknown) => {
-            handlersRef.current.onError(messageOf(error));
+          readAoiFile(file).then(handlersRef.current.onLoaded, (error: unknown) => {
+            handlersRef.current.onError(aoiErrorMessage(error));
           });
         }}
       />
 
       {dragging ? (
-        <div className="border-accent bg-accent-soft/70 pointer-events-none absolute inset-4 z-30 flex items-center justify-center rounded-lg border-2 border-dashed">
+        <div
+          data-testid="aoi-drop-overlay"
+          className="border-accent bg-accent-soft/70 pointer-events-none absolute inset-4 z-30 flex items-center justify-center rounded-lg border-2 border-dashed"
+        >
           <div className="text-13 text-accent flex flex-col items-center gap-2 text-center font-medium">
             <UploadIcon size={24} />
             Soltá el archivo para usarlo como zona de estudio

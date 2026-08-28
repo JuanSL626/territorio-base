@@ -31,6 +31,7 @@ export function MapReadout({ coordinates, zoom, scale }: MapReadoutProps) {
       <div className="rounded-chip border-border-base bg-surface/90 flex items-center gap-2 border px-2 py-1 backdrop-blur-sm">
         <span
           aria-hidden="true"
+          data-testid="scale-bar"
           className="border-fg-muted h-2 border-r border-b border-l"
           style={{ width: `${String(Math.max(scale.widthPx, 8))}px` }}
         />
@@ -71,6 +72,7 @@ export function DrawingHud({ state }: DrawingHudProps) {
       {state.cursor !== null ? (
         <span
           aria-hidden="true"
+          data-testid="draw-area-badge"
           className="rounded-chip bg-surface-inverse text-fg-inverse text-11 tabular pointer-events-none absolute z-30 px-1.5 py-0.5"
           style={{ left: state.cursor.x + 14, top: state.cursor.y + 14 }}
         >

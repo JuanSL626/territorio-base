@@ -324,7 +324,7 @@ export function ReportBody({ analysisId, print = false }: ReportBodyProps) {
       ) : null}
 
       <div className="divide-border-base flex flex-col divide-y px-6 md:px-8">
-        {sections.map(async (section) => await renderSection(section))}
+        {sections.map((section): ReactNode => renderSection(section))}
       </div>
     </div>
   );

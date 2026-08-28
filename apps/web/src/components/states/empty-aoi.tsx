@@ -1,5 +1,6 @@
 import { useState, type DragEvent } from 'react';
 
+import { ACCEPTED_AOI_EXTENSIONS, AOI_LIMITS_LINE } from '~/components/map/aoi-upload';
 import { DrawIcon, UploadIcon } from '~/components/ui/icons';
 import { cn } from '~/lib/cn';
 
@@ -47,6 +48,8 @@ export function EmptyAoiState({ onDraw, onFiles }: EmptyAoiStateProps) {
       </button>
 
       <label
+        data-testid="aoi-dropzone-panel"
+        data-dragging={dragging ? 'true' : 'false'}
         onDragOver={(event) => {
           event.preventDefault();
           setDragging(true);
@@ -67,14 +70,14 @@ export function EmptyAoiState({ onDraw, onFiles }: EmptyAoiStateProps) {
         </span>
         <span className="min-w-0">
           <span className="text-13 text-fg block font-semibold">Subir un archivo</span>
-          <span className="text-11 text-fg-muted block">
-            máx. 10 MB · KML, KMZ, GeoJSON, SHP zipeado · un solo polígono
-          </span>
+          <span className="text-11 text-fg-muted block">{AOI_LIMITS_LINE}</span>
         </span>
         <input
           type="file"
-          accept=".kml,.kmz,.geojson,.json,.zip"
+          accept={ACCEPTED_AOI_EXTENSIONS}
           className="sr-only"
+          data-testid="aoi-file-input-panel"
+          aria-label="Subir archivo de AOI desde el panel"
           onChange={(event) => {
             const { files } = event.target;
             if (files && files.length > 0) onFiles(files);

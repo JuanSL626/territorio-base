@@ -1,0 +1,86 @@
+# Contexto de build de la imagen `web` (`context: .` en compose.yaml).
+#
+# El servicio raster NO usa este archivo: se construye con `context: ./services/api`
+# y por lo tanto con `services/api/.dockerignore`. Son dos contextos a propósito —
+# la app web necesita la raíz del workspace (lockfile, catálogos, packages/*),
+# el servicio Python no necesita nada fuera de su carpeta.
+#
+# Regla: todo lo que se pueda regenerar adentro, o que no tenga por qué entrar
+# nunca, se excluye acá. Un contexto chico no es sólo velocidad — es lo que
+# evita que un `.env` o un `.db` local terminen dentro de una capa.
+
+# --- Secretos y estado local (NUNCA en una imagen) ---
+.env
+.env.*
+!.env.example
+data/
+outputs/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# --- Dependencias: se instalan adentro, con el lockfile ---
+node_modules/
+.pnpm-store/
+.venv/
+**/node_modules/
+**/.venv/
+
+# --- Salidas de build: se generan adentro ---
+dist/
+**/dist/
+.output/
+**/.output/
+.vinxi/
+.nitro/
+.tanstack/
+**/.tanstack/
+.vite/
+coverage/
+**/coverage/
+build/
+**/build/
+wheels/
+*.egg-info
+
+# --- Cachés ---
+.turbo/
+**/.turbo/
+.pytest_cache/
+**/.pytest_cache/
+__pycache__/
+**/__pycache__/
+*.py[oc]
+*.tsbuildinfo
+
+# --- Metadatos que no cambian lo que se construye ---
+.git/
+.github/
+.devcontainer/
+docs/
+*.md
+!README.md
+!services/api/README.md
+CHANGELOG.md
+.gitignore
+.gitattributes
+.prettierrc.json
+.prettierignore
+compose.yaml
+compose.override.yaml
+Dockerfile
+**/Dockerfile
+.dockerignore
+
+# --- Referencia histórica, no se despliega ---
+services/api/legacy-vector-reference/
+services/api/tests/
+services/api/requirements.txt
+services/api/runtime.txt
+
+# --- OS / editor ---
+.DS_Store
+.idea/
+.vscode/

@@ -40,6 +40,12 @@ const bannedGeoLibraries = [
 export const ignores = [
   '**/node_modules/**',
   '**/dist/**',
+  // `TB_DIST_DIR` da salidas paralelas (`dist-a`, `dist-b`, …) para correr los
+  // dos halves del plan de validación a la vez. `.gitignore` ya las ignora con
+  // `dist-*/`; sin la línea equivalente acá, `pnpm lint` levanta decenas de
+  // miles de errores del bundle generado y el gate falla por el build, no por
+  // el código. Ver `apps/web/vite.config.ts`.
+  '**/dist-*/**',
   '**/.output/**',
   '**/.vinxi/**',
   '**/.nitro/**',

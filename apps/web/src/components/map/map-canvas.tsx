@@ -86,6 +86,24 @@ export type MapController = {
   zoomToAoi: () => void;
   /** Resalta sin seleccionar: el hover del teclado sobre la lista de resultados. */
   previewLayer: (layerId: string | null) => void;
+  /**
+   * Todos los elementos de una capa dentro del AOI, ya pasados por el mismo
+   * constructor que usa el inspector (§5.3, "Capa: {x} — N elementos").
+   *
+   * Vive acá y no en la ruta porque el GeoJSON por capa ya está construido y
+   * memoizado en este componente: recalcularlo afuera duplicaría en memoria
+   * las geometrías MEPyD, que son megabytes.
+   */
+  tableFor: (layerId: string, limit: number) => LayerTable | null;
+};
+
+/** Resultado de `MapController.tableFor`. */
+export type LayerTable = {
+  layerId: string;
+  layerLabel: string;
+  /** Elementos de la capa dentro del AOI. Puede ser mayor que `rows.length`. */
+  total: number;
+  rows: InspectorFeature[];
 };
 
 export type MapCanvasProps = {
@@ -130,6 +148,12 @@ export type MapCanvasProps = {
   onReady?: (controller: MapController) => void;
   /** Móvil: leyenda colapsada y sin lectura de coordenadas (§9). */
   compact?: boolean;
+  /**
+   * Etiqueta de la barra de escala del viewport actual. La consume el cúmulo
+   * inferior izquierdo del §2, que vive FUERA del canvas y por lo tanto no
+   * puede calcularla: antes estaba hardcodeada a `— m`.
+   */
+  onScaleChange?: (label: string) => void;
 };
 
 /** Centro y zoom del mapa de dibujo del legacy (inventario §1.2a). */
@@ -191,6 +215,7 @@ export function MapCanvas(props: MapCanvasProps) {
     onLayerStatus,
     onReady,
     compact = false,
+    onScaleChange,
   } = props;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -451,6 +476,17 @@ export function MapCanvas(props: MapCanvasProps) {
       });
       created = map;
       mapRef.current = map;
+
+      /*
+        Asa de pruebas OPT-IN (plan de validación §2.12). El validador de
+        Puppeteer necesita `map.getStyle()` para comprobar las regresiones #4,
+        #5 y #7 sobre el estilo REAL, no sobre el código. Sólo se publica si la
+        página la pidió antes de cargar (`window.__tbExposeMap = true`), así
+        que en producción no hay ninguna global nueva.
+      */
+      if ((window as unknown as { __tbExposeMap?: boolean }).__tbExposeMap === true) {
+        (window as unknown as { __tbMap?: unknown }).__tbMap = map;
+      }
       appliedStyleRef.current = { basemap: start.basemap, dark: start.dark };
 
       map.on('load', () => {
@@ -811,6 +847,25 @@ export function MapCanvas(props: MapCanvasProps) {
         const target = boundsOf(geometry);
         if (target !== null) fitTo(target);
       },
+      tableFor: (layerId, limit) => {
+        const entry = vectorDataRef.current?.get(layerId);
+        const layer = getLayer(layerId);
+        if (entry === undefined || layer === undefined) return null;
+
+        const rows: InspectorFeature[] = [];
+        for (const item of entry.data.features.slice(0, limit)) {
+          const featureId = item.properties?.[FEATURE_ID_KEY];
+          if (typeof featureId !== 'string') continue;
+          const built = buildInspectorFeature({
+            hit: { layerId, featureId, properties: item.properties ?? {} },
+            aoi: aoiContextRef.current,
+            layerFeatureCount: entry.count,
+          });
+          if (built !== null) rows.push(built);
+        }
+
+        return { layerId, layerLabel: layer.label, total: entry.count, rows };
+      },
       previewLayer: (layerId) => {
         const syncer = syncerRef.current;
         if (syncer === null) return;
@@ -848,6 +903,10 @@ export function MapCanvas(props: MapCanvasProps) {
     es cómo se llega a un botón marcado como activo con el panel cerrado.
   */
   const basemapOpen = tool === 'basemap';
+
+  useEffect(() => {
+    onScaleChange?.(scale.label);
+  }, [scale, onScaleChange]);
 
   useEffect(() => {
     if (tool !== 'ubicacion') return;

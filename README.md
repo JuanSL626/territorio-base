@@ -1,146 +1,312 @@
 # Territorio Base
 
-App para obtener un diagnóstico territorial preliminar de una zona
-cualquiera a partir de fuentes abiertas, sin descargas ni GIS manuales:
-dibujás (o subís) el polígono y te devuelve topografía, cobertura y
-densidad arbórea, hidrología y áreas protegidas.
+Diagnóstico territorial preliminar de una zona cualquiera, a partir de fuentes
+abiertas y sin descargas ni GIS manual: dibujás (o subís) el polígono y la app
+devuelve topografía, cobertura y densidad arbórea, hidrología, áreas protegidas
+y —dentro de República Dominicana— el contexto de riesgo del MEPyD. Todo con
+mapa interactivo, reporte narrativo y descarga de las capas.
 
-## Fuentes de datos (todas sin registro)
+No requiere ninguna cuenta ni API key: todas las fuentes son públicas y sin
+registro. Lo único que se configura es el acceso a la propia app, que es por
+invitación.
 
-| Análisis | Fuente | Resolución |
+---
+
+## Arquitectura
+
+Dos procesos y una regla que decide dónde va cada cosa:
+
+> **Python es dueño de la grilla de píxeles. TypeScript es dueño de todo lo demás.**
+
+```
+                    ┌─────────────────────────────────────────┐
+   navegador ──────▶│  apps/web — TanStack Start (SSR, :3000) │
+        │           │                                         │
+        │           │  · sesión (Better Auth + SQLite)        │
+        │           │  · TODO lo vectorial: Overpass, WDPA,   │
+        │           │    catálogo MEPyD, KML/KMZ/GeoJSON      │
+        │           │  · mapa (MapLibre), reporte, ZIP        │
+        │           └──────────────────┬──────────────────────┘
+        │                              │ HTTP interno
+        │                              ▼
+        │           ┌─────────────────────────────────────────┐
+        └──────────▶│  services/api — FastAPI raster (:8787)  │
+        PNG de      │                                         │
+        overlay     │  · STAC + firma SAS (Planetary Computer)│
+                    │  · odc.stac.load → mosaico → recorte AOI│
+                    │  · NDVI, pendiente, WorldCover, Aqueduct│
+                    │  · GeoTIFF y overlays PNG               │
+                    └─────────────────────────────────────────┘
+                                       │
+                              volumen compartido /data
+                       (territorio.db + GeoTIFF por análisis)
+```
+
+### Por qué híbrida y no todo en un lenguaje
+
+La decisión está tomada, medida y escrita en
+[`docs/migration/01-engine-decision-memo.md`](docs/migration/01-engine-decision-memo.md).
+El resumen, para no tener que releerlo:
+
+- **`odc.stac.load` no tiene equivalente en JavaScript, a ningún nivel de
+  madurez.** Es lo que busca escenas, las mosaica, las reproyecta a una grilla
+  UTM y las recorta al AOI. Reescribirlo es construir un motor de warp a mano.
+- **"Todo en JS" no evita el binario nativo.** La alternativa seria
+  (`gdal-async`) es un addon nativo de 215 MB. El supuesto beneficio de
+  "un solo lenguaje, sin binarios" no existe.
+- **Los números son el producto.** Un NDVI mal calculado no rompe: devuelve otra
+  cifra, plausible, en un documento que alguien usa para decidir. En Python hay
+  una suite de aceptación contra AOIs reales; en un motor propio no hay red.
+- **Lo vectorial sí se verificó ejecutando código** (`@turf/turf` + `proj4`), y
+  es la mayoría de las líneas. Por eso se movió entero a TypeScript.
+
+La costura puede moverse a la derecha (más cosas a Python) casi gratis. Ese es
+justamente el punto de haberla elegido ahí.
+
+### Mapa del repositorio
+
+```
+apps/web              TanStack Start (SSR) · MapLibre · Tailwind v4 — la app
+services/api          FastAPI + odc-stac (Python 3.11, uv) — el motor raster
+packages/geo          TODO lo vectorial: AOI, Overpass, WDPA, MEPyD, exports
+packages/db           Drizzle + SQLite + Better Auth (acceso por invitación)
+packages/ui           primitivas de UI compartidas
+packages/api-client    cliente tipado del servicio raster, GENERADO desde su OpenAPI
+packages/tsconfig      configs de TypeScript compartidas
+packages/eslint-config configs planas de ESLint compartidas
+docs/migration        inventario del legacy, memo del motor, brief de diseño
+```
+
+---
+
+## Puesta en marcha (desarrollo local)
+
+Requisitos: **Node 24** (ver `.nvmrc`), **pnpm 11** (por corepack) y **uv** para
+el servicio Python. Con el devcontainer del repo no hace falta instalar nada.
+
+```bash
+# 1. Toolchain
+corepack enable && corepack prepare --activate
+
+# 2. Dependencias (workspace TypeScript + servicio Python)
+pnpm install
+pnpm --filter @territorio/api-service sync        # = uv sync en services/api
+
+# 3. Entorno
+cp .env.example .env
+openssl rand -base64 32                            # → BETTER_AUTH_SECRET
+
+# 4. Base de datos y primer usuario
+#    Completá ADMIN_EMAIL y ADMIN_PASSWORD en .env antes del seed.
+pnpm --filter @territorio/db db:migrate
+pnpm --filter @territorio/db db:seed -- --name "Tu Nombre"
+
+# 5. Arrancar los dos servicios (Turborepo los levanta en paralelo)
+pnpm dev
+```
+
+- App: <http://localhost:3000>
+- Servicio raster: <http://localhost:8787/docs> · `/openapi.json` · `/healthz`
+
+El seed **no** escribe el usuario a mano: emite una invitación a nombre de
+`ADMIN_EMAIL` y la canjea por el mismo camino que cualquier otra persona. No hay
+puerta trasera, ni siquiera para el primer usuario. Es idempotente.
+
+### Los comandos que se usan todos los días
+
+```bash
+pnpm dev            # web + api en paralelo
+pnpm lint           # eslint en cada paquete
+pnpm typecheck      # tsgo --noEmit
+pnpm test           # vitest (TS) — los tests de Python se corren aparte
+pnpm build          # build de producción de todo el workspace
+pnpm format         # prettier
+
+pnpm --filter @territorio/db db:create-invite     # invitar a alguien
+pnpm --filter @territorio/api-client generate     # regenerar tipos del OpenAPI
+
+cd services/api && uv run pytest -m "not network" # suite offline (la de CI)
+cd services/api && uv run pytest                  # incluye la de aceptación real
+```
+
+---
+
+## Puesta en marcha (Docker Compose, autoalojado)
+
+El único objetivo de despliegue soportado. Dos contenedores, un volumen, sin
+base de datos externa.
+
+```bash
+cp .env.example .env
+# Completá BETTER_AUTH_SECRET (openssl rand -base64 32), ADMIN_EMAIL y
+# ADMIN_PASSWORD. El resto tiene defaults que sirven.
+
+docker compose build
+
+# Esquema y primer usuario (una sola vez; ambos son idempotentes)
+docker compose run --rm migrate
+docker compose run --rm migrate node /app/packages/db/scripts/seed.ts --name "Tu Nombre"
+
+docker compose up -d
+docker compose ps          # `api` tiene que quedar en (healthy)
+docker compose logs -f web
+```
+
+| Servicio  | Puerto host                | Qué es |
 |---|---|---|
-| Topografía (elevación, pendiente) | Copernicus DEM GLO-30 (vía Microsoft Planetary Computer) | 30 m |
-| NDVI / densidad de vegetación | Sentinel-2 L2A, mediana de las escenas menos nubladas de los últimos 180 días (vía Planetary Computer) | 10 m |
-| Cobertura de suelo / % cobertura arbórea | ESA WorldCover 2021 (vía Planetary Computer) | 10 m |
-| Hidrología | OpenStreetMap (Overpass API) — ríos, cuerpos de agua, humedales | vectorial |
-| Áreas protegidas | WDPA (World Database on Protected Areas), vía el FeatureServer público de UNEP-WCMC | vectorial |
-| Inundación costera (opcional, on-demand) | WRI Aqueduct Floods v2 (CC-BY) — profundidad de inundación por escenario climático/período de retorno | ~927 m |
-| Contexto adicional en República Dominicana (amenaza sísmica, tsunami, inundación, ciclón, deslizamiento, infraestructura, vías, división político-administrativa, etc.) | Sistema de Información para la GRD y la AC (MEPyD), vía sus FeatureServers públicos de ArcGIS Online | vectorial |
+| `web`     | `${WEB_PORT:-3000}`        | El servidor SSR. Lo único que el navegador necesita alcanzar. |
+| `api`     | `${API_PORT:-8787}`        | El servicio raster. Interno, salvo por los PNG de overlay. |
+| `migrate` | —                          | Utilidad de un solo uso detrás del profile `tools`. `up` la ignora. |
 
-Esta última solo aporta datos cuando el AOI cae dentro de República
-Dominicana; para cualquier otra zona se omite automáticamente.
+Compose pisa `API_URL` (a `http://api:8787`) y `DATABASE_URL` (a
+`file:/data/territorio.db`) con los valores que corresponden dentro de la red de
+contenedores: no hay que editarlos en el `.env` para desplegar.
 
-No requiere ninguna cuenta ni API key. Si en el futuro se quiere sumar
-Google Earth Engine (para series históricas tipo Hansen Global Forest
-Change), eso sí requiere una cuenta de GEE aprobada.
+**`VITE_API_URL` es build-time.** Es la base absoluta con la que el *navegador*
+pide los PNG de overlay, así que se hornea en el bundle del cliente. Se setea
+con `PUBLIC_API_URL` en el `.env` y cambiarla exige `docker compose build web`.
 
-## Uso
+### Detrás de un proxy inverso
 
-### La forma más simple: un link (sin instalar nada)
+Compose no incluye proxy ni TLS. Para publicar en internet va un Caddy / nginx /
+Traefik delante apuntando a `web:3000`. Dos cosas tienen que ser ciertas:
 
-Si el proyecto está desplegado en Streamlit Community Cloud, cualquiera
-puede usarlo abriendo el link en el navegador — no requiere instalar nada,
-así que también sirve para computadoras de trabajo donde IT bloquea
-instalar/ejecutar programas (algo común: ver "Notas / límites conocidos").
-Ver la sección **Desplegar en Streamlit Community Cloud** más abajo para
-dejarlo publicado con un link fijo.
+1. `BETTER_AUTH_URL` = la URL **pública** (`https://…`). De ahí salen los
+   orígenes de confianza y el flag `Secure` de la cookie de sesión.
+2. El proxy manda `X-Forwarded-Proto` y `X-Forwarded-Host`. `apps/web/server.mjs`
+   los usa para reconstruir el origen real; sin ellos Better Auth ve `http://`
+   y el login falla con un error de origen, no de configuración.
 
-### Windows, sin usar la terminal (PC personal, sin restricciones de IT)
+### Respaldo
 
-1. Descargá el repositorio (botón verde "Code" → "Download ZIP" en GitHub, o `git clone`) y descomprimilo.
-2. Hacé doble click en **`Iniciar_App.bat`**.
-3. La primera vez instala automáticamente `uv` (el gestor de Python que usa
-   el proyecto) y las dependencias — puede tardar varios minutos. Las
-   siguientes veces arranca directo.
-4. Se abre solo en el navegador. Para cerrar la app, cerrá esa ventana negra
-   (la consola) o presioná Ctrl+C en ella.
-
-Requiere conexión a internet (para instalar dependencias la primera vez y
-para bajar las imágenes satelitales en cada análisis). No hace falta tener
-Python instalado de antes. **En una PC de trabajo administrada por IT esto
-puede fallar** (política de grupo bloqueando ejecutar programas nuevos) —
-en ese caso usá el link de Streamlit Community Cloud en vez de instalar
-local.
-
-### Mac/Linux, o desde la terminal en Windows
-
-```bash
-uv run streamlit run app.py
-```
-
-Se abre en el navegador. Ahí:
-1. Dibujás el polígono sobre el mapa (o subís un KML/KMZ/GeoJSON existente).
-2. Click en "Analizar zona".
-3. Se muestran métricas, mapas y tablas por pestaña (Mapa interactivo,
-   Topografía, Vegetación, Hidrología/Áreas protegidas, Reporte), y se puede
-   descargar el reporte en Markdown y las capas (DEM, pendiente, NDVI,
-   WorldCover) como GeoTIFF.
-4. En "Mapa interactivo" se puede prender/apagar cada capa y ajustar su
-   opacidad, incluida una capa opcional de inundación costera (WRI Aqueduct)
-   con varios escenarios climáticos/períodos de retorno para elegir.
-
-## Desplegar en Streamlit Community Cloud (link fijo, sin instalar nada)
-
-Esto lo tiene que hacer una persona con acceso al repo de GitHub, iniciando
-sesión en el navegador (no se puede automatizar desde acá):
-
-1. Entrá a [share.streamlit.io](https://share.streamlit.io) e iniciá sesión con la cuenta de GitHub que tiene acceso a este repo (`JuanSL626`).
-2. "Create app" → "Deploy a public app from GitHub" (o la opción equivalente para repos privados).
-3. Elegí el repo `JuanSL626/territorio-base`, rama `main`, archivo principal `app.py`.
-4. En "Advanced settings", elegí Python **3.11** explícitamente (a veces
-   Streamlit Cloud ignora el `runtime.txt` del repo y usa otra versión por
-   default).
-5. Deploy. La primera vez tarda unos minutos en instalar las dependencias
-   (`requirements.txt`, generado desde `uv.lock` — si cambian las
-   dependencias del proyecto, hay que regenerarlo con
-   `uv export --no-hashes --format requirements-txt -o requirements.txt`
-   y commitearlo).
-6. Si el repo es privado, Streamlit te va a pedir autorizar su GitHub App
-   con acceso a ese repo puntual — es un paso normal, no hace falta hacer
-   público el repo (aunque tampoco tiene nada sensible: no incluye datos
-   de ningún proyecto de cliente, solo el código).
-
-No hace falta configurar ningún secreto/API key — todas las fuentes de
-datos son abiertas y sin registro.
-
-## Probar el pipeline sin la interfaz (más rápido para depurar)
-
-```bash
-uv run python scripts/smoke_test.py /ruta/a/un/poligono.geojson
-```
-
-## Estructura
+Todo lo que sobrevive a un `docker compose down` está en el volumen
+`territorio-data`:
 
 ```
-Iniciar_App.bat                     # doble click en Windows: instala todo y abre la app
-requirements.txt                    # generado desde uv.lock, para Streamlit Community Cloud
-runtime.txt                         # versión de Python para Streamlit Community Cloud
-app.py                              # interfaz Streamlit
-src/territorio_base/
-  aoi.py                            # carga/normaliza el polígono (dibujo, KML, KMZ, GeoJSON) y calcula su UTM
-  sources/
-    stac.py                         # DEM, Sentinel-2/NDVI y WorldCover vía Planetary Computer
-    osm.py                          # hidrología vía Overpass API
-    protected_areas.py              # WDPA vía UNEP-WCMC FeatureServer
-    aqueduct.py                     # inundación costera vía WRI Aqueduct Floods (on-demand)
-  analysis/
-    topography.py                   # pendiente, orientación, estadísticas
-    vegetation.py                   # estadísticas de NDVI, cobertura de suelo y clasificación de densidad
-    report.py                       # orquesta todo lo anterior y arma el reporte
-  mapview.py                        # capas del mapa interactivo (ImageOverlay + leyendas)
+/data/territorio.db      usuarios, invitaciones y análisis (SQLite, modo WAL)
+/data/analyses/<job>/    GeoTIFF y PNG de cada análisis
+/data/coastal/           caché de los COG de WRI Aqueduct
 ```
 
-## Notas / límites conocidos
+Respaldar es copiar ese volumen. Por WAL, para una copia consistente en caliente
+usá `sqlite3 /data/territorio.db ".backup /data/backup.db"` en vez de `cp`.
 
-- La hidrología depende de qué tan mapeada esté la zona en OpenStreetMap —
-  que no aparezca un curso de agua no es garantía absoluta de que no exista
-  (para confirmar del todo conviene cruzar con INDRHI/Ministerio de Medio
-  Ambiente si el proyecto lo amerita).
-- El NDVI usa una mediana de varias escenas Sentinel-2 recientes para evitar
-  nubes; en zonas muy nubladas puede no encontrar suficientes escenas
-  (`max_cloud_cover`/`lookback_days` en `sources/stac.py:fetch_sentinel2_ndvi`
-  son ajustables).
-- Pensado para polígonos del orden de decenas a cientos de hectáreas; áreas
-  mucho más grandes van a tardar más en descargar/procesar.
-- La capa de inundación costera (WRI Aqueduct) es un screening, no un estudio
-  de detalle: resolución ~927 m (varios pixeles pueden cubrir todo el
-  polígono), proyecciones solo hasta 2080, metodología de 2020 basada en RCPs.
-  Climate Central (coastal.climatecentral.org) usa un DEM propietario de mayor
-  detalle y llega hasta 2150, pero no tiene API pública — solo mapa
-  interactivo, sin datos descargables para integrar acá.
-- En computadoras de trabajo con IT administrando la máquina, instalar
-  localmente (`Iniciar_App.bat` o `uv`) puede fallar con "This program is
-  blocked by group policy" — es una política de la empresa, no un bug del
-  proyecto. Confirmado en la práctica con una política que bloqueó ejecutar
-  `uv.exe` recién instalado. Para esos casos, usar el link de Streamlit
-  Community Cloud en vez de instalar nada local.
+---
+
+## Fuentes de datos
+
+Todas públicas y sin registro. La tabla sale del inventario
+([§5](docs/migration/00-legacy-inventory.md)) y es la misma que el reporte cita
+por capa.
+
+| Análisis | Fuente | Proveedor / endpoint | Resolución | Caveats |
+|---|---|---|---|---|
+| Topografía (elevación, pendiente, orientación) | Copernicus DEM GLO-30 | ESA, vía Microsoft Planetary Computer (STAC `cop-dem-glo-30`) | 30 m | — |
+| NDVI / densidad de vegetación | Sentinel-2 L2A | ESA Copernicus, vía Planetary Computer (STAC `sentinel-2-l2a`) | 10 m | Mediana de las escenas menos nubladas de los últimos 180 días (`eo:cloud_cover < 30`, top 6, máscara SCL {4,5,6,7,11}). Puede quedarse sin escenas en zonas persistentemente nubladas |
+| Cobertura de suelo / % arbóreo | ESA WorldCover 2021 | ESA, vía Planetary Computer (STAC `esa-worldcover`) | 10 m | — |
+| Hidrología | OpenStreetMap (`waterway`, `natural=water`, `natural=wetland`) | Overpass API, 5 mirrors en cascada | vectorial | Que no aparezca un curso de agua no prueba que no exista. `overpass.osm.ch` está **excluido a propósito**: responde 200 con 0 resultados en todo el Caribe |
+| Áreas protegidas | WDPA — World Database on Protected Areas | UNEP-WCMC FeatureServer público | vectorial | Se usa este endpoint y no la API de Protected Planet porque aquella pide token |
+| Inundación costera (opcional) | WRI Aqueduct Floods v2 (Ward et al., 2020) | World Resources Institute, COG por `/vsicurl/` | ~927 m | **CC-BY.** Screening, no estudio de detalle. Proyecciones hasta 2080, metodología 2020 basada en RCPs |
+| Contexto de riesgo en RD (~35 capas: sísmica, tsunami, inundación, ciclón, deslizamiento, infraestructura, vías, división político-administrativa) | Sistema de Información para la GRD y la AC | MEPyD, FeatureServers públicos de ArcGIS Online | vectorial | Solo si el AOI intersecta República Dominicana; si no, se omite entero. Una capa que falla se omite sola, sin tumbar el análisis |
+
+Si algún día se quisiera sumar series históricas tipo Hansen Global Forest
+Change vía Google Earth Engine, **eso sí** requiere una cuenta de GEE aprobada.
+Es la única fuente evaluada que no es abierta.
+
+---
+
+## Cómo se agrega una capa
+
+Es un **cambio de datos, no de componentes** — la regla de escalabilidad del
+brief de diseño ([§11](docs/migration/02-design-brief.md)). Agregar la capa 40
+son cuatro pasos y cero archivos de UI tocados:
+
+1. Una entrada `LayerDef` en `apps/web/src/layers/registry.ts` (o una fila en
+   `MEPYD_TABLE`, en `layers/mepyd.ts`, si es del catálogo MEPyD): id, etiqueta,
+   grupo, vistas, tipo, rol, leyenda, fuente **con licencia** y exports.
+2. Si es vectorial, un `PopupConfig` con alias de campos. **No es opcional:**
+   `registry.test.ts` falla si una capa vectorial no lo tiene.
+3. Un adaptador de fetch en el motor, con el **mismo id**.
+4. Opcionalmente `metrics: [...]`, y la capa produce tarjetas del reporte sola.
+
+`apps/web/src/layers/registry.test.ts` es el que sostiene la regla: verifica que
+toda `LayerDef` tenga `source.license`, que toda capa vectorial tenga al menos
+un alias de popup, que ninguna vista pase el tope de capas prendidas por defecto
+y que toda métrica referenciada exista. Si el paso 1 o el 2 se hacen a medias,
+falla en CI, no en producción.
+
+---
+
+## Cómo se agrega un servicio al workspace
+
+1. Crearlo bajo `apps/`, `packages/` o `services/` — los tres globs ya están en
+   `pnpm-workspace.yaml`.
+2. Darle un `package.json` con `"name": "@territorio/<algo>"` y `"private": true`.
+   **Ningún paquete escribe un rango de versión:** escribe `"catalog:"` y la
+   versión sale de `pnpm-workspace.yaml`. Si la dependencia es nueva, primero se
+   agrega ahí.
+3. Si NO es JavaScript, igual lleva `package.json` — solo con `scripts` que
+   invoquen su herramienta. Es lo que hace `services/api`, cuyo `test` es
+   `uv run pytest`: así Turborepo lo orquesta como a cualquier otro miembro.
+4. Los scripts se llaman igual en todos lados (`lint`, `typecheck`, `test`,
+   `build`, `dev`); `turbo.json` ya sabe qué hacer con esos nombres.
+5. Extender `@territorio/tsconfig` y `@territorio/eslint-config` en vez de
+   escribir configs nuevas.
+6. Si necesita imagen propia: un `Dockerfile` en su carpeta, un servicio en
+   `compose.yaml` y una entrada en la matriz `docker` de
+   `.github/workflows/ci.yml`.
+
+Los detalles de convenciones están en [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+---
+
+## Límites conocidos
+
+Los que venían del stack anterior y **siguen siendo verdad**, porque son
+límites de los datos, no del código:
+
+- **La hidrología depende de qué tan mapeada esté la zona en OpenStreetMap.**
+  Que no aparezca un curso de agua no es garantía de que no exista. Para
+  confirmar de verdad hay que cruzar con INDRHI / Ministerio de Medio Ambiente.
+- **El NDVI usa una mediana de varias escenas Sentinel-2 recientes** para evitar
+  nubes. En zonas persistentemente nubladas puede no encontrar suficientes
+  escenas y el análisis lo reporta en vez de inventar un número.
+- **Pensado para polígonos de decenas a cientos de hectáreas.** Áreas mucho
+  mayores tardan más en descargar y procesar; hay un guardarraíl de tamaño de
+  AOI antes de arrancar cualquier job.
+- **La inundación costera (WRI Aqueduct) es un screening, no un estudio.**
+  ~927 m de resolución significa que unos pocos píxeles pueden cubrir el
+  polígono entero; las proyecciones llegan hasta 2080 con metodología de 2020
+  basada en RCPs. Climate Central llega a 2150 con mejor DEM, pero es
+  propietario y **no tiene API pública**: no hay forma de integrarlo.
+- **El catálogo MEPyD solo aporta datos dentro de República Dominicana.** Fuera
+  del país se omite entero, a propósito.
+- **Una fuente externa caída degrada, no tumba.** Cada fuente se aísla y
+  distingue "no pude consultar" de "consulté y no hay nada": el reporte y la UI
+  los muestran distinto. Es la regresión #3 del inventario y no se repite.
+
+Límites que **ya no aplican** y por qué, para quien venga del README viejo:
+
+- *"Requiere instalar Python en la PC / `Iniciar_App.bat` / IT bloquea `uv.exe`"*
+  → ya no. La app es un servidor: se despliega una vez y se usa con un link, sin
+  instalar nada en la máquina de quien la usa.
+- *"Desplegar en Streamlit Community Cloud"* → ya no existe. La interfaz
+  Streamlit fue reemplazada por TanStack Start + MapLibre y el objetivo de
+  despliegue aprobado es Docker Compose autoalojado.
+- *"`requirements.txt` hay que regenerarlo desde `uv.lock`"* → ya no es una
+  trampa de despliegue. Las imágenes instalan con `uv sync --frozen` y
+  `pnpm install --frozen-lockfile`: si el lockfile y el manifiesto divergen, el
+  build **falla** en vez de desplegar otras versiones en silencio (regresión #9).
+
+---
+
+## Documentación de referencia
+
+| Documento | Qué contiene |
+|---|---|
+| [`docs/migration/00-legacy-inventory.md`](docs/migration/00-legacy-inventory.md) | Comportamiento del sistema anterior, contrato de datos, catálogo de capas, 48 casos de prueba y las 9 regresiones a no repetir |
+| [`docs/migration/01-engine-decision-memo.md`](docs/migration/01-engine-decision-memo.md) | Por qué la arquitectura es híbrida y dónde va exactamente la costura |
+| [`docs/migration/02-design-brief.md`](docs/migration/02-design-brief.md) | Especificación de la UI: rutas, vistas, panel de capas, reporte, exports |
+| [`docs/migration/04-correctness-fixes.md`](docs/migration/04-correctness-fixes.md) | H1 (offset BOA de Sentinel-2), H2 (época de WorldCover), H3 (máscara compartida elevación/pendiente) |
+| [`services/api/README.md`](services/api/README.md) | Qué es y qué no es del servicio raster, sus variables y sus tests |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Convenciones del workspace: catálogos, tsgo, ESLint plano, commits |

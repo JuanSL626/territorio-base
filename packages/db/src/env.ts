@@ -15,7 +15,14 @@ import { dirname, isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as z from 'zod';
 
-/** Every variable listed in `.env.example`, and nothing else. */
+/**
+ * The variables the web server validates at boot.
+ *
+ * `.env.example` documents more than this — the ones `services/api` reads
+ * (`TERRITORIO_*`), the build-time `VITE_API_URL`, and the ones only
+ * `compose.yaml` interpolates. Those are deliberately outside this schema:
+ * they belong to processes that never import this package.
+ */
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
@@ -33,8 +40,16 @@ const envSchema = z.object({
   /** SQLite file. `file:` prefix optional; relative paths resolve to the repo root. */
   DATABASE_URL: z.string().min(1).default('file:./data/territorio.db'),
 
-  /** Base URL of the Python raster service (`services/api`). */
-  API_URL: z.url().default('http://localhost:8000'),
+  /**
+   * Base URL of the Python raster service (`services/api`).
+   *
+   * 8787 — the port `services/api` binds in `pnpm dev`, in its Dockerfile and
+   * in its README, and the fallback hardcoded in `apps/web/src/lib/api.ts`.
+   * This default used to say 8000, which meant an unset `API_URL` pointed the
+   * SSR server at a port nothing listens on. Every file in the repo now says
+   * 8787; a 8000 anywhere is a leftover, not a convention.
+   */
+  API_URL: z.url().default('http://localhost:8787'),
 
   /** Only read by `scripts/seed.ts`. Optional everywhere else. */
   ADMIN_EMAIL: z.email().optional(),

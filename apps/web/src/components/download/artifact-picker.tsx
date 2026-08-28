@@ -5,7 +5,7 @@ import { Checkbox } from '~/components/ui/checkbox';
 import { AlertIcon, ChevronDown, ChevronRight } from '~/components/ui/icons';
 import { cn } from '~/lib/cn';
 import { groupArtifacts, type ExportArtifactPlan, type ExportPlan } from '~/lib/export-contract';
-import { formatBytes } from '~/lib/format';
+import { formatBytes, formatNumber } from '~/lib/format';
 
 /*
   La lista de artefactos del §7.2, agrupada como el panel de capas.
@@ -42,7 +42,7 @@ function ArtifactRow({
     artifact.formats,
     artifact.featureCount === null
       ? null
-      : `${artifact.featureCount.toLocaleString('es-DO')} elementos`,
+      : `${formatNumber(artifact.featureCount, 0)} elementos`,
     artifact.estimatedBytes > 0 ? `~${formatBytes(artifact.estimatedBytes)}` : null,
   ]
     .filter((part): part is string => part !== null)
@@ -50,6 +50,7 @@ function ArtifactRow({
 
   return (
     <li
+      data-testid={`artifact-row-${artifact.id}`}
       className={cn(
         'border-border-base/60 flex items-start gap-2 border-b px-3 py-2 last:border-b-0',
         disabled ? 'bg-surface-2/40' : null,

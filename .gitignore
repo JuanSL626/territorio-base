@@ -8,6 +8,14 @@ node_modules/
 
 # --- Build output ---
 dist/
+# `TB_DIST_DIR` permite builds paralelos con salidas separadas (`dist-a`,
+# `dist-b`, …). Ver `apps/web/vite.config.ts`.
+dist-*/
+# `apps/web/build/Release/better_sqlite3.node`: lo deja el Dockerfile para el
+# binding nativo de better-sqlite3. Es un artefacto por plataforma; nunca se
+# versiona. (`server.mjs` ya no lo escribe: desde que `vite.config.ts` declara
+# `ssr.external: ['better-sqlite3']`, Node lo resuelve desde node_modules.)
+build/
 .output/
 .vinxi/
 .nitro/
@@ -33,7 +41,6 @@ coverage/
 # --- Python-generated files ---
 __pycache__/
 *.py[oc]
-build/
 wheels/
 *.egg-info
 

@@ -3,7 +3,6 @@ import { useMemo, useState } from 'react';
 
 import { ArtifactPicker } from './artifact-picker';
 import { AttributionNotice } from './attribution-notice';
-import { QuickSnapshotTab, type CaptureMap } from './quick-snapshot';
 
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
@@ -30,22 +29,30 @@ import {
 } from '~/lib/export-queries';
 import { formatBytes, formatHectares } from '~/lib/format';
 
-export type { CaptureMap, SnapshotOptions } from './quick-snapshot';
-
 /*
   ─────────────────────────────────────────────────────────────────────────────
   EL MODAL DE EXPORTACIÓN — design brief §7.2
   ─────────────────────────────────────────────────────────────────────────────
-  Tres pestañas de ~520 px:
+  Dos pestañas de ~520 px:
 
-    Rápido     imagen del mapa actual, con sus toggles y una miniatura.
     Datos      EL entregable: la lista de artefactos que ESTE análisis produjo,
                agrupada como el panel de capas, con CRS, recorte y tamaño
                estimado.
     Impresión  el reporte: qué secciones, la vista de impresión (que es la que
                produce el PDF) y el Markdown suelto.
 
-  Debajo de las tres, siempre visible, el bloque de atribución y licencias.
+  Debajo de las dos, siempre visible, el bloque de atribución y licencias.
+
+  ── Por qué NO hay pestaña "Rápido" (imagen del mapa) ────────────────────────
+  Existió como UI y nunca como función. La captura de un canvas WebGL sólo
+  puede hacerla quien tiene la instancia de MapLibre —creada con
+  `preserveDrawingBuffer`— y componer encima leyenda, escala y recorte al AOI;
+  nada de eso estaba implementado, así que la pestaña se abría con cuatro
+  checkboxes vivos y un cartel que pedía «abrí el modal desde el mapa» a alguien
+  que YA lo había abierto desde el mapa. Se sacó entera: un control visible que
+  no puede funcionar es peor que uno ausente. Si vuelve, vuelve con
+  `onCaptureMap` cableado desde `routes/_app/index.tsx` y el canvas de verdad
+  detrás.
 
   Sobre "Exportar" no hay descarga: hay un JOB. El botón crea el trabajo y
   navega a `/descargas/$jobId`, que es donde vive el progreso y donde termina
@@ -53,10 +60,9 @@ export type { CaptureMap, SnapshotOptions } from './quick-snapshot';
   que ser navegable, recargable y compartible (§7.1).
 */
 
-type TabId = 'rapido' | 'datos' | 'impresion';
+type TabId = 'datos' | 'impresion';
 
 const TABS = [
-  { id: 'rapido', label: 'Rápido' },
   { id: 'datos', label: 'Datos' },
   { id: 'impresion', label: 'Impresión' },
 ] as const satisfies readonly { id: TabId; label: string }[];
@@ -71,13 +77,6 @@ export type DownloadModalProps = {
   analysisId?: string;
   /** Nombre legible del AOI. Da nombre al ZIP. */
   aoiName?: string;
-  /**
-   * Captura del mapa vivo, para la pestaña Rápido. La provee la ruta del mapa,
-   * que es la única que tiene el canvas de MapLibre. Sin ella la pestaña
-   * explica por qué no hay imagen en vez de mostrar un botón muerto.
-   */
-  onCaptureMap?: CaptureMap;
-
   /*
     Props del shell anterior.
 
@@ -132,7 +131,6 @@ export function DownloadModal({
   analysisId,
   aoiName,
   aoiSlug,
-  onCaptureMap,
 }: DownloadModalProps) {
   const navigate = useNavigate();
   const toast = useToast();
@@ -295,12 +293,6 @@ export function DownloadModal({
           />
         ) : (
           <>
-            {tab === 'rapido' ? (
-              <TabPanel>
-                <QuickSnapshotTab onCaptureMap={onCaptureMap} aoiName={plan.aoiName} />
-              </TabPanel>
-            ) : null}
-
             {tab === 'datos' ? (
               <TabPanel className="flex flex-col gap-3">
                 <ArtifactPicker
@@ -390,10 +382,17 @@ export function DownloadModal({
                           label={REPORT_SECTION_LABELS[section]}
                           checked={sections.includes(section)}
                           onChange={(event) => {
+                            /*
+                              El valor se lee ACÁ, no adentro del updater: el
+                              updater de `setSections` corre en la fase de
+                              render, ya terminado el despacho del evento, y
+                              para entonces `event.currentTarget` es `null`.
+                              Leerlo ahí tiraba la pantalla entera con
+                              «Cannot read properties of null (reading 'checked')».
+                            */
+                            const next = event.currentTarget.checked;
                             setSections((current) =>
-                              event.currentTarget.checked
-                                ? [...current, section]
-                                : current.filter((id) => id !== section),
+                              next ? [...current, section] : current.filter((id) => id !== section),
                             );
                           }}
                         />

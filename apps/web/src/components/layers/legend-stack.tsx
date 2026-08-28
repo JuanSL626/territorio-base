@@ -39,13 +39,23 @@ export type LegendStackProps = {
  */
 export function LegendStack({
   visibleLayers,
+  renderedLayers,
   presence,
   compact = false,
   className,
 }: LegendStackProps) {
   const [open, setOpen] = useState(!compact);
 
+  /*
+    `renderedLayers` es la lista de capas que el mapa está pintando de verdad.
+    Cuando llega, MANDA: una capa prendida cuyo dato todavía no existe (o no
+    existió nunca) no aporta leyenda. Dibujarla igual era la regresión #4 — un
+    color en la leyenda sin un solo píxel de ese color en el mapa.
+  */
+  const painted = renderedLayers === undefined ? null : new Set(renderedLayers);
+
   const blocks = visibleLayers
+    .filter((id) => painted === null || painted.has(id))
     .map((id) => getLayer(id))
     .filter((layer): layer is LayerDef => layer !== undefined)
     .map((layer) => ({ layer, resolved: resolveLegend(layer, presence[layer.id]) }))

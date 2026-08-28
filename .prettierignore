@@ -18,6 +18,9 @@ services/api/requirements.txt
 docs/
 CHANGELOG.md
 README.md
+CONTRIBUTING.md
+# JSONC: devcontainer.json lleva comentarios y Prettier los conserva, pero
+# reflowea las líneas y deja el archivo peor de leer que como se escribió.
 .devcontainer/
 
 # Generated

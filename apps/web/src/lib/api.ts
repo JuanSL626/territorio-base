@@ -19,11 +19,9 @@ import { createRasterApiClient, type RasterApiClient } from '@territorio/api-cli
  * `@territorio/db`. El default de acá es `http://localhost:8787` porque es el
  * puerto que usa `services/api`'s `pnpm dev` y el que documenta su README.
  *
- * NOTA para quien despliegue: `packages/db/src/env.ts` declara el default de
- * `API_URL` como `http://localhost:8000`. Los dos defaults sólo se usan cuando
- * la variable NO está seteada, así que en cualquier entorno real coinciden;
- * dejar la divergencia anotada es más honesto que "arreglarla" desde acá, que
- * es código de otro workstream.
+ * La divergencia que había con `packages/db/src/env.ts` (que defaulteaba a
+ * 8000) está resuelta: los dos dicen 8787, igual que `.env.example`,
+ * `compose.yaml` y el Dockerfile del servicio.
  */
 const DEFAULT_API_URL = 'http://localhost:8787';
 

@@ -194,6 +194,20 @@ export const LayersIcon = (props: IconProps) => (
   </Icon>
 );
 
+export const UserIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21a8 8 0 0 1 16 0" />
+  </Icon>
+);
+
+export const TableIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <rect x="3" y="4" width="18" height="16" rx="1.5" />
+    <path d="M3 10h18M9 10v10" />
+  </Icon>
+);
+
 export const SpinnerIcon = ({ size = 16, ...props }: IconProps) => (
   <svg
     width={size}

@@ -52,7 +52,10 @@ function ArtifactRow({
   retrying: boolean;
 }) {
   return (
-    <li className="border-border-base/60 flex items-start gap-3 border-b px-4 py-2.5 last:border-b-0">
+    <li
+      data-testid={`artifact-row-${artifact.id}`}
+      className="border-border-base/60 flex items-start gap-3 border-b px-4 py-2.5 last:border-b-0"
+    >
       <span className="mt-0.5 shrink-0">
         {artifact.status === 'listo' ? (
           <span className="text-success">

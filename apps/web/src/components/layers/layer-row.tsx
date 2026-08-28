@@ -8,7 +8,7 @@ import type { LayerDef, LayerStatus } from '~/layers/types';
 import { LayerStatusChip } from '~/components/states/layer-status';
 import { IconButton } from '~/components/ui/button';
 import { Checkbox } from '~/components/ui/checkbox';
-import { ChartIcon, CloseIcon, GripIcon, OpacityIcon, PinIcon } from '~/components/ui/icons';
+import { ChartIcon, CloseIcon, OpacityIcon, PinIcon } from '~/components/ui/icons';
 import { Slider } from '~/components/ui/slider';
 import { cn } from '~/lib/cn';
 import { formatNumber } from '~/lib/format';
@@ -35,19 +35,27 @@ export type LayerRowProps = {
   canDownload: boolean;
   /** Sliders con stepper numérico por debajo de 1024px (§9). */
   touch: boolean;
-  thresholds: number[] | undefined;
   onToggle: (next: boolean) => void;
   onOpacityChange: (value: number) => void;
   onRemove: () => void;
   onDownload: () => void;
   onRetry: () => void;
-  onThresholdChange: (thresholdId: string, values: number[]) => void;
 };
 
 /**
  * Fila de capa de 48px con el orden de controles FIJO del §4.3:
- *   ⠿ handle · muestra · checkbox+etiqueta · (espaciador) · ⓘ · ◐ · ✕
+ *   muestra · checkbox+etiqueta · (espaciador) · ⓘ · ◐ · ✕
  * El slider de opacidad aparece como sub-fila de 32px debajo, no flotando.
+ *
+ * NO hay handle de reordenar ni editor de cortes de clase, y es deliberado:
+ *   · el ⠿ prometía arrastrar para cambiar el z-order y no había ningún drag
+ *     implementado detrás — un asa que no agarra nada;
+ *   · los cortes de clase editables guardaban un número y no reclasificaban
+ *     nada: las capas clasificadas llegan como PNG YA rasterizado por el
+ *     servicio (ver la nota de `slope-classes` en `layer-runtime.ts`), así que
+ *     el cliente no tiene los valores por píxel con los que reclasificar.
+ * Un control visible que no hace nada es peor que un control ausente: promete
+ * una capacidad que el sistema no tiene.
  */
 export function LayerRow({
   layer,
@@ -57,36 +65,26 @@ export function LayerRow({
   pinned,
   canDownload,
   touch,
-  thresholds,
   onToggle,
   onOpacityChange,
   onRemove,
   onDownload,
   onRetry,
-  onThresholdChange,
 }: LayerRowProps) {
   const [opacityOpen, setOpacityOpen] = useState(false);
-  const [thresholdsOpen, setThresholdsOpen] = useState(false);
 
   const unavailable = runtime.status === 'error' || runtime.status === 'skipped';
   const locked = layer.alwaysOn === true;
 
   return (
     <div
+      data-testid={`layer-row-${layer.id}`}
       className={cn(
         'border-border-base/60 border-b last:border-b-0',
         unavailable ? 'opacity-70' : null,
       )}
     >
       <div className="flex h-12 items-center gap-2 pr-2 pl-3">
-        <span
-          aria-hidden="true"
-          className="text-fg-subtle shrink-0 cursor-grab"
-          title="Arrastrar para reordenar (z-order)"
-        >
-          <GripIcon size={14} />
-        </span>
-
         <LegendSwatch legend={layer.legend} />
 
         <span className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -163,52 +161,6 @@ export function LayerRow({
             withStepper={touch}
             onChange={onOpacityChange}
           />
-        </div>
-      ) : null}
-
-      {layer.thresholds != null && layer.thresholds.length > 0 ? (
-        <div className="pr-3 pb-2 pl-8">
-          <button
-            type="button"
-            aria-expanded={thresholdsOpen}
-            onClick={() => {
-              setThresholdsOpen((value) => !value);
-            }}
-            className="text-11 text-accent font-medium underline underline-offset-2"
-          >
-            {thresholdsOpen ? 'Ocultar cortes de clase' : 'Editar cortes de clase'}
-          </button>
-
-          {thresholdsOpen
-            ? layer.thresholds.map((threshold) => {
-                const values = thresholds ?? threshold.defaults;
-                return (
-                  <div key={threshold.id} className="mt-2 flex flex-col gap-1">
-                    <span className="text-11 text-fg-muted font-medium">{threshold.label}</span>
-                    {values.map((value, index) => (
-                      <Slider
-                        key={`${threshold.id}-${String(index)}`}
-                        label={`${threshold.label} — corte ${String(index + 1)}`}
-                        value={value}
-                        min={threshold.min}
-                        max={threshold.max}
-                        step={threshold.step}
-                        withStepper={touch}
-                        format={(current) =>
-                          `${formatNumber(current, threshold.step < 1 ? 2 : 0)}${threshold.unit}`
-                        }
-                        onChange={(next) => {
-                          const updated = [...values];
-                          updated[index] = next;
-                          onThresholdChange(threshold.id, updated);
-                        }}
-                      />
-                    ))}
-                    <p className="text-11 text-fg-subtle">{threshold.help}</p>
-                  </div>
-                );
-              })
-            : null}
         </div>
       ) : null}
     </div>

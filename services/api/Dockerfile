@@ -56,8 +56,14 @@ ENV PATH="/app/.venv/bin:$PATH" \
     GDAL_HTTP_MULTIPLEX=YES \
     GDAL_HTTP_VERSION=2 \
     VSI_CACHE=TRUE \
-    VSI_CACHE_SIZE=67108864 \
-    CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif,.TIF,.tiff"
+    VSI_CACHE_SIZE=67108864
+
+# NO se setea `CPL_VSIL_CURL_ALLOWED_EXTENSIONS`. Es tentador, y es una trampa:
+# los assets de Planetary Computer llegan firmados, con la SAS como query string
+# (`…_B04.tif?st=…&se=…&sig=…`), y la comprobación de extensión de GDAL ha
+# tropezado históricamente con eso — el resultado sería que TODA lectura remota
+# falla, en runtime y sólo contra el servicio real. Además no aporta nada acá:
+# el ahorro de peticiones ya lo da `GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR`.
 
 WORKDIR /app
 

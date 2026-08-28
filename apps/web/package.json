@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite dev --port 3000",
     "build": "vite build",
-    "start": "node .output/server/index.mjs",
+    "start": "node server.mjs",
     "lint": "eslint .",
     "typecheck": "tsgo --noEmit",
     "test": "vitest run --passWithNoTests"
@@ -23,6 +23,7 @@
     "@territorio/ui": "workspace:*",
     "archiver": "catalog:",
     "better-auth": "catalog:",
+    "better-sqlite3": "catalog:",
     "maplibre-gl": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",

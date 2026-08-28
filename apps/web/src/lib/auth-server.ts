@@ -7,9 +7,36 @@
  * paints a signed-in shell that then snaps to a login form. A `useEffect` guard
  * cannot do that, and neither can a `useSession()` check inside a component.
  *
- * On client-side navigation the same `beforeLoad` runs in the browser and
- * `fetchSession()` becomes one RPC round trip. Same code, same decision, both
- * times.
+ * On client-side navigation the same `beforeLoad` runs in the browser — and
+ * that is where the naive version of this file was expensive.
+ *
+ * ── Por qué el guard NO llama a `fetchSession()` directo ─────────────────────
+ *
+ * `beforeLoad` no corre "cuando cambia la ruta": corre en CADA navegación del
+ * router, incluidas las que sólo tocan search params. En esta app el mapa
+ * escribe search params todo el tiempo — `?bbox=` en cada `moveend`, `?layers=`
+ * en cada checkbox — así que un `await fetchSession()` acá dentro convertía
+ * cada `pan` y cada toggle en un `GET /_serverFn/…fetchSession`.
+ *
+ * No era sólo chattiness. `beforeLoad` que lanza = error de navegación = el
+ * error boundary de la raíz reemplaza la app entera. Con el servidor caído,
+ * mover el mapa borraba el AOI, el análisis y el mapa mismo con un «Failed to
+ * fetch».
+ *
+ * La sesión se resuelve entonces UNA vez y se guarda en el `QueryClient` que ya
+ * vive en el contexto del router (`~/router`): uno por request en el servidor
+ * —nunca un singleton de módulo, o dos usuarios compartirían sesión durante el
+ * SSR— y uno por pestaña en el cliente, hidratado desde el payload del SSR.
+ * `queryClient.query()` devuelve el valor cacheado sin pedir nada, así que el
+ * guard sigue corriendo en cada navegación pero cuesta cero round trips.
+ *
+ * El precio explícito: en el cliente la sesión no se revalida sola
+ * (`staleTime: 'static'`). Es correcto porque este guard protege la NAVEGACIÓN,
+ * no los datos — cada `createServerFn` valida su propia sesión, como dice
+ * `routes/_app.tsx`. Lo que sí hay que hacer es TIRAR el cache cuando la sesión
+ * cambia de verdad: `clearSessionCache` se llama en `signIn`, `signUp` y
+ * `signOut` (login.tsx, register.tsx, _app/index.tsx). Sin eso, entrar después
+ * de salir vería el `null` viejo y rebotaría a /login en loop.
  *
  * Session reading itself is `fetchSession` from `~/lib/session` — the single
  * server function for it. This module adds only the redirect policy on top, so
@@ -19,11 +46,42 @@
  * `createServerFn` handler, which TanStack Start strips from the client bundle.
  * Do **not** import `~/lib/auth` from a route file — import this.
  */
+import { queryOptions, type QueryClient } from '@tanstack/react-query';
 import { type AnyRedirect, redirect } from '@tanstack/react-router';
 
 import { fetchSession, type SessionUser } from './session';
 
 export type { SessionUser };
+
+/**
+ * La sesión como query cacheada.
+ *
+ * `staleTime: 'static'` es el modo de react-query en el que una query NUNCA se
+ * considera vencida: `queryClient.query()` devuelve lo cacheado sin tocar la
+ * red, y ni `invalidateQueries` ni `refetchQueries` la despiertan. Se olvida
+ * SÓLO con `clearSessionCache`, que es exactamente la semántica que quiere un
+ * guard de navegación.
+ *
+ * `retry: false` porque un guard que reintenta retrasa la navegación; si la
+ * primera lectura falla no queda nada cacheado, así que la siguiente
+ * navegación la vuelve a pedir.
+ */
+export const sessionQueryOptions = queryOptions({
+  queryKey: ['session'] as const,
+  queryFn: async () => await fetchSession(),
+  staleTime: 'static',
+  gcTime: Infinity,
+  retry: false,
+});
+
+/**
+ * Olvidar la sesión cacheada. Se llama después de CUALQUIER mutación de auth
+ * (`signIn`, `signUp`, `signOut`) y antes de `router.invalidate()`, que es lo
+ * que vuelve a correr los guards.
+ */
+export function clearSessionCache(queryClient: QueryClient): void {
+  queryClient.removeQueries({ queryKey: sessionQueryOptions.queryKey });
+}
 
 /**
  * Throw a router redirect.
@@ -46,17 +104,26 @@ function throwRedirect(target: AnyRedirect): never {
  *
  * ```ts
  * export const Route = createFileRoute('/_app')({
- *   beforeLoad: async ({ location }) => ({ user: await requireUser(location) }),
+ *   beforeLoad: async ({ context, location }) => ({
+ *     user: await requireUser(context.queryClient, location),
+ *   }),
  *   component: AppShell,
  * });
  * ```
+ *
+ * El `queryClient` sale del contexto del router (ver la cabecera del módulo):
+ * es lo que hace que el guard corra en cada navegación sin pedir la sesión de
+ * nuevo.
  *
  * The attempted URL rides along as `?redirect=`, so `/login` can send the user
  * back to the map with its `aoi`, `theme` and `layers` search params intact
  * instead of dumping them on the home page.
  */
-export async function requireUser(location: { href: string }): Promise<SessionUser> {
-  const user = await fetchSession();
+export async function requireUser(
+  queryClient: QueryClient,
+  location: { href: string },
+): Promise<SessionUser> {
+  const user = await queryClient.query(sessionQueryOptions);
   if (user === null) {
     throwRedirect(redirect({ to: '/login', search: { redirect: location.href } }));
   }
@@ -68,6 +135,11 @@ export async function requireUser(location: { href: string }): Promise<SessionUs
  *
  * `redirectTo` is the route's validated `?redirect=` search param. It is passed
  * through `safeRedirectPath` first — see below.
+ *
+ * Éste SÍ lee del servidor cada vez, a propósito: `/login` y `/registro` no
+ * escriben search params en bucle, se visitan una vez, y la lectura fresca es
+ * la que decide si la persona ya tiene sesión. Cachearla acá sólo agregaría un
+ * estado más que sincronizar con `clearSessionCache`.
  */
 export async function redirectIfSignedIn(redirectTo?: string): Promise<void> {
   const user = await fetchSession();

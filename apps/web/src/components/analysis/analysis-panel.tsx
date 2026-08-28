@@ -2,13 +2,19 @@ import { AoiSizeGuard } from './aoi-size-guard';
 
 import type { ReactNode } from 'react';
 import type { ThemeId } from '~/layers/types';
+import type { AnalysisPhase } from '~/lib/analysis-queries';
 
 import { AnalyzingState, type AnalysisThemeProgress } from '~/components/states/analyzing';
 import { EmptyAoiState } from '~/components/states/empty-aoi';
 import { NoDataCard } from '~/components/states/no-data';
 import { getVista, VISTAS } from '~/layers/vistas';
 
-export type AnalysisPhase = 'sin-aoi' | 'analizando' | 'listo';
+/*
+  La fase la decide `useAnalysisFlow` (el ciclo de vida vive en la capa de
+  queries, no en el componente). Se re-exporta desde acá para que quien importa
+  el panel no tenga que saber de dónde sale.
+*/
+export type { AnalysisPhase } from '~/lib/analysis-queries';
 
 export type AnalysisCard = {
   id: string;
@@ -28,9 +34,20 @@ export type AnalysisPanelProps = {
   cards: readonly AnalysisCard[];
   progress: readonly AnalysisThemeProgress[];
   elapsedMs: number;
+  /** Mensaje del motor cuando `phase === 'error'`. */
+  errorMessage?: string | null;
+  /**
+   * AOI rechazado por tamaño (§7.4): el motor NO lo lanzó y espera una
+   * decisión. Gana sobre `phase` porque no hay ni análisis corriendo ni
+   * resultado — hay una pregunta abierta, y es lo único que corresponde
+   * mostrar hasta que se responda.
+   */
+  sizeGuard?: { areaHa: number } | null;
   onDraw: () => void;
   onFiles: (files: FileList) => void;
   onCancel: () => void;
+  /** Vuelve a leer el análisis desde la fase `error`. */
+  onRetry?: () => void;
   onProceedLargeAoi: () => void;
   onDowngradeResolution: () => void;
   onSplitAoi: () => void;
@@ -48,13 +65,29 @@ export function AnalysisPanel({
   cards,
   progress,
   elapsedMs,
+  errorMessage = null,
+  sizeGuard = null,
   onDraw,
   onFiles,
   onCancel,
+  onRetry,
   onProceedLargeAoi,
   onDowngradeResolution,
   onSplitAoi,
 }: AnalysisPanelProps) {
+  if (sizeGuard !== null) {
+    return (
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        <AoiSizeGuard
+          areaHa={sizeGuard.areaHa}
+          onProceed={onProceedLargeAoi}
+          onDowngradeResolution={onDowngradeResolution}
+          onSplit={onSplitAoi}
+        />
+      </div>
+    );
+  }
+
   if (phase === 'sin-aoi') {
     return (
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -77,6 +110,25 @@ export function AnalysisPanel({
           </div>
         ) : null}
         <AnalyzingState themes={[...progress]} elapsedMs={elapsedMs} onCancel={onCancel} />
+      </div>
+    );
+  }
+
+  /*
+    Una corrida que falló NO puede quedarse girando en "analizando": el motor
+    ya devolvió un motivo en español y esto lo muestra con su reintento. Sin
+    esta rama, cancelar el análisis o perder el servicio raster dejaba el panel
+    colgado para siempre.
+  */
+  if (phase === 'error') {
+    return (
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        <NoDataCard
+          title="No se pudo completar el análisis"
+          reason={errorMessage ?? 'El análisis no terminó y no dejó un resultado legible.'}
+          onRetry={onRetry}
+          retryLabel="Volver a intentar"
+        />
       </div>
     );
   }

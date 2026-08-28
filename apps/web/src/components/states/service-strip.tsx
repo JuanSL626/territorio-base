@@ -3,8 +3,13 @@ import { AlertIcon, CloseIcon } from '~/components/ui/icons';
 
 export type ServiceIncident = {
   service: string;
-  attempt: number;
-  maxAttempts: number;
+  /**
+   * Reintento en curso. Ausentes cuando no hay reintento que contar: el motor
+   * aísla cada fuente y devuelve su fallo una sola vez, así que anunciar
+   * "reintentando (1/1)" sería inventar una recuperación que no existe.
+   */
+  attempt?: number;
+  maxAttempts?: number;
 };
 
 export type ServiceDownStripProps = {
@@ -21,11 +26,12 @@ export function ServiceDownStrip({ incidents, onDismiss }: ServiceDownStripProps
   if (incidents.length === 0) return null;
 
   const text = incidents
-    .map(
-      (incident) =>
-        `${incident.service} no responde — reintentando (${String(incident.attempt)}/${String(
-          incident.maxAttempts,
-        )})`,
+    .map((incident) =>
+      incident.attempt === undefined || incident.maxAttempts === undefined
+        ? `${incident.service} no responde`
+        : `${incident.service} no responde — reintentando (${String(incident.attempt)}/${String(
+            incident.maxAttempts,
+          )})`,
     )
     .join(' · ');
 

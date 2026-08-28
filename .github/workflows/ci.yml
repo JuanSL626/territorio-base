@@ -1,0 +1,218 @@
+# CI de Territorio Base.
+#
+# Tres trabajos independientes, uno por tecnología, que corren en paralelo:
+#
+#   node    → pnpm + turbo: lint, typecheck, test, build de todo el workspace TS
+#   python  → uv + ruff + pytest del servicio raster
+#   docker  → construye las DOS imágenes (sin push) y valida compose
+#
+# No hay `needs:` entre ellos a propósito: son fallas distintas y quien abre el
+# PR quiere ver las tres a la vez, no la primera y después la segunda.
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# Un push nuevo sobre la misma rama cancela el run anterior. En un repo con
+# turbo remote cache esto además evita que dos runs se peleen por escribir.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Sin colores ANSI en los logs de Actions.
+  FORCE_COLOR: "0"
+  TURBO_TELEMETRY_DISABLED: "1"
+  DO_NOT_TRACK: "1"
+
+jobs:
+  # ═════════════════════════════════════════════════════════════════════════
+  # Node — todo el workspace TypeScript
+  # ═════════════════════════════════════════════════════════════════════════
+  node:
+    name: Node · lint · typecheck · test · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      # ── Caché remota de Turborepo ──────────────────────────────────────────
+      # Opt-in y sin romperse si no está configurada: si los secrets no existen,
+      # estas variables quedan vacías, turbo no encuentra servidor y cae a la
+      # caché local sin fallar. Para activarla, definir en el repo los secrets
+      # TURBO_TOKEN y la variable TURBO_TEAM (Vercel Remote Cache o un
+      # self-hosted compatible como ducktors/turborepo-remote-cache).
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+      TURBO_API: ${{ vars.TURBO_API }}
+      # Etiqueta los artefactos por rama: main puede leer y escribir, un PR sólo
+      # debería leer lo que main dejó.
+      TURBO_REMOTE_ONLY: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # `packageManager` del package.json raíz fija la versión exacta de pnpm.
+      # Nunca se escribe un número acá: si el equipo sube pnpm, CI lo sigue solo.
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Instalar Node
+        uses: actions/setup-node@v4
+        with:
+          # Fuente única: `.nvmrc`. La misma versión que la imagen Docker.
+          node-version-file: .nvmrc
+          # Cachea el store de pnpm con clave sobre pnpm-lock.yaml.
+          cache: pnpm
+
+      # `--frozen-lockfile` es el punto del trabajo: si alguien tocó un
+      # package.json sin regenerar el lockfile, CI falla acá y no tres pasos
+      # más adelante con una versión distinta a la de su máquina.
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      # Caché de los artefactos locales de turbo, para las tareas que la caché
+      # remota no cubra (o cuando no está configurada).
+      - name: Caché de Turborepo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-
+
+      # Una sola invocación: turbo resuelve el grafo (`lint`/`typecheck`/`test`
+      # dependen de `^build`) y paraleliza. Cuatro pasos separados repetirían
+      # los builds de las dependencias cuatro veces.
+      - name: lint · typecheck · test · build
+        run: pnpm exec turbo run lint typecheck test build
+
+      # Guardarraíl del despliegue, no del código: el Dockerfile de la web
+      # copia `apps/web/server.mjs` y arranca `node server.mjs`. Si alguien lo
+      # borra o lo renombra, la imagen se construye igual y el contenedor muere
+      # al arrancar. Que falle acá, en 200 ms.
+      - name: Verificar el entrypoint de producción
+        run: node --check apps/web/server.mjs
+
+  # ═════════════════════════════════════════════════════════════════════════
+  # Python — services/api
+  # ═════════════════════════════════════════════════════════════════════════
+  python:
+    name: Python · ruff · pytest
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: services/api
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          # Cachea ~/.cache/uv con clave sobre el lockfile del servicio.
+          enable-cache: true
+          cache-dependency-glob: services/api/uv.lock
+
+      # `--frozen` = el equivalente de `--frozen-lockfile`: falla si
+      # pyproject.toml y uv.lock divergieron, en vez de resolver de nuevo en
+      # silencio y testear contra versiones que nadie desplegó.
+      - name: Instalar dependencias
+        run: uv sync --frozen
+
+      # ruff se ejecuta con `uvx` y versión fija: NO está en el grupo `dev` del
+      # proyecto a propósito, para no meter una herramienta de CI en el árbol de
+      # dependencias que se resuelve para la imagen. La configuración
+      # (reglas, exclusiones) vive en `services/api/pyproject.toml`.
+      - name: ruff
+        run: uvx ruff@0.15.5 check --output-format=github .
+
+      # `-m "not network"` excluye los tests que golpean Planetary Computer y
+      # WRI de verdad: son la suite de aceptación, no la de CI. Correrlos acá
+      # haría que un corte de un servicio externo pusiera el repo en rojo.
+      - name: pytest (subset offline)
+        run: uv run pytest -m "not network"
+
+  # ═════════════════════════════════════════════════════════════════════════
+  # Docker — build de las dos imágenes, sin push
+  # ═════════════════════════════════════════════════════════════════════════
+  docker:
+    name: Docker · ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # Matriz de dos entradas, y se gana el lugar: son dos imágenes con contextos
+    # y Dockerfiles distintos que fallan por motivos distintos (una por
+    # resolución del workspace pnpm, la otra por wheels de GDAL), y así el PR
+    # muestra cuál de las dos se rompió sin abrir el log. No hay matriz de
+    # versiones ni de plataformas: construir para arm64 por emulación en cada
+    # PR cuesta minutos y no cubre nada que el despliegue real no cubra.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: web
+            context: .
+            dockerfile: apps/web/Dockerfile
+          - name: api
+            context: ./services/api
+            dockerfile: ./services/api/Dockerfile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # BuildKit de verdad: hace falta para `--mount=type=cache` (pnpm store,
+      # caché de uv) y para el cacheo entre runs con GitHub Actions cache.
+      - name: Configurar Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Construir ${{ matrix.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          # Build y nada más: este repo no publica imágenes desde CI. El
+          # despliegue es autoalojado y construye en el servidor con
+          # `docker compose up --build`.
+          push: false
+          load: false
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,scope=${{ matrix.name }},mode=max
+
+  # ═════════════════════════════════════════════════════════════════════════
+  # Compose — que el orquestador sea válido
+  # ═════════════════════════════════════════════════════════════════════════
+  # Barato (segundos) y atrapa la clase de error más molesta de compose: una
+  # variable mal escrita, un anchor YAML roto, un `depends_on` a un servicio que
+  # no existe. No levanta nada.
+  compose:
+    name: Compose · config
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      # `env_file: .env` es obligatorio en compose.yaml; en CI no hay `.env`
+      # (ni debe haberlo), así que se sintetiza uno con los valores del ejemplo.
+      # Es exactamente lo que hace una persona al desplegar por primera vez.
+      - name: Preparar .env de validación
+        run: |
+          cp .env.example .env
+          {
+            echo "BETTER_AUTH_SECRET=$(openssl rand -base64 32)"
+            echo "ADMIN_EMAIL=ci@example.invalid"
+            echo "ADMIN_PASSWORD=ci-placeholder-password"
+          } >> .env
+
+      - name: Validar producción (solo compose.yaml)
+        run: docker compose -f compose.yaml config --quiet
+
+      - name: Validar desarrollo (compose.yaml + override)
+        run: docker compose config --quiet

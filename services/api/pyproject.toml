@@ -50,6 +50,36 @@ build-backend = "uv_build"
 [tool.uv.build-backend]
 module-name = "territorio_base_api"
 
+[tool.ruff]
+# Un solo linter para todo el Python del repo. Corre en CI (`ruff check`) y en
+# local (`uvx ruff check services/api`).
+target-version = "py311"
+line-length = 100
+# `legacy-vector-reference/` es el código Streamlit anterior, guardado a
+# propósito como referencia numérica mientras se verifica la paridad del port
+# vectorial a `packages/geo`. No se ejecuta, no se despliega y no se arregla:
+# lintearlo sería pedir cambios sobre un fósil.
+extend-exclude = ["legacy-vector-reference"]
+
+[tool.ruff.lint]
+# ── Por qué este conjunto y no uno más ambicioso ────────────────────────────
+# Es el set por defecto de ruff (E4 imports, E7 sintaxis, E9 errores, F
+# pyflakes) más W. Es exactamente lo que el código pasa HOY, verificado
+# corriéndolo, y una regla que el repo no cumple es una regla apagada: o rompe
+# CI, o se ignora, y las dos cosas son peores que no tenerla.
+#
+# Para ampliarlo, el camino es medible y en este orden (errores actuales, con
+# `--line-length 100`, medidos el 2026-08-28):
+#     + "I"                → 9  (orden de imports, todos en tests/, --fix los arregla)
+#     + "UP","B","C4"      → 19
+#     + "E" completo (E501) → 21 (líneas largas)
+# Cada paso: `uvx ruff check --select <set> --fix services/api`, revisar el
+# diff, sumar la letra acá. No sumarla antes de que el árbol esté limpio.
+select = ["E4", "E7", "E9", "F", "W"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["territorio_base_api"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q --strict-markers"

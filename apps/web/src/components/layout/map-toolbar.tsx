@@ -1,14 +1,7 @@
 import { IconButton } from '~/components/ui/button';
-import {
-  BasemapIcon,
-  CompareIcon,
-  DrawIcon,
-  LocateIcon,
-  RulerIcon,
-  UploadIcon,
-} from '~/components/ui/icons';
+import { BasemapIcon, DrawIcon, LocateIcon, UploadIcon } from '~/components/ui/icons';
 
-export type MapTool = 'dibujar' | 'subir' | 'medir' | 'comparar' | 'basemap' | 'ubicacion';
+export type MapTool = 'dibujar' | 'subir' | 'basemap' | 'ubicacion';
 
 export type MapToolbarProps = {
   activeTool: MapTool | null;
@@ -21,6 +14,12 @@ export type MapToolbarProps = {
  * es un objeto de primera clase, no un input de una capa. Los dos primeros
  * botones llevan etiqueta visible de 11px — esta audiencia no recibe controles
  * primarios sólo-icono (§13).
+ *
+ * `Medir` y `Comparar capas` NO están: existían, se marcaban `aria-pressed` y
+ * no hacían absolutamente nada — ni medición, ni cortina de comparación, ni
+ * consumidor en `map-canvas`. Un botón que se ilumina y no ejecuta nada le
+ * enseña a la gente a desconfiar del resto de la barra, así que se quitan
+ * hasta que haya implementación detrás.
  */
 export function MapToolbar({ activeTool, hasAoi, onTool }: MapToolbarProps) {
   return (
@@ -48,26 +47,6 @@ export function MapToolbar({ activeTool, hasAoi, onTool }: MapToolbarProps) {
         icon={<UploadIcon size={18} />}
         onClick={() => {
           onTool('subir');
-        }}
-      />
-      <IconButton
-        label="Medir"
-        variant="secondary"
-        icon={<RulerIcon size={18} />}
-        className="h-10 w-10"
-        aria-pressed={activeTool === 'medir'}
-        onClick={() => {
-          onTool('medir');
-        }}
-      />
-      <IconButton
-        label="Comparar capas"
-        variant="secondary"
-        icon={<CompareIcon size={18} />}
-        className="h-10 w-10"
-        aria-pressed={activeTool === 'comparar'}
-        onClick={() => {
-          onTool('comparar');
         }}
       />
       <IconButton

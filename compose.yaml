@@ -1,0 +1,179 @@
+# Territorio Base — despliegue autoalojado con Docker Compose.
+#
+#     cp .env.example .env      # y completar BETTER_AUTH_SECRET
+#     docker compose up -d --build
+#     docker compose exec web node --run db:migrate   # ver README, "Puesta en marcha"
+#
+# Dos servicios y un volumen. No hay base de datos aparte porque no hace falta:
+# la persistencia es un archivo SQLite dentro del volumen `territorio-data`, que
+# es el MISMO volumen donde el servicio raster escribe sus GeoTIFF. Un solo lugar
+# que respaldar.
+#
+# No incluye proxy inverso. Para publicar esto en internet va delante un Caddy /
+# nginx / Traefik que termine TLS y apunte a `web:3000`; `server.mjs` ya lee
+# `X-Forwarded-Proto` y `X-Forwarded-Host`, así que Better Auth ve el origen
+# real. Ver README, "Detrás de un proxy".
+
+name: territorio-base
+
+services:
+  # ───────────────────────────────────────────────────────────────────────────
+  # web — el servidor SSR de TanStack Start.
+  #
+  # Sirve el HTML, los assets del cliente y las server functions; es dueño de
+  # la sesión (Better Auth sobre SQLite) y de todo lo VECTORIAL: Overpass,
+  # WDPA, el catálogo MEPyD, el parseo de KML/KMZ/GeoJSON y el armado del ZIP
+  # de descarga. Es el ÚNICO servicio expuesto al navegador.
+  #
+  # Le habla al servicio raster server-to-server por la red interna de compose
+  # (`http://api:8787`). El browser no lo llama nunca — salvo por las URLs
+  # absolutas de los PNG de overlay, que es para lo que existe `VITE_API_URL`.
+  # ───────────────────────────────────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Build-time, no runtime: se hornea en el bundle del browser. Es la base
+        # ABSOLUTA con la que el navegador pide los PNG de overlay, así que tiene
+        # que ser una URL que el navegador pueda resolver — la pública del
+        # servicio raster, no `http://api:8787`, que sólo existe adentro de
+        # compose. Cambiarla obliga a `--build`.
+        VITE_API_URL: ${PUBLIC_API_URL:-http://localhost:8787}
+    image: territorio-base/web:latest
+    restart: unless-stopped
+    depends_on:
+      api:
+        # `service_healthy`, no `service_started`: el SSR consulta el servicio
+        # raster en el primer análisis, y arrancar contra un uvicorn a medio
+        # levantar da un error de red que la UI reporta como "servicio caído".
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # Nombre de servicio de compose + puerto interno. Pisa lo que diga el
+      # .env, que está escrito para desarrollo local (`localhost`).
+      API_URL: http://api:8787
+      # Ruta ABSOLUTA dentro del volumen. En el .env de desarrollo esto es
+      # relativo a la raíz del repo; acá no hay raíz de repo.
+      DATABASE_URL: file:/data/territorio.db
+      NODE_ENV: production
+      PORT: "3000"
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    volumes:
+      # Comparte volumen con `api` porque comparte el directorio: el SQLite de
+      # la app y los GeoTIFF de los análisis viven juntos. La app web lo lee
+      # para servir el ZIP de descarga sin proxear bytes por HTTP.
+      - territorio-data:/data
+    # El mismo uid/gid que `api`, y por la misma razón: los dos escriben en el
+    # volumen `territorio-data`. Ya está en el Dockerfile; se repite acá para
+    # que un `docker compose run --user` accidental no lo pierda de vista.
+    user: "10001:10001"
+    # Endurecimiento barato: el proceso no escribe fuera de /data ni de /tmp.
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    logging: &default-logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # api — el servicio raster (FastAPI + odc-stac, Python 3.11).
+  #
+  # La mitad Python de la arquitectura híbrida: es dueño de la GRILLA DE
+  # PÍXELES y de nada más — STAC/Planetary Computer, mosaico y recorte al AOI,
+  # NDVI, pendiente/orientación, WorldCover, WRI Aqueduct, export GeoTIFF y
+  # overlays PNG. El porqué está en `docs/migration/01-engine-decision-memo.md`.
+  #
+  # Es un servicio INTERNO. Se publica un puerto igual porque el navegador pide
+  # los PNG de overlay directo (por eso el servicio expone `X-Bounds` en CORS).
+  # Si se configura `TERRITORIO_API_TOKEN`, esas URLs pasan a exigir
+  # `Authorization` y hay que proxearlas desde el SSR — ver `apps/web/src/lib/api.ts`.
+  # ───────────────────────────────────────────────────────────────────────────
+  api:
+    build:
+      # Contexto acotado al servicio: no necesita nada del workspace npm, y así
+      # un cambio en apps/web no invalida su caché de capas.
+      context: ./services/api
+      dockerfile: Dockerfile
+    image: territorio-base/api:latest
+    restart: unless-stopped
+    environment:
+      # El Dockerfile ya lo fija; explícito acá para que se lea junto al volumen.
+      TERRITORIO_DATA_DIR: /data
+      # Orígenes que pueden pedir overlays desde el navegador. Tiene que incluir
+      # la URL pública de la app web, no la interna.
+      TERRITORIO_CORS_ORIGINS: ${BETTER_AUTH_URL:-http://localhost:3000}
+      TERRITORIO_MAX_CONCURRENT_JOBS: ${TERRITORIO_MAX_CONCURRENT_JOBS:-2}
+      TERRITORIO_JOB_TTL_HOURS: ${TERRITORIO_JOB_TTL_HOURS:-72}
+      TERRITORIO_API_TOKEN: ${TERRITORIO_API_TOKEN:-}
+    ports:
+      - "${API_PORT:-8787}:8787"
+    volumes:
+      - territorio-data:/data
+    # uid/gid del usuario `territorio` que crea su Dockerfile.
+    user: "10001:10001"
+    security_opt:
+      - no-new-privileges:true
+    # NO va `read_only: true`: rasterio/GDAL escriben temporales fuera de /data
+    # (y `/tmp` no siempre alcanza para un mosaico grande).
+    healthcheck:
+      # Definido también en el Dockerfile; repetido acá porque es lo que mira
+      # el `depends_on: service_healthy` de `web`, y dejarlo implícito hace que
+      # un cambio de puerto rompa el arranque de otro servicio sin explicación.
+      test: ["CMD", "curl", "-fsS", "http://localhost:8787/healthz"]
+      interval: 30s
+      timeout: 5s
+      # Generoso a propósito: el primer arranque purga jobs viejos y GDAL tarda
+      # en inicializar sus drivers.
+      start_period: 40s
+      retries: 3
+    logging: *default-logging
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # migrate — utilidad de un solo uso, NO un servicio.
+  #
+  # Vive detrás de un `profile`, así que `docker compose up` la ignora por
+  # completo. Se invoca a mano:
+  #
+  #     docker compose run --rm migrate                       # crea/actualiza el esquema
+  #     docker compose run --rm migrate node /app/packages/db/scripts/seed.ts --name "Tu Nombre"
+  #
+  # Reusa la imagen de `web` (ahí están `packages/db/scripts` y las migraciones
+  # de drizzle) pero no depende de que `web` esté arriba: en el primer despliegue
+  # el esquema todavía no existe y `web` no tiene nada que servir.
+  # ───────────────────────────────────────────────────────────────────────────
+  migrate:
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: territorio-base/web:latest
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: file:/data/territorio.db
+      NODE_ENV: production
+    volumes:
+      - territorio-data:/data
+    user: "10001:10001"
+    security_opt:
+      - no-new-privileges:true
+    # `migrate` es idempotente (drizzle salta lo ya aplicado vía
+    # `__drizzle_migrations`), así que repetirlo no rompe nada.
+    command: ["node", "/app/packages/db/scripts/migrate.ts"]
+    restart: "no"
+
+volumes:
+  # Un volumen para las dos cosas que sobreviven a un `docker compose down`:
+  #   /data/territorio.db   → usuarios, invitaciones y análisis (SQLite)
+  #   /data/analyses/<job>/ → GeoTIFF y PNG de cada análisis
+  #   /data/coastal/        → caché de los COG de WRI Aqueduct
+  # Respaldo = copiar este volumen. Ver README, "Respaldo".
+  territorio-data:
+    name: territorio-data

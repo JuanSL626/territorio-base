@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 
 import { LayerRow, type LayerRuntime } from './layer-row';
 
@@ -6,29 +6,34 @@ import type { LayerDef, LayerRole, ThemeId } from '~/layers/types';
 
 import { AccordionSection } from '~/components/ui/accordion';
 import { CountBadge } from '~/components/ui/badge';
-import { Checkbox } from '~/components/ui/checkbox';
 import { SearchIcon } from '~/components/ui/icons';
 import { Input } from '~/components/ui/input';
 import { buildLayerTree, LAYER_REGISTRY } from '~/layers/registry';
 import { isPinnedContext, MAX_VISIBLE_DATA_LAYERS, countVisibleDataLayers } from '~/layers/vistas';
+
+/**
+ * La inundación costera no se puede dibujar con la fila genérica: necesita un
+ * selector de escenario y el resultado del escenario elegido (§4, UC-24). Su
+ * fila la reemplaza `CoastalControl`, que la ruta inyecta acá.
+ */
+export const COASTAL_LAYER_ID = 'aqueduct';
+export const COASTAL_GROUP = 'Riesgo costero';
 
 export type LayerPanelProps = {
   theme: ThemeId;
   visible: readonly string[];
   opacity: Readonly<Record<string, number>>;
   runtime: Readonly<Record<string, LayerRuntime>>;
-  thresholds: Readonly<Record<string, number[]>>;
   hasAoi: boolean;
   inRd: boolean;
   touch: boolean;
-  showS2Footprints: boolean;
   onToggle: (layerId: string, next: boolean) => void;
   onOpacityChange: (layerId: string, value: number) => void;
   onRemove: (layerId: string) => void;
   onDownloadLayer: (layerId: string) => void;
   onRetryLayer: (layerId: string) => void;
-  onThresholdChange: (layerId: string, thresholdId: string, values: number[]) => void;
-  onToggleS2Footprints: (next: boolean) => void;
+  /** Bloque de inundación costera; ocupa el lugar de la fila de `aqueduct`. */
+  coastalControl?: ReactNode;
 };
 
 const ROLE_HEADERS: Record<LayerRole, string> = {
@@ -58,18 +63,15 @@ export function LayerPanel(props: LayerPanelProps) {
     visible,
     opacity,
     runtime,
-    thresholds,
     hasAoi,
     inRd,
     touch,
-    showS2Footprints,
     onToggle,
     onOpacityChange,
     onRemove,
     onDownloadLayer,
     onRetryLayer,
-    onThresholdChange,
-    onToggleS2Footprints,
+    coastalControl,
   } = props;
 
   const [query, setQuery] = useState('');
@@ -97,7 +99,7 @@ export function LayerPanel(props: LayerPanelProps) {
     const groups: LayerRole[] = ['medicion', 'contexto'];
 
     return groups.map((role) => {
-      const rows = layers.filter((layer) => layer.role === role);
+      const rows = layers.filter((layer) => layer.role === role && layer.id !== COASTAL_LAYER_ID);
       if (rows.length === 0) return null;
 
       return (
@@ -119,7 +121,6 @@ export function LayerPanel(props: LayerPanelProps) {
                 pinned={checked && isPinnedContext(layer.id, theme)}
                 canDownload={hasAoi}
                 touch={touch}
-                thresholds={thresholds[layer.id]}
                 onToggle={(next) => {
                   onToggle(layer.id, next);
                 }}
@@ -134,9 +135,6 @@ export function LayerPanel(props: LayerPanelProps) {
                 }}
                 onRetry={() => {
                   onRetryLayer(layer.id);
-                }}
-                onThresholdChange={(thresholdId, values) => {
-                  onThresholdChange(layer.id, thresholdId, values);
                 }}
               />
             );
@@ -196,6 +194,7 @@ export function LayerPanel(props: LayerPanelProps) {
               }
             >
               {renderRows(group.layers)}
+              {group.name === COASTAL_GROUP ? coastalControl : null}
 
               {group.subgroups.map((sub) => {
                 const subKey = `${group.name}/${sub.name}`;
@@ -223,18 +222,6 @@ export function LayerPanel(props: LayerPanelProps) {
             </AccordionSection>
           );
         })}
-      </div>
-
-      {/* Barra oscura fija de 40px: el único control suplementario del panel (§2). */}
-      <div className="bg-surface-inverse flex h-10 shrink-0 items-center px-3">
-        <Checkbox
-          checked={showS2Footprints}
-          label="Ver huellas de escenas Sentinel-2"
-          labelClassName="text-fg-inverse text-12"
-          onChange={(event) => {
-            onToggleS2Footprints(event.target.checked);
-          }}
-        />
       </div>
     </div>
   );

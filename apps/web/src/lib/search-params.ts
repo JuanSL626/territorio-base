@@ -84,14 +84,34 @@ export function serializeOpacityCsv(opacity: Readonly<Record<string, number>>): 
 
 export type Selection = { layerId: string; featureId: string };
 
+/*
+  `sel` es `{layerId}:{featureId}` y LOS DOS lados pueden llevar `:`.
+
+  Los ids de las 39 capas MEPyD son `mepyd:{grupo}/{capa}` y sus features se
+  numeran `{layerId}-{índice}`, así que un `sel` real se ve así:
+
+      mepyd:amenazas/tsunami:mepyd:amenazas/tsunami-12
+
+  Un `lastIndexOf(':')` corta por el ÚLTIMO dos puntos —el del featureId— y
+  produce un layerId que no existe en el registro: la selección se descarta y
+  abrir una URL con `?sel=` de una capa MEPyD no reabría el inspector. Se
+  prueban los cortes de derecha a izquierda y gana el PREFIJO MÁS LARGO que el
+  registro reconoce.
+*/
 export function parseSelection(sel: string | undefined): Selection | null {
   if (sel == null) return null;
-  const separator = sel.lastIndexOf(':');
-  if (separator <= 0) return null;
-  const layerId = sel.slice(0, separator);
-  const featureId = sel.slice(separator + 1);
-  if (featureId.length === 0 || getLayer(layerId) === undefined) return null;
-  return { layerId, featureId };
+
+  for (
+    let separator = sel.lastIndexOf(':');
+    separator > 0;
+    separator = sel.lastIndexOf(':', separator - 1)
+  ) {
+    const layerId = sel.slice(0, separator);
+    const featureId = sel.slice(separator + 1);
+    if (featureId.length > 0 && getLayer(layerId) !== undefined) return { layerId, featureId };
+  }
+
+  return null;
 }
 
 export function serializeSelection(selection: Selection | null): string | undefined {
@@ -112,7 +132,7 @@ export function serializeBbox(bbox: Bbox | null): string | undefined {
   return bbox === null ? undefined : bbox.map((value) => value.toFixed(5)).join(',');
 }
 
-export function visibilityFromSearch(search: MapSearch): LayerVisibility {
+export function visibilityFromSearch(search: Pick<MapSearch, 'layers' | 'op'>): LayerVisibility {
   return {
     visible: parseLayerCsv(search.layers),
     opacity: parseOpacityCsv(search.op),

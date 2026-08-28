@@ -53,6 +53,7 @@ export function ReportMapPanel({
   return (
     <aside
       aria-label="Mapa del reporte"
+      data-testid={sticky ? 'report-map-sticky' : 'report-map-inline'}
       className={cn(
         'bg-surface-2 border-border-base flex flex-col',
         sticky ? 'sticky top-0 h-dvh border-l' : 'rounded-panel overflow-hidden border',

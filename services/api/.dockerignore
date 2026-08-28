@@ -3,6 +3,7 @@ data/
 tests/
 legacy-vector-reference/
 .pytest_cache/
+.turbo/
 **/__pycache__/
 *.py[oc]
 .coverage

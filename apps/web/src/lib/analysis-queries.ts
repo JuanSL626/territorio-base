@@ -35,7 +35,7 @@ import {
   type UseMutationResult,
   type UseQueryResult,
 } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import {
   cancelAnalysis,
@@ -55,6 +55,7 @@ import {
 } from './analysis-server';
 
 import type { TerritorioAnalysis, TerritorioAnalysisSummary } from './analysis-contract';
+import type { LiveRunSnapshot } from './analysis-runtime';
 import type { CoastalPreset } from '@territorio/api-client';
 
 /* -------------------------------------------------------------------------- */
@@ -90,6 +91,32 @@ const RESULT_GC_MS = 30 * 60_000;
 /** Cadencia del progreso. El pipeline raster emite 4 pasos en 10–90 s. */
 const PROGRESS_POLL_MS = 1_000;
 
+/**
+ * Cadencia del RESULTADO mientras el análisis todavía corre.
+ *
+ * `startAnalysis` vuelve en ~120 ms con el id y deja el pipeline corriendo de
+ * fondo, así que la primera lectura del resultado casi siempre pega en
+ * `no-listo`. Sin este intervalo esa respuesta se quedaba cacheada
+ * `RESULT_STALE_MS` (5 min) y el análisis terminado NUNCA llegaba a la
+ * pantalla: la única forma de verlo era recargar a mano.
+ *
+ * `useAnalysisProgress` también invalida el detalle al terminar, pero eso sólo
+ * funciona mientras la corrida viva EN ESTE proceso (ver `analysis-runtime`).
+ * Este poll es el que hace que el resultado aparezca igual tras un reinicio
+ * del server, en una segunda instancia, o en una pestaña abierta después.
+ */
+const RESULT_POLL_MS = 1_500;
+
+/**
+ * `no-listo` es el único rechazo transitorio: significa "todavía está
+ * corriendo". Todos los demás (`no-encontrado`, `no-autenticado`, `servicio`)
+ * son terminales — insistir sobre ellos sólo genera tráfico.
+ */
+function pollWhileNotReady(result: { ok: true } | AnalysisRefusal | undefined): number | false {
+  if (result === undefined) return false;
+  return !result.ok && result.reason === 'no-listo' ? RESULT_POLL_MS : false;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Options                                                                     */
 /* -------------------------------------------------------------------------- */
@@ -100,6 +127,9 @@ export function analysisQueryOptions(analysisId: string) {
     queryFn: async (): Promise<ReadAnalysisResult> => await fetchAnalysis({ data: { analysisId } }),
     staleTime: RESULT_STALE_MS,
     gcTime: RESULT_GC_MS,
+    // `refetchInterval` ignora `staleTime`: es lo que despega la lectura del
+    // resultado de la caché de 5 minutos mientras el pipeline sigue corriendo.
+    refetchInterval: (query) => pollWhileNotReady(query.state.data),
   });
 }
 
@@ -111,6 +141,7 @@ export function analysisSummaryQueryOptions(analysisId: string) {
     > => await fetchAnalysisSummary({ data: { analysisId } }),
     staleTime: RESULT_STALE_MS,
     gcTime: RESULT_GC_MS,
+    refetchInterval: (query) => pollWhileNotReady(query.state.data),
   });
 }
 
@@ -204,6 +235,134 @@ export function useAnalysisProgress(
   }, [finished, analysisId, queryClient]);
 
   return query;
+}
+
+/* -------------------------------------------------------------------------- */
+/* El flujo completo: lanzar → seguir → resultado                              */
+/* -------------------------------------------------------------------------- */
+
+/** Las cuatro pantallas que puede mostrar la pestaña ANÁLISIS (§8). */
+export type AnalysisPhase = 'sin-aoi' | 'analizando' | 'listo' | 'error';
+
+export type AnalysisFlow = {
+  phase: AnalysisPhase;
+  /** El resultado, sólo en `listo`. */
+  analysis: TerritorioAnalysis | null;
+  /** Foto del progreso vivo, o `null` si esta instancia no tiene la corrida. */
+  run: LiveRunSnapshot | null;
+  /** Cronómetro del §8. Del snapshot vivo cuando existe; local si no. */
+  elapsedMs: number;
+  /** Mensaje del estado `error`, listo para mostrar. */
+  errorMessage: string | null;
+  /** Reintenta la lectura del resultado (botón «Reintentar»). */
+  retry: () => void;
+  /** «Cancelar análisis». */
+  cancel: () => void;
+  canceling: boolean;
+};
+
+/**
+ * TODO el ciclo de vida de un análisis en un solo hook.
+ *
+ * Existe porque el cableado tiene un orden que no se puede improvisar en la
+ * ruta y que, mal hecho, deja la pantalla colgada en "analizando" para siempre
+ * (que es exactamente lo que pasaba):
+ *
+ *   1. El resultado se lee siempre; mientras vuelva `no-listo` se repolea solo
+ *      (`analysisQueryOptions`). Ésa es la red de seguridad que no depende de
+ *      que la corrida viva en memoria de ESTE proceso.
+ *   2. Mientras corre se sigue el progreso por la server function que lee el
+ *      SSE (`useAnalysisProgress`), que además invalida el detalle apenas
+ *      termina — así la transición a `listo` es inmediata y no espera al poll.
+ *   3. Una corrida fallida NO se queda en `analizando`: `readOwned` devuelve
+ *      `servicio` con el mensaje del motor y esto pasa a `error`.
+ *
+ * Recargar la página en mitad de una corrida vuelve a entrar por (1) y (2) con
+ * el mismo id de la URL: se retoma sola, sin estado de cliente que restaurar.
+ */
+export function useAnalysisFlow(analysisId: string | undefined): AnalysisFlow {
+  const queryClient = useQueryClient();
+  const cancelAnalysisMutation = useCancelAnalysis();
+
+  const detail = useQuery({
+    ...analysisQueryOptions(analysisId ?? ''),
+    enabled: analysisId !== undefined,
+  });
+
+  const result = detail.data;
+  const notReady = result !== undefined && !result.ok && result.reason === 'no-listo';
+  const running = analysisId !== undefined && (result === undefined ? detail.isPending : notReady);
+
+  const progress = useAnalysisProgress(analysisId, { enabled: running });
+  const run = progress.data?.ok === true ? progress.data.run : null;
+
+  /*
+    Cronómetro de respaldo. El snapshot vivo trae el `elapsedMs` REAL; cuando
+    la corrida no está en este proceso (reinicio, otra instancia) se cuenta
+    desde que esta pestaña la vio por primera vez — es una aproximación, y es
+    preferible a un contador congelado en 0:00.
+  */
+  const [localElapsedMs, setLocalElapsedMs] = useState(0);
+
+  useEffect(() => {
+    if (!running) return undefined;
+    // El origen se toma DENTRO del efecto (no en el render, que tiene que ser
+    // puro) y el estado sólo se escribe desde el temporizador.
+    const startedAt = Date.now();
+    const update = () => {
+      setLocalElapsedMs(Date.now() - startedAt);
+    };
+    const first = setTimeout(update, 0);
+    const timer = setInterval(update, 1_000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(timer);
+    };
+  }, [running, analysisId]);
+
+  const retry = useCallback(() => {
+    if (analysisId === undefined) return;
+    void queryClient.invalidateQueries({ queryKey: analysisKeys.detail(analysisId) });
+    void queryClient.invalidateQueries({ queryKey: analysisKeys.progress(analysisId) });
+  }, [analysisId, queryClient]);
+
+  const cancel = useCallback(() => {
+    if (analysisId === undefined) return;
+    cancelAnalysisMutation.mutate(analysisId);
+  }, [analysisId, cancelAnalysisMutation]);
+
+  const phase: AnalysisPhase =
+    analysisId === undefined
+      ? 'sin-aoi'
+      : result === undefined
+        ? detail.isError
+          ? 'error'
+          : 'analizando'
+        : result.ok
+          ? 'listo'
+          : result.reason === 'no-listo'
+            ? 'analizando'
+            : 'error';
+
+  const elapsedMs = run?.elapsedMs ?? (phase === 'analizando' ? localElapsedMs : 0);
+
+  const errorMessage =
+    phase !== 'error'
+      ? null
+      : result !== undefined && !result.ok
+        ? result.message
+        : (detail.error?.message ?? 'No se pudo leer el análisis.');
+
+  return {
+    phase,
+    analysis: analysisFromResult(result),
+    run,
+    elapsedMs,
+    errorMessage,
+    retry,
+    cancel,
+    canceling: cancelAnalysisMutation.isPending,
+  };
 }
 
 /* -------------------------------------------------------------------------- */

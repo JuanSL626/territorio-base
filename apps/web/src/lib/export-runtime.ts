@@ -58,7 +58,6 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
 import {
-  clipFeaturesToAoi,
   createAoi,
   GEOMETRY_CLASS_SUFFIX,
   projectGeometry,
@@ -67,6 +66,10 @@ import {
   type DbfField,
   type Feature,
 } from '@territorio/geo';
+// `clipFeaturesToAoi` vive en el punto de entrada server-only del paquete:
+// su módulo (`export/bundle`) importa `archiver` y usa `Buffer`. Este archivo
+// ya es Node-only (`node:fs`, `node:os`), así que el deep import es gratis.
+import { clipFeaturesToAoi } from '@territorio/geo/server';
 
 import { getRasterApi } from './api';
 import {
@@ -235,7 +238,15 @@ function snapshot(job: ExportJob): ExportJobSnapshot {
     finishedAt: job.finishedAt?.toISOString() ?? null,
     expiresAt: job.expiresAt.toISOString(),
     error: job.error,
-    downloadable: job.status !== 'expirado' && ready.length > 0,
+    /*
+      `generando` también excluye: `openExportBundle` responde 409 mientras el
+      job corre, así que ofrecer el enlace apenas hay UN artefacto listo llevaba
+      a una pantalla de texto plano «El bundle todavía se está generando.» en
+      lugar de una descarga. El estado del botón tiene que coincidir con lo que
+      la ruta del ZIP realmente hace.
+    */
+    downloadable:
+      job.status !== 'expirado' && job.status !== 'generando' && ready.length > 0,
   };
 }
 

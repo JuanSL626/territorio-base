@@ -18,7 +18,17 @@ export type AppShellProps = {
   inspector: ReactNode;
   inspectorOpen: boolean;
   onInspectorClose: () => void;
+  /**
+   * Hay reporte que abrir: AOI dibujado **y** análisis terminado. Gobierna el
+   * `disabled` de la pestaña móvil `Reporte`.
+   */
   hasAoi: boolean;
+  /**
+   * Navega a `/reporte/{analysisId}`. La pestaña móvil `Reporte` sólo cambiaba
+   * `mobileTab` y no llevaba a ninguna parte: quedaba marcada como activa
+   * sobre el mapa, sin reporte.
+   */
+  onReport?: () => void;
 };
 
 /**
@@ -39,6 +49,7 @@ export function AppShell({
   inspectorOpen,
   onInspectorClose,
   hasAoi,
+  onReport,
 }: AppShellProps) {
   const breakpoint = useBreakpoint();
 
@@ -104,6 +115,13 @@ export function AppShell({
           value={mobileTab}
           reportDisabled={!hasAoi}
           onChange={(tab) => {
+            // `Reporte` es una RUTA, no un panel: navega y deja la pestaña
+            // activa donde estaba, para que volver atrás no aterrice en un
+            // estado marcado que nunca se pintó.
+            if (tab === 'reporte') {
+              onReport?.();
+              return;
+            }
             setMobileTab(tab);
             if (tab === 'capas') onPanelTabChange('capas');
             if (tab === 'analisis') onPanelTabChange('analisis');

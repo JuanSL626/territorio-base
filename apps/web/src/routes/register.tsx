@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { Button } from '~/components/ui/button';
 import { Field, Input } from '~/components/ui/input';
 import { AUTH_ERROR_MESSAGES, signUp, type AuthErrorCode } from '~/lib/auth-client';
-import { redirectIfSignedIn } from '~/lib/auth-server';
+import { clearSessionCache, redirectIfSignedIn } from '~/lib/auth-server';
 
 export const Route = createFileRoute('/register')({
   validateSearch: z.object({ invite: z.string().max(64).optional() }),
@@ -21,6 +21,7 @@ const INVITE_ERRORS = new Set<AuthErrorCode>(['invitacion-invalida', 'invitacion
 function RegisterPage() {
   const router = useRouter();
   const search = Route.useSearch();
+  const { queryClient } = Route.useRouteContext();
   const submit = useServerFn(signUp);
 
   const [name, setName] = useState('');
@@ -38,6 +39,9 @@ function RegisterPage() {
       try {
         const result = await submit({ data: { name, email, password, inviteCode } });
         if (result.ok) {
+          // La sesión cacheada de antes del alta ya no vale. Tirarla ANTES de
+          // `invalidate()`, que es lo que vuelve a correr los guards.
+          clearSessionCache(queryClient);
           await router.invalidate();
           await router.navigate({ to: '/' });
           return;

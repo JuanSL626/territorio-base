@@ -478,7 +478,7 @@ describe('decideExportSize', () => {
     const warn = decideExportSize({ ...base, areaHa: 1_200, estimatedBytes: 5_000_000 });
     expect(warn.allowed).toBe(false);
     expect(warn.verdict).toBe('warn');
-    expect(!warn.allowed && warn.message).toContain('1,200 ha');
+    expect(!warn.allowed && warn.message).toContain('1 200 ha');
 
     const confirmed = decideExportSize({
       ...base,

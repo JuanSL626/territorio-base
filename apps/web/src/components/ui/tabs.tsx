@@ -37,6 +37,13 @@ export function Tabs<TId extends string>({
     if (next) {
       event.preventDefault();
       onChange(next.id);
+      /*
+        El patrón de pestañas de WAI-ARIA mueve el FOCO junto con la selección.
+        Sin esto, la flecha cambia `aria-selected` pero el foco se queda en la
+        pestaña vieja, que en el mismo render pasa a `tabIndex={-1}`: quien
+        navega con teclado queda parado en un elemento que ya no es tabulable.
+      */
+      document.getElementById(`${baseId}-${next.id}-tab`)?.focus();
     }
   };
 

@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { Button } from '~/components/ui/button';
 import { Field, Input } from '~/components/ui/input';
 import { AUTH_ERROR_MESSAGES, signIn, type AuthErrorCode } from '~/lib/auth-client';
-import { redirectIfSignedIn, safeRedirectPath } from '~/lib/auth-server';
+import { clearSessionCache, redirectIfSignedIn, safeRedirectPath } from '~/lib/auth-server';
 
 export const Route = createFileRoute('/login')({
   validateSearch: z.object({ redirect: z.string().max(2000).optional() }),
@@ -22,6 +22,7 @@ export const Route = createFileRoute('/login')({
 function LoginPage() {
   const router = useRouter();
   const search = Route.useSearch();
+  const { queryClient } = Route.useRouteContext();
   const submit = useServerFn(signIn);
 
   const [email, setEmail] = useState('');
@@ -37,6 +38,10 @@ function LoginPage() {
       try {
         const result = await submit({ data: { email, password } });
         if (result.ok) {
+          // Recién ahora hay sesión: el `null` que pudo quedar cacheado al
+          // salir tiene que morir ANTES de que `invalidate()` recorra los
+          // guards, o `requireUser` rebota a /login para siempre.
+          clearSessionCache(queryClient);
           await router.invalidate();
           await router.navigate({ href: safeRedirectPath(search.redirect) });
           return;
