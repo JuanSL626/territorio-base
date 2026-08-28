@@ -109,7 +109,9 @@ function reject(reason: InviteRejection): InviteCheck {
   return { ok: false, reason, message: REJECTION_MESSAGES[reason] };
 }
 
-function normalizeEmail(email: string | null | undefined): string | null {
+/** Trim + lowercase. Shared with `web-boundary.ts` so a rate-limit bucket and
+ * an invite pin agree on what "the same email" means. */
+export function normalizeEmail(email: string | null | undefined): string | null {
   return email === null || email === undefined ? null : email.trim().toLowerCase();
 }
 
@@ -174,6 +176,35 @@ export async function claimInvite(
   if (row !== undefined) return { ok: true, invite: row };
 
   return await checkInvite(db, params);
+}
+
+/**
+ * Undo a claim left behind by a sign-up whose user row never actually landed.
+ *
+ * The gap this closes: `databaseHooks.user.create.before` claims the invite
+ * *before* the row insert (see `auth.ts`) so two concurrent claims of the
+ * *same* code can't both win. But two concurrent sign-ups for the *same
+ * email* with two *different* codes both pass that gate — each claims its
+ * own code — and only one insert can win `user_email_unique`; the other
+ * throws `FAILED_TO_CREATE_USER` with its invite already marked used and no
+ * account behind it. `web-boundary.ts` calls this from that failure path.
+ *
+ * Scoped to `used_by_user_id IS NULL`: `attachInviteUserByCode` sets that
+ * column only after a real insert succeeds, so this can never reopen an
+ * invite that is genuinely attached to an account — including, harmlessly,
+ * one that was never claimed at all (both columns already null).
+ */
+export async function releaseOrphanedClaim(
+  db: TerritorioDb,
+  code: string | null | undefined,
+): Promise<void> {
+  if (code === null || code === undefined) return;
+  const normalized = normalizeInviteCode(code);
+  if (normalized === '') return;
+  await db
+    .update(invite)
+    .set({ usedAt: null, usedByUserId: null })
+    .where(and(eq(invite.code, normalized), isNull(invite.usedByUserId)));
 }
 
 /**

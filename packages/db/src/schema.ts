@@ -117,22 +117,24 @@ export const verification = sqliteTable(
 );
 
 /**
- * Backing store for `rateLimit.storage: 'database'`.
+ * Backing store for the login/sign-up rate limiter in `rate-limit.ts`.
  *
- * In-memory rate limiting is per-process, so it silently degrades to nothing the
- * moment the app runs more than one worker. Login and sign-up are the two
- * endpoints worth brute-forcing on an invite-only tool, so the counter lives in
- * the database instead.
+ * Shaped to match Better Auth's own `rateLimit.storage: 'database'` model
+ * (`modelName: 'rateLimit'`) so the table stays reusable if the HTTP handler
+ * is ever mounted — but today `rate-limit.ts` is the sole reader/writer, via
+ * an atomic `INSERT ... ON CONFLICT(key) DO UPDATE`, which is why `key` is
+ * unique and non-null (Better Auth's own default schema leaves it nullable
+ * and non-unique; this app's usage needs the upsert target).
  */
 export const rateLimit = sqliteTable(
   'rate_limit',
   {
     id: text('id').primaryKey(),
-    key: text('key'),
+    key: text('key').notNull(),
     count: integer('count'),
     lastRequest: integer('last_request'),
   },
-  (table) => [index('rate_limit_key_idx').on(table.key)],
+  (table) => [uniqueIndex('rate_limit_key_unique').on(table.key)],
 );
 
 /**

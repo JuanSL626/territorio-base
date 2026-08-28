@@ -187,8 +187,11 @@ Traefik delante apuntando a `web:3000`. Dos cosas tienen que ser ciertas:
 
 ### Respaldo
 
-Todo lo que sobrevive a un `docker compose down` está en el volumen
-`territorio-data`:
+Todo lo que sobrevive a un `docker compose down` está en un volumen con nombre
+`<proyecto>_territorio-data` — `territorio-base_territorio-data` si desplegaste
+sin `-p` (el `name:` de la cabecera de `compose.yaml` es `territorio-base`), o
+`<lo-que-hayas-pasado-a--p>_territorio-data` si usaste `-p`. Para confirmarlo:
+`docker compose config | grep -A2 '^volumes:'`, o `docker volume ls`.
 
 ```
 /data/territorio.db      usuarios, invitaciones y análisis (SQLite, modo WAL)
@@ -198,6 +201,44 @@ Todo lo que sobrevive a un `docker compose down` está en el volumen
 
 Respaldar es copiar ese volumen. Por WAL, para una copia consistente en caliente
 usá `sqlite3 /data/territorio.db ".backup /data/backup.db"` en vez de `cp`.
+
+### Migrar el volumen de datos (despliegues anteriores a este cambio)
+
+`compose.yaml` solía fijar el volumen con `name: territorio-data`, sin prefijo
+de proyecto. Un `name:` explícito le gana al namespacing de Compose, así que
+**todo despliegue de ese archivo en un mismo host escribía el mismo volumen
+físico** — dos entornos (o dos `-p` distintos) sobre la misma base SQLite, sin
+ningún aviso más que un warning de Compose fácil de no ver. Ahora el volumen no
+lleva `name:` fijo, así que Compose lo namespacea por proyecto:
+`<proyecto>_territorio-data`.
+
+Esto significa que **un despliegue que ya tenía el volumen viejo
+(`territorio-data`, sin prefijo) no lo va a encontrar más**: el próximo
+`docker compose up` crea `territorio-base_territorio-data` vacío y arranca sin
+usuarios ni análisis, en silencio. Si tenías un despliegue de antes de este
+cambio, migrá el volumen ANTES de levantar la versión nueva:
+
+```bash
+docker compose down     # con la versión vieja de compose.yaml, todavía
+
+# Nombre del volumen nuevo: <proyecto>_territorio-data (sustituí <proyecto>
+# por el nombre que uses; por defecto es "territorio-base")
+docker volume create territorio-base_territorio-data
+
+# Copia byte a byte del volumen viejo al nuevo, vía un contenedor descartable
+docker run --rm \
+  -v territorio-data:/from \
+  -v territorio-base_territorio-data:/to \
+  alpine sh -c "cd /from && cp -a . /to"
+
+# A partir de acá ya podés usar la versión nueva de compose.yaml
+docker compose up -d
+docker compose ps        # confirmá que sigan los usuarios y análisis de antes
+```
+
+El volumen viejo (`territorio-data`) queda intacto durante la migración —
+`docker volume rm territorio-data` recién cuando confirmes que el nuevo
+funciona.
 
 ---
 

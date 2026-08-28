@@ -13,6 +13,7 @@ export {
   createAuth,
   getAuth,
   INVITE_CODE_FIELD,
+  resetAuthInstance,
   signUpWithInvite,
   type Auth,
   type BuildAuthOptionsInput,
@@ -29,11 +30,15 @@ export {
   INVITE_REJECTIONS,
   inviteRejectionMessage,
   listInvites,
+  normalizeEmail,
   normalizeInviteCode,
+  releaseOrphanedClaim,
   revokeInvite,
   type InviteCheck,
   type InviteRejection,
 } from './invites.ts';
+
+export { consumeRateLimit, type RateLimitOutcome, type RateLimitRule } from './rate-limit.ts';
 
 export {
   createAnalysis,

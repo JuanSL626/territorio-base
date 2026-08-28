@@ -29,10 +29,12 @@ function LoginPage() {
   const [password, setPassword] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<AuthErrorCode | null>(null);
+  const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(null);
 
   const onSubmit = () => {
     setPending(true);
     setError(null);
+    setRetryAfterSeconds(null);
 
     void (async () => {
       try {
@@ -47,6 +49,7 @@ function LoginPage() {
           return;
         }
         setError(result.code ?? 'servicio');
+        setRetryAfterSeconds(result.retryAfterSeconds ?? null);
       } catch {
         setError('servicio');
       } finally {
@@ -56,6 +59,12 @@ function LoginPage() {
   };
 
   const credentialError = error === 'credenciales';
+  const errorMessage =
+    error === 'demasiados-intentos' && retryAfterSeconds !== null
+      ? `Demasiados intentos. Probá de nuevo en ${retryAfterSeconds} segundos.`
+      : error !== null
+        ? AUTH_ERROR_MESSAGES[error]
+        : null;
 
   return (
     <main className="bg-surface-2 flex min-h-dvh items-center justify-center p-6">
@@ -107,9 +116,9 @@ function LoginPage() {
             )}
           </Field>
 
-          {error !== null ? (
+          {errorMessage !== null ? (
             <p role="alert" className="text-12 text-danger font-medium">
-              {AUTH_ERROR_MESSAGES[error]}
+              {errorMessage}
             </p>
           ) : null}
 

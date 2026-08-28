@@ -17,7 +17,17 @@
     "dev": {
       "cache": false,
       "persistent": true,
-      "interactive": true
+      "interactive": true,
+      "env": [
+        "BETTER_AUTH_SECRET",
+        "BETTER_AUTH_URL",
+        "DATABASE_URL",
+        "API_URL",
+        "API_TOKEN",
+        "ADMIN_EMAIL",
+        "ADMIN_PASSWORD",
+        "TERRITORIO_*"
+      ]
     },
 
     "build": {

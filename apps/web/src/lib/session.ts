@@ -30,9 +30,12 @@ export type AuthErrorCode =
   | 'invitacion-usada'
   | 'email-en-uso'
   | 'password-debil'
+  | 'demasiados-intentos'
   | 'servicio';
 
-export type AuthOutcome = { ok: true; setCookie: string[] } | { ok: false; code: AuthErrorCode };
+export type AuthOutcome =
+  | { ok: true; setCookie: string[] }
+  | { ok: false; code: AuthErrorCode; retryAfterSeconds?: number };
 
 export type SignInInput = { email: string; password: string };
 export type SignUpInput = { name: string; email: string; password: string; inviteCode: string };
@@ -113,15 +116,17 @@ const signUpSchema = z.object({
   inviteCode: z.string().trim().min(1).max(64),
 });
 
+type AuthActionResult = { ok: boolean; code?: AuthErrorCode; retryAfterSeconds?: number };
+
 export const signIn = createServerFn({ method: 'POST' })
   .validator(signInSchema)
-  .handler(async ({ data }): Promise<{ ok: boolean; code?: AuthErrorCode }> => {
+  .handler(async ({ data }): Promise<AuthActionResult> => {
     const boundary = await resolveAuthBoundary();
     if (!boundary) return { ok: false, code: 'servicio' };
 
     try {
       const outcome = await boundary.signIn(data, currentHeaders());
-      if (!outcome.ok) return { ok: false, code: outcome.code };
+      if (!outcome.ok) return { ok: false, code: outcome.code, retryAfterSeconds: outcome.retryAfterSeconds };
       applySetCookie(outcome.setCookie);
       return { ok: true };
     } catch {
@@ -131,13 +136,13 @@ export const signIn = createServerFn({ method: 'POST' })
 
 export const signUp = createServerFn({ method: 'POST' })
   .validator(signUpSchema)
-  .handler(async ({ data }): Promise<{ ok: boolean; code?: AuthErrorCode }> => {
+  .handler(async ({ data }): Promise<AuthActionResult> => {
     const boundary = await resolveAuthBoundary();
     if (!boundary) return { ok: false, code: 'servicio' };
 
     try {
       const outcome = await boundary.signUp(data, currentHeaders());
-      if (!outcome.ok) return { ok: false, code: outcome.code };
+      if (!outcome.ok) return { ok: false, code: outcome.code, retryAfterSeconds: outcome.retryAfterSeconds };
       applySetCookie(outcome.setCookie);
       return { ok: true };
     } catch {
@@ -167,5 +172,6 @@ export const AUTH_ERROR_MESSAGES: Record<AuthErrorCode, string> = {
   'invitacion-usada': 'Ese código de invitación ya fue usado.',
   'email-en-uso': 'Ya hay una cuenta con ese email.',
   'password-debil': 'La contraseña tiene que tener al menos 8 caracteres.',
+  'demasiados-intentos': 'Demasiados intentos. Probá de nuevo en unos minutos.',
   servicio: 'No se pudo contactar el servicio de cuentas. Probá de nuevo en un momento.',
 };

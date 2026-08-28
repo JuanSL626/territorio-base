@@ -153,11 +153,13 @@ context, resolved server-side; a client hook would re-fetch what SSR already
 knows and flash `null` on the way. After `signIn`/`signOut`, call
 `router.invalidate()` to re-run the guards.
 
-Sign-up errors arrive as a closed set of codes with Spanish copy in
+Sign-in/sign-up errors arrive as a closed set of codes with Spanish copy in
 `AUTH_ERROR_MESSAGES`: `credenciales`, `invitacion-invalida`, `invitacion-usada`,
-`email-en-uso`, `password-debil`, `servicio`. The mapping from Better Auth's
-machine-readable codes happens in `src/web-boundary.ts` — never against message
-text, which is translated and will be reworded.
+`email-en-uso`, `password-debil`, `demasiados-intentos`, `servicio`. The mapping
+from Better Auth's machine-readable codes happens in `src/web-boundary.ts` —
+never against message text, which is translated and will be reworded.
+`demasiados-intentos` carries a `retryAfterSeconds` alongside the code (see
+`src/rate-limit.ts`).
 
 ---
 
@@ -177,9 +179,13 @@ Two of these will cost you an afternoon if you change them without reading:
 `PRAGMA foreign_keys = ON` is set per connection in `src/client.ts`. SQLite
 ignores foreign keys without it, which would make `analysis.user_id` decorative.
 
-`rate_limit` backs `rateLimit.storage: 'database'`, enabled in production only.
-In-memory counters are per-process and vanish on restart; sign-in and sign-up are
-the endpoints worth brute-forcing on an invite-only tool.
+`rate_limit` backs `src/rate-limit.ts`, the actual login/sign-up rate limiter —
+**not** Better Auth's own `rateLimit` option, which this app deliberately does
+not configure (it only takes effect through `auth.handler()`, and nothing here
+dispatches a Request through it; see the header of `src/auth.ts`). `key` is
+unique, so every attempt is a single atomic `INSERT ... ON CONFLICT DO UPDATE`
+— no read-then-write gap. Always on, in every environment; a brute-force
+control that only ran in production couldn't have been verified outside it.
 
 `analysis.result_json` is typed loosely (`Record<string, unknown>`). Once
 `packages/api-client` / `packages/geo` publish the analysis contract, narrow it

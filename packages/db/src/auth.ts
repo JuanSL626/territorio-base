@@ -20,6 +20,14 @@
  *      adding a social provider or the admin plugin later cannot quietly open
  *      registration.
  *
+ * The claim in (2) runs *before* the user row insert, so it can't itself see
+ * whether that insert will succeed. Two concurrent sign-ups for the same
+ * email with two different codes both claim (different invite rows, no
+ * conflict there) and then race `user_email_unique`; the loser's insert
+ * throws Better Auth's `FAILED_TO_CREATE_USER`, which `web-boundary.ts`
+ * catches to release that specific claim (`releaseOrphanedClaim`) rather than
+ * leave an invite burned with no account behind it.
+ *
  * Why the adapter's `transaction` option is off: `drizzleAdapter({ transaction: true })` calls `db.transaction(cb)` with an
  * *async* callback. drizzle's better-sqlite3 driver is synchronous: it issues
  * BEGIN, calls the callback, gets a pending promise back, and issues COMMIT
@@ -76,7 +84,6 @@ export type BuildAuthOptionsInput = {
 export function buildAuthOptions(input: BuildAuthOptionsInput = {}) {
   const env = getEnv();
   const db = input.db ?? getDb();
-  const isProduction = env.NODE_ENV === 'production';
 
   // `Secure` es una propiedad del TRANSPORTE, no del modo de build, así que se
   // decide por el esquema de BETTER_AUTH_URL y no por NODE_ENV.
@@ -139,19 +146,12 @@ export function buildAuthOptions(input: BuildAuthOptionsInput = {}) {
       },
     },
 
-    // In-memory counters are per-process and vanish on restart. Login and
-    // sign-up are the endpoints worth brute-forcing here, so the counter is
-    // stored in the `rate_limit` table.
-    rateLimit: {
-      enabled: isProduction,
-      storage: 'database',
-      modelName: 'rateLimit',
-      customRules: {
-        '/sign-in/email': { window: 60, max: 5 },
-        '/sign-up/email': { window: 60, max: 5 },
-        '/forget-password': { window: 60, max: 3 },
-      },
-    },
+    // No `rateLimit` option here — on purpose. That option only takes effect
+    // through `auth.handler()`'s router `onRequest` hook, and this app never
+    // dispatches a Request through it (`web-boundary.ts` calls `.api.signInEmail()`
+    // / `.signUpEmail()` directly). Configuring it here would be dead config
+    // that *looks* like a working brute-force control. The real one is
+    // `rate-limit.ts`, called from `web-boundary.ts` before it delegates here.
 
     hooks: {
       /**
@@ -233,13 +233,18 @@ let instance: Auth | null = null;
  * The process-wide Better Auth instance, built on first use.
  *
  * One instance, deliberately: `webAuthBoundary` (server functions) and any
- * future `/api/auth/*` HTTP handler must share the same rate-limit counters,
- * the same connection and the same secret. Two instances would look identical
- * in tests and diverge under load.
+ * future `/api/auth/*` HTTP handler must share the same connection and the
+ * same secret. Two instances would look identical in tests and diverge under
+ * load.
  */
 export function getAuth(): Auth {
   instance ??= createAuth();
   return instance;
+}
+
+/** Test seam. Never call this from application code. */
+export function resetAuthInstance(): void {
+  instance = null;
 }
 
 export type SignUpWithInviteParams = {

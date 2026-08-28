@@ -166,5 +166,14 @@ volumes:
   #   /data/analyses/<job>/ → GeoTIFF y PNG de cada análisis
   #   /data/coastal/        → caché de los COG de WRI Aqueduct
   # Respaldo = copiar este volumen. Ver README, "Respaldo".
-  territorio-data:
-    name: territorio-data
+  #
+  # SIN `name:` explícito a propósito: un `name:` fijo le gana al namespacing
+  # por proyecto de Compose, así que TODO despliegue de este archivo en un
+  # mismo host terminaba escribiendo el mismo volumen físico — staging y
+  # producción, o dos `-p` distintos, comparten una sola base SQLite sin
+  # avisar. Sin `name:`, Compose arma el volumen real como
+  # `<proyecto>_territorio-data` (proyecto = `-p`, o el `name:` de la cabecera
+  # de este archivo si no se pasa `-p`), así que cada proyecto tiene el suyo.
+  # Ver README, "Migrar el volumen de datos" si ya tenías un despliegue con el
+  # volumen viejo (`territorio-data`, sin prefijo).
+  territorio-data: {}
