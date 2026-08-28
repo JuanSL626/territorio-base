@@ -176,8 +176,21 @@ se queda sin alias de popup o una fuente sin licencia.
 ## Despliegue
 
 Objetivo aprobado: **Docker Compose autoalojado**. Los archivos que lo definen
-son `compose.yaml`, `compose.override.yaml` (desarrollo), `apps/web/Dockerfile`,
-`services/api/Dockerfile`, `.dockerignore` y `.github/workflows/ci.yml`.
+son `compose.yaml`, `apps/web/Dockerfile`, `services/api/Dockerfile`,
+`.dockerignore` y `.github/workflows/ci.yml`.
+
+> **Docker es solo para producción.** El desarrollo se hace local con
+> `pnpm dev` — es más rápido (HMR de Vite, sin capa de filesystem de Docker) y
+> es el flujo que documenta el README.
+>
+> Por eso **no hay `compose.override.yaml`**. Existió y se borró a propósito:
+> Compose aplica ese archivo solo cuando está presente, así que `docker compose
+> up` levantaba en realidad la configuración de *desarrollo* — `uvicorn
+> --reload`, `TERRITORIO_DEBUG=1`, `src/` montado desde el host y `read_only`
+> apagado — y producción exigía acordarse de `-f compose.yaml`. Con el default
+> invertido respecto a la única cosa para la que usamos Docker, era cuestión de
+> tiempo que algo se desplegara en modo debug. Si alguna vez hace falta un
+> override de desarrollo, que sea con otro nombre y `-f` explícito.
 
 Cinco cosas que conviene saber antes de tocarlos:
 

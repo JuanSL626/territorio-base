@@ -136,6 +136,11 @@ cd services/api && uv run pytest                  # incluye la de aceptación re
 El único objetivo de despliegue soportado. Dos contenedores, un volumen, sin
 base de datos externa.
 
+**Docker es solo para producción.** Para desarrollar, usá `pnpm dev` (sección
+anterior): es más rápido y no tiene la capa de filesystem de Docker en el medio.
+No hay `compose.override.yaml` — `docker compose up` levanta producción y nada
+más.
+
 ```bash
 cp .env.example .env
 # Completá BETTER_AUTH_SECRET (openssl rand -base64 32), ADMIN_EMAIL y
