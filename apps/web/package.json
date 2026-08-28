@@ -1,0 +1,49 @@
+{
+  "name": "@territorio/web",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file-if-exists=../../.env node_modules/vite/bin/vite.js dev --port 3000",
+    "build": "vite build",
+    "start": "node server.mjs",
+    "lint": "eslint .",
+    "typecheck": "tsgo --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "catalog:",
+    "@tanstack/react-router": "catalog:",
+    "@tanstack/react-start": "catalog:",
+    "@tanstack/react-table": "catalog:",
+    "@territorio/api-client": "workspace:*",
+    "@territorio/db": "workspace:*",
+    "@territorio/geo": "workspace:*",
+    "@territorio/ui": "workspace:*",
+    "archiver": "catalog:",
+    "better-auth": "catalog:",
+    "better-sqlite3": "catalog:",
+    "maplibre-gl": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "catalog:",
+    "@territorio/eslint-config": "workspace:*",
+    "@territorio/tsconfig": "workspace:*",
+    "@types/archiver": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@typescript/native-preview": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "eslint": "catalog:",
+    "jsdom": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

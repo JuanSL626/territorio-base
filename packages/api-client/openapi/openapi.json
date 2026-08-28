@@ -1,0 +1,2178 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Territorio Base — API raster",
+    "description": "\nServicio raster de **Territorio Base**.\n\n* `POST /analysis` es asíncrono: devuelve `202` con un id de job. El pipeline tarda\n  entre 10 y 90 s (Sentinel-2 domina), así que el progreso se sigue por\n  `GET /analysis/{id}/events` (Server-Sent Events, mensajes en español) o por polling.\n* Cada capa raster se sirve de dos formas: **PNG + bounds WGS84** para el overlay de\n  MapLibre, y **GeoTIFF** (DEFLATE + tag nodata) para descargar.\n* Las fuentes están aisladas entre sí: que Sentinel-2 no encuentre escenas sin nubes\n  no borra la topografía. El booleano `available` distingue \"no se pudo consultar\" de\n  \"consulté y no hay nada\".\n",
+    "version": "0.2.0"
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "tags": [
+          "salud"
+        ],
+        "summary": "Estado del servicio",
+        "operationId": "healthz",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analysis": {
+      "post": {
+        "tags": [
+          "análisis"
+        ],
+        "summary": "Lanzar un análisis raster sobre un AOI",
+        "operationId": "createAnalysis",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalysisRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisJob"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "AOI inválido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analysis/{analysis_id}": {
+      "get": {
+        "tags": [
+          "análisis"
+        ],
+        "summary": "Estado y resultado de un análisis",
+        "operationId": "getAnalysis",
+        "parameters": [
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Analysis Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisJob"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analysis/{analysis_id}/events": {
+      "get": {
+        "tags": [
+          "análisis"
+        ],
+        "summary": "Progreso del análisis (Server-Sent Events)",
+        "description": "Stream SSE con los eventos `progress`, `status`, `done` y `error`. Los mensajes de `progress` son exactamente los strings en español que mostraba la app legacy. Al conectarse se reenvía el progreso ya ocurrido, así que un cliente que llega tarde no pierde pasos.",
+        "operationId": "streamAnalysisEvents",
+        "parameters": [
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Analysis Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stream de eventos.",
+            "content": {
+              "text/event-stream": {}
+            }
+          },
+          "404": {
+            "description": "No existe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analysis/{analysis_id}/overlay/{layer}.png": {
+      "get": {
+        "tags": [
+          "capas"
+        ],
+        "summary": "Overlay PNG de una capa, con sus bounds WGS84 en headers",
+        "description": "PNG RGBA reproyectado a EPSG:4326, listo para `map.addSource({type:'image'})`.\n\nLos bounds vienen en el header `X-Bounds` como `[west, south, east, north]` y las 4 esquinas ya ordenadas para `ImageSource` en `X-Overlay-Coordinates`. El sidecar JSON del mismo path (`.json` en vez de `.png`) trae además la leyenda.",
+        "operationId": "getAnalysisOverlay",
+        "parameters": [
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Analysis Id"
+            }
+          },
+          {
+            "name": "layer",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Layer"
+            }
+          },
+          {
+            "name": "opacity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 1,
+              "minimum": 0,
+              "description": "Alfa del overlay, 0–1.",
+              "default": 1,
+              "title": "Opacity"
+            },
+            "description": "Alfa del overlay, 0–1."
+          },
+          {
+            "name": "vmin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Override del extremo inferior de la rampa (solo capas continuas).",
+              "title": "Vmin"
+            },
+            "description": "Override del extremo inferior de la rampa (solo capas continuas)."
+          },
+          {
+            "name": "vmax",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Override del extremo superior. Defaults por capa: pendiente = percentil 98, NDVI = 1.0 fijo, DEM = máximo real del AOI, costera = max(profundidad, 0.1).",
+              "title": "Vmax"
+            },
+            "description": "Override del extremo superior. Defaults por capa: pendiente = percentil 98, NDVI = 1.0 fijo, DEM = máximo real del AOI, costera = max(profundidad, 0.1)."
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "El overlay.",
+            "content": {
+              "image/png": {}
+            }
+          },
+          "404": {
+            "description": "No existe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analysis/{analysis_id}/overlay/{layer}.json": {
+      "get": {
+        "tags": [
+          "capas"
+        ],
+        "summary": "Bounds, rampa y leyenda del overlay (sidecar del PNG)",
+        "operationId": "getAnalysisOverlayMetadata",
+        "parameters": [
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Analysis Id"
+            }
+          },
+          {
+            "name": "layer",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Layer"
+            }
+          },
+          {
+            "name": "opacity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 1,
+              "minimum": 0,
+              "description": "Alfa del overlay, 0–1.",
+              "default": 1,
+              "title": "Opacity"
+            },
+            "description": "Alfa del overlay, 0–1."
+          },
+          {
+            "name": "vmin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Override del extremo inferior de la rampa (solo capas continuas).",
+              "title": "Vmin"
+            },
+            "description": "Override del extremo inferior de la rampa (solo capas continuas)."
+          },
+          {
+            "name": "vmax",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Override del extremo superior. Defaults por capa: pendiente = percentil 98, NDVI = 1.0 fijo, DEM = máximo real del AOI, costera = max(profundidad, 0.1).",
+              "title": "Vmax"
+            },
+            "description": "Override del extremo superior. Defaults por capa: pendiente = percentil 98, NDVI = 1.0 fijo, DEM = máximo real del AOI, costera = max(profundidad, 0.1)."
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverlayMetadata"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analysis/{analysis_id}/raster/{layer}.tif": {
+      "get": {
+        "tags": [
+          "capas"
+        ],
+        "summary": "GeoTIFF recortado al AOI",
+        "description": "GeoTIFF en la UTM local del AOI, con **compresión DEFLATE** y **tag nodata explícito** (el export legacy no tenía ninguno de los dos, así que el relleno de fuera del AOI se abría en QGIS como si fuera dato).",
+        "operationId": "getAnalysisRaster",
+        "parameters": [
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Analysis Id"
+            }
+          },
+          {
+            "name": "layer",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Layer"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "El GeoTIFF.",
+            "content": {
+              "image/tiff": {}
+            }
+          },
+          "404": {
+            "description": "No existe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coastal/presets": {
+      "get": {
+        "tags": [
+          "costera"
+        ],
+        "summary": "Los 5 escenarios de inundación costera",
+        "operationId": "listCoastalPresets",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresetsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coastal": {
+      "post": {
+        "tags": [
+          "costera"
+        ],
+        "summary": "Traer (o reusar de caché) la inundación costera de un AOI",
+        "description": "Cacheado por `(AOI, preset)`: repetir el mismo escenario no vuelve a leer el GeoTIFF global de WRI. Se puede pasar `analysis_id` (el AOI sale del análisis) o un `aoi` suelto.",
+        "operationId": "computeCoastalFlood",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoastalRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoastalResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "AOI inválido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coastal/{cache_key}/overlay.png": {
+      "get": {
+        "tags": [
+          "costera"
+        ],
+        "summary": "Overlay PNG de la inundación costera",
+        "operationId": "getCoastalOverlay",
+        "parameters": [
+          {
+            "name": "cache_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cache Key"
+            }
+          },
+          {
+            "name": "opacity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 1,
+              "minimum": 0,
+              "description": "Alfa del overlay, 0–1.",
+              "default": 1,
+              "title": "Opacity"
+            },
+            "description": "Alfa del overlay, 0–1."
+          },
+          {
+            "name": "vmin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Override del extremo inferior de la rampa (solo capas continuas).",
+              "title": "Vmin"
+            },
+            "description": "Override del extremo inferior de la rampa (solo capas continuas)."
+          },
+          {
+            "name": "vmax",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Override del extremo superior. Defaults por capa: pendiente = percentil 98, NDVI = 1.0 fijo, DEM = máximo real del AOI, costera = max(profundidad, 0.1).",
+              "title": "Vmax"
+            },
+            "description": "Override del extremo superior. Defaults por capa: pendiente = percentil 98, NDVI = 1.0 fijo, DEM = máximo real del AOI, costera = max(profundidad, 0.1)."
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/png": {}
+            }
+          },
+          "404": {
+            "description": "No existe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coastal/{cache_key}/overlay.json": {
+      "get": {
+        "tags": [
+          "costera"
+        ],
+        "summary": "Bounds y leyenda del overlay costero",
+        "operationId": "getCoastalOverlayMetadata",
+        "parameters": [
+          {
+            "name": "cache_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cache Key"
+            }
+          },
+          {
+            "name": "opacity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 1,
+              "minimum": 0,
+              "description": "Alfa del overlay, 0–1.",
+              "default": 1,
+              "title": "Opacity"
+            },
+            "description": "Alfa del overlay, 0–1."
+          },
+          {
+            "name": "vmin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Override del extremo inferior de la rampa (solo capas continuas).",
+              "title": "Vmin"
+            },
+            "description": "Override del extremo inferior de la rampa (solo capas continuas)."
+          },
+          {
+            "name": "vmax",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Override del extremo superior. Defaults por capa: pendiente = percentil 98, NDVI = 1.0 fijo, DEM = máximo real del AOI, costera = max(profundidad, 0.1).",
+              "title": "Vmax"
+            },
+            "description": "Override del extremo superior. Defaults por capa: pendiente = percentil 98, NDVI = 1.0 fijo, DEM = máximo real del AOI, costera = max(profundidad, 0.1)."
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverlayMetadata"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coastal/{cache_key}/raster.tif": {
+      "get": {
+        "tags": [
+          "costera"
+        ],
+        "summary": "GeoTIFF de la inundación costera",
+        "operationId": "getCoastalRaster",
+        "parameters": [
+          {
+            "name": "cache_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cache Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/tiff": {}
+            }
+          },
+          "404": {
+            "description": "No existe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AnalysisJob": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "ok",
+              "partial",
+              "error"
+            ],
+            "title": "Status",
+            "description": "pending/running mientras corre; 'ok' si todas las fuentes respondieron; 'partial' si alguna falló pero hay resultado; 'error' si no hay nada utilizable."
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "aoi": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AoiInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "progress": {
+            "items": {
+              "$ref": "#/components/schemas/ProgressEvent"
+            },
+            "type": "array",
+            "title": "Progress"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "events_url": {
+            "type": "string",
+            "title": "Events Url"
+          },
+          "self_url": {
+            "type": "string",
+            "title": "Self Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "created_at",
+          "events_url",
+          "self_url"
+        ],
+        "title": "AnalysisJob"
+      },
+      "AnalysisRequest": {
+        "properties": {
+          "aoi": {
+            "$ref": "#/components/schemas/AoiGeometry"
+          },
+          "ndvi_resolution_m": {
+            "type": "integer",
+            "maximum": 60,
+            "minimum": 10,
+            "title": "Ndvi Resolution M",
+            "description": "Resolución del compuesto Sentinel-2. Subir a 20 m para AOIs grandes.",
+            "default": 10
+          },
+          "lookback_days": {
+            "type": "integer",
+            "maximum": 730,
+            "minimum": 30,
+            "title": "Lookback Days",
+            "default": 180
+          },
+          "max_cloud_cover": {
+            "type": "integer",
+            "maximum": 100,
+            "minimum": 0,
+            "title": "Max Cloud Cover",
+            "default": 30
+          }
+        },
+        "type": "object",
+        "required": [
+          "aoi"
+        ],
+        "title": "AnalysisRequest"
+      },
+      "AnalysisResult": {
+        "properties": {
+          "aoi": {
+            "$ref": "#/components/schemas/AoiInfo"
+          },
+          "topography": {
+            "$ref": "#/components/schemas/TopographyResult"
+          },
+          "vegetation": {
+            "$ref": "#/components/schemas/VegetationResult"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/Provenance"
+          },
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/LayerAvailability"
+            },
+            "type": "array",
+            "title": "Layers",
+            "description": "Solo se listan las capas que esta corrida produjo de verdad."
+          }
+        },
+        "type": "object",
+        "required": [
+          "aoi",
+          "topography",
+          "vegetation",
+          "provenance",
+          "layers"
+        ],
+        "title": "AnalysisResult"
+      },
+      "AoiGeometry": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "Polygon",
+              "MultiPolygon",
+              "Feature",
+              "FeatureCollection"
+            ],
+            "title": "Type"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "title": "AoiGeometry",
+        "description": "GeoJSON del AOI. Se acepta Geometry, Feature o FeatureCollection.",
+        "example": {
+          "coordinates": [
+            [
+              [
+                -69.94,
+                18.47
+              ],
+              [
+                -69.93,
+                18.47
+              ],
+              [
+                -69.93,
+                18.48
+              ],
+              [
+                -69.94,
+                18.48
+              ],
+              [
+                -69.94,
+                18.47
+              ]
+            ]
+          ],
+          "type": "Polygon"
+        }
+      },
+      "AoiInfo": {
+        "properties": {
+          "area_ha": {
+            "type": "number",
+            "title": "Area Ha",
+            "description": "Área en hectáreas, calculada en la UTM local del AOI."
+          },
+          "bbox": {
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array",
+            "maxItems": 4,
+            "minItems": 4,
+            "title": "Bbox",
+            "description": "(lon_min, lat_min, lon_max, lat_max) en WGS84."
+          },
+          "utm_epsg": {
+            "type": "integer",
+            "title": "Utm Epsg",
+            "description": "EPSG de la zona UTM usada para áreas y distancias (ej. 32619).",
+            "examples": [
+              32619
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "area_ha",
+          "bbox",
+          "utm_epsg"
+        ],
+        "title": "AoiInfo"
+      },
+      "CoastalRequest": {
+        "properties": {
+          "preset": {
+            "type": "string",
+            "enum": [
+              "Hoy (histórico) — 100 años de retorno",
+              "2050 · RCP4.5 (optimista) — 100 años",
+              "2050 · RCP8.5 (pesimista) — 100 años",
+              "2080 · RCP8.5 (pesimista) — 100 años",
+              "2080 · RCP8.5 (pesimista) — 1000 años (extremo)"
+            ],
+            "title": "Preset",
+            "description": "Una de las 5 claves exactas del selectbox."
+          },
+          "analysis_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysis Id",
+            "description": "Si se pasa, el AOI se toma del análisis y el resultado se adjunta a él."
+          },
+          "aoi": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AoiGeometry"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Requerido si no se pasa analysis_id."
+          }
+        },
+        "type": "object",
+        "required": [
+          "preset"
+        ],
+        "title": "CoastalRequest"
+      },
+      "CoastalResponse": {
+        "properties": {
+          "cache_key": {
+            "type": "string",
+            "title": "Cache Key",
+            "description": "Clave de caché (aoi, preset). Repetir la consulta no recomputa."
+          },
+          "preset": {
+            "type": "string",
+            "enum": [
+              "Hoy (histórico) — 100 años de retorno",
+              "2050 · RCP4.5 (optimista) — 100 años",
+              "2050 · RCP8.5 (pesimista) — 100 años",
+              "2080 · RCP8.5 (pesimista) — 100 años",
+              "2080 · RCP8.5 (pesimista) — 1000 años (extremo)"
+            ],
+            "title": "Preset"
+          },
+          "analysis_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysis Id"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached",
+            "description": "True si se sirvió desde caché."
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available",
+            "description": "False = el servicio de Aqueduct no respondió."
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CoastalSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "overlay_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overlay Url"
+          },
+          "overlay_metadata_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overlay Metadata Url"
+          },
+          "raster_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raster Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cache_key",
+          "preset",
+          "cached",
+          "available"
+        ],
+        "title": "CoastalResponse"
+      },
+      "CoastalSummary": {
+        "properties": {
+          "has_data": {
+            "type": "boolean",
+            "title": "Has Data",
+            "description": "False = el AOI está fuera de la cobertura de Aqueduct."
+          },
+          "resolution_m_approx": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution M Approx"
+          },
+          "pct_area_flooded": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pct Area Flooded"
+          },
+          "max_depth_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Depth M"
+          },
+          "mean_depth_where_flooded_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Depth Where Flooded M"
+          }
+        },
+        "type": "object",
+        "required": [
+          "has_data"
+        ],
+        "title": "CoastalSummary",
+        "description": "Idéntico a `summarize_coastal_flood` del legacy."
+      },
+      "ErrorResponse": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "description": "Mensaje en español, apto para mostrar al usuario."
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorResponse",
+        "description": "Cuerpo de error uniforme."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status",
+            "default": "ok"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "jobs_in_flight": {
+            "type": "integer",
+            "title": "Jobs In Flight",
+            "description": "Análisis corriendo en este proceso ahora mismo."
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "jobs_in_flight"
+        ],
+        "title": "HealthResponse"
+      },
+      "LayerAvailability": {
+        "properties": {
+          "layer": {
+            "type": "string",
+            "enum": [
+              "dem",
+              "slope",
+              "slope_classes",
+              "aspect",
+              "ndvi",
+              "ndvi_density",
+              "worldcover",
+              "coastal"
+            ],
+            "title": "Layer"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "continuous",
+              "categorical"
+            ],
+            "title": "Kind"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "default_opacity": {
+            "type": "number",
+            "title": "Default Opacity"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "overlay_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overlay Url"
+          },
+          "overlay_metadata_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overlay Metadata Url"
+          },
+          "raster_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raster Url"
+          },
+          "download_filename": {
+            "type": "string",
+            "title": "Download Filename"
+          }
+        },
+        "type": "object",
+        "required": [
+          "layer",
+          "kind",
+          "label",
+          "default_opacity",
+          "available",
+          "download_filename"
+        ],
+        "title": "LayerAvailability"
+      },
+      "LegendEntry": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "color": {
+            "type": "string",
+            "title": "Color",
+            "description": "Hex #rrggbb."
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value",
+            "description": "Solo en rampas continuas."
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code",
+            "description": "Solo en capas categóricas."
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "color"
+        ],
+        "title": "LegendEntry"
+      },
+      "OverlayMetadata": {
+        "properties": {
+          "layer": {
+            "type": "string",
+            "enum": [
+              "dem",
+              "slope",
+              "slope_classes",
+              "aspect",
+              "ndvi",
+              "ndvi_density",
+              "worldcover",
+              "coastal"
+            ],
+            "title": "Layer"
+          },
+          "bounds": {
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array",
+            "maxItems": 4,
+            "minItems": 4,
+            "title": "Bounds",
+            "description": "(west, south, east, north) en EPSG:4326."
+          },
+          "coordinates": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Coordinates",
+            "description": "Las 4 esquinas en el orden de `ImageSource`: TL, TR, BR, BL."
+          },
+          "width": {
+            "type": "integer",
+            "title": "Width"
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height"
+          },
+          "vmin": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vmin"
+          },
+          "vmax": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vmax"
+          },
+          "opacity": {
+            "type": "number",
+            "title": "Opacity"
+          },
+          "legend_title": {
+            "type": "string",
+            "title": "Legend Title"
+          },
+          "legend": {
+            "items": {
+              "$ref": "#/components/schemas/LegendEntry"
+            },
+            "type": "array",
+            "title": "Legend"
+          },
+          "png_url": {
+            "type": "string",
+            "title": "Png Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "layer",
+          "bounds",
+          "coordinates",
+          "width",
+          "height",
+          "opacity",
+          "legend_title",
+          "legend",
+          "png_url"
+        ],
+        "title": "OverlayMetadata",
+        "description": "Sidecar del PNG: lo que MapLibre necesita para posicionarlo."
+      },
+      "PresetsResponse": {
+        "properties": {
+          "presets": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Presets",
+            "description": "Las 5 claves exactas, en el orden del selectbox legacy."
+          }
+        },
+        "type": "object",
+        "required": [
+          "presets"
+        ],
+        "title": "PresetsResponse"
+      },
+      "ProgressEvent": {
+        "properties": {
+          "step": {
+            "type": "integer",
+            "title": "Step",
+            "description": "Índice 1-based del paso."
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Pasos totales: 3 descargas + el «Análisis completo» final.",
+            "examples": [
+              4
+            ]
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Texto en español, el mismo que mostraba la app legacy.",
+            "examples": [
+              "Descargando DEM (Copernicus GLO-30)…"
+            ]
+          },
+          "at": {
+            "type": "string",
+            "title": "At",
+            "description": "Timestamp ISO-8601 UTC."
+          }
+        },
+        "type": "object",
+        "required": [
+          "step",
+          "total",
+          "message",
+          "at"
+        ],
+        "title": "ProgressEvent"
+      },
+      "Provenance": {
+        "properties": {
+          "dem_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dem Source"
+          },
+          "dem_item_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dem Item Count",
+            "description": "Ítems STAC mosaiqueados para el DEM. > 1 significa que el AOI cruza una costura de tiles de 1°×1° de Copernicus."
+          },
+          "sentinel2_scene_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Scene Count"
+          },
+          "sentinel2_scene_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Scene Ids"
+          },
+          "sentinel2_boa_offsets_applied": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Boa Offsets Applied",
+            "description": "Offsets BOA_ADD_OFFSET (en DN) aplicados por escena antes del NDVI. [-1000.0] es lo esperable para baseline >= 04.00. Ver corrección H1."
+          },
+          "sentinel2_lookback_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Lookback Days"
+          },
+          "sentinel2_max_cloud_cover": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Max Cloud Cover"
+          },
+          "worldcover_epoch_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worldcover Epoch Year",
+            "description": "Época única seleccionada (corrección H2). Nunca es una mezcla."
+          }
+        },
+        "type": "object",
+        "title": "Provenance",
+        "description": "Qué se usó realmente en esta corrida (alimenta la tabla 'Fuentes y metodología')."
+      },
+      "TopographyResult": {
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "title": "Available",
+            "description": "False = no se pudo consultar la fuente. Distinto de 'no hay datos'."
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error",
+            "description": "Motivo en español si available=False."
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TopographySummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "available"
+        ],
+        "title": "TopographyResult"
+      },
+      "TopographySummary": {
+        "properties": {
+          "elevation_min_m": {
+            "type": "number",
+            "title": "Elevation Min M"
+          },
+          "elevation_max_m": {
+            "type": "number",
+            "title": "Elevation Max M"
+          },
+          "elevation_mean_m": {
+            "type": "number",
+            "title": "Elevation Mean M"
+          },
+          "elevation_range_m": {
+            "type": "number",
+            "title": "Elevation Range M",
+            "description": "max - min."
+          },
+          "slope_mean_pct": {
+            "type": "number",
+            "title": "Slope Mean Pct",
+            "description": "PORCENTAJE de pendiente (rise/run × 100), NO grados."
+          },
+          "slope_max_pct": {
+            "type": "number",
+            "title": "Slope Max Pct",
+            "description": "Porcentaje de pendiente, no grados."
+          },
+          "slope_class_pct": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Slope Class Pct",
+            "description": "Porcentajes 0–100 por clase, ya escalados. Las claves son las etiquetas exactas en español y llegan en orden de inserción.",
+            "examples": [
+              {
+                "Fuerte (>30%)": 8.5,
+                "Moderado (15-30%)": 18,
+                "Plano (0-5%)": 42.1,
+                "Suave (5-15%)": 31.4
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "elevation_min_m",
+          "elevation_max_m",
+          "elevation_mean_m",
+          "elevation_range_m",
+          "slope_mean_pct",
+          "slope_max_pct",
+          "slope_class_pct"
+        ],
+        "title": "TopographySummary",
+        "description": "Idéntico a `topography.summary` del contrato legacy."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VegetationResult": {
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "title": "Available",
+            "description": "True si al menos una de las dos fuentes respondió."
+          },
+          "ndvi_available": {
+            "type": "boolean",
+            "title": "Ndvi Available"
+          },
+          "worldcover_available": {
+            "type": "boolean",
+            "title": "Worldcover Available"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error",
+            "description": "Solo si fallaron las dos fuentes."
+          },
+          "ndvi_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ndvi Error"
+          },
+          "worldcover_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worldcover Error"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VegetationSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "available",
+          "ndvi_available",
+          "worldcover_available"
+        ],
+        "title": "VegetationResult"
+      },
+      "VegetationSummary": {
+        "properties": {
+          "ndvi_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ndvi Mean",
+            "description": "-1..1"
+          },
+          "ndvi_median": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ndvi Median"
+          },
+          "ndvi_p90": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ndvi P90"
+          },
+          "ndvi_density_class_pct": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ndvi Density Class Pct",
+            "description": "Porcentajes 0–100 por clase de densidad; suman ~100.",
+            "examples": [
+              {
+                "Sin vegetación / suelo desnudo o agua": 0.6,
+                "Vegetación densa / bosque secundario": 12.4,
+                "Vegetación dispersa / matorral bajo": 2.2,
+                "Vegetación muy densa / dosel maduro": 84.8
+              }
+            ]
+          },
+          "worldcover_tree_cover_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worldcover Tree Cover Pct",
+            "description": "% de píxeles con código 10 (cobertura arbórea)."
+          },
+          "worldcover_landcover_pct": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worldcover Landcover Pct",
+            "description": "DISPERSO: solo las clases con porcentaje > 0. Una clase ausente NO aparece con 0.0, directamente no está.",
+            "examples": [
+              {
+                "Bosque / cobertura arbórea": 7.3,
+                "Pastizal": 21.4,
+                "Área construida": 61.2
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "VegetationSummary",
+        "description": "Idéntico a `vegetation.summary` del legacy, con los campos anulables.\n\nNDVI (Sentinel-2) y WorldCover son fuentes independientes: si una se cae, la\notra igual reporta. Por eso los campos son opcionales — el legacy no podía\nrepresentar ese estado porque un fallo tiraba abajo el análisis entero."
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "salud",
+      "description": "Liveness/readiness."
+    },
+    {
+      "name": "análisis",
+      "description": "Pipeline raster asíncrono sobre un AOI."
+    },
+    {
+      "name": "capas",
+      "description": "Overlays PNG y GeoTIFF de cada capa."
+    },
+    {
+      "name": "costera",
+      "description": "Inundación costera WRI Aqueduct, on-demand."
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "extends": "@territorio/tsconfig/app.json",
+  "compilerOptions": {
+    "paths": {
+      "~/*": ["./src/*"]
+    }
+  },
+  "include": ["src/**/*", "*.ts", "*.js"]
+}

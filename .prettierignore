@@ -1,0 +1,35 @@
+node_modules/
+.turbo/
+dist/
+.output/
+.vinxi/
+.nitro/
+.tanstack/
+coverage/
+.venv/
+data/
+outputs/
+
+pnpm-lock.yaml
+services/api/uv.lock
+services/api/requirements.txt
+
+# Prose and legacy config are hand-maintained; Prettier owns code, not documents.
+docs/
+CHANGELOG.md
+README.md
+CONTRIBUTING.md
+# JSONC: devcontainer.json lleva comentarios y Prettier los conserva, pero
+# reflowea las líneas y deja el archivo peor de leer que como se escribió.
+.devcontainer/
+
+# Generated
+**/routeTree.gen.ts
+# drizzle-kit writes these; reformatting them makes every migration diff noisy
+# and the snapshot is compared byte-wise by the migration journal.
+packages/db/drizzle/
+# openapi-typescript escribe estos dos; formatearlos haría que el próximo
+# `pnpm --filter @territorio/api-client generate` los revirtiera y el diff del
+# contrato dejara de ser legible.
+packages/api-client/src/generated/
+packages/api-client/openapi/

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "@territorio/tsconfig/base",
+  "_comment": [
+    "Bundler-first, emit-free baseline. Nothing in this monorepo is compiled by tsc:",
+    "apps/web is built by Vite, and the internal packages are consumed as TypeScript",
+    "source (just-in-time packages), so every config here is set to typecheck only.",
+    "Typechecking runs through tsgo (@typescript/native-preview), not tsc.",
+    "",
+    "`types` is set explicitly (and never left to auto-discovery) because TypeScript",
+    "6/7 no longer pulls every node_modules/@types package into the program, and",
+    "because `exclude` in an extended config resolves relative to THIS file, not to",
+    "the consumer — so scoping is done with each package's own `include` instead."
+  ],
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "resolveJsonModule": true,
+
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "useUnknownInCatchVariables": true,
+
+    "allowJs": true,
+    "checkJs": false,
+    "skipLibCheck": true,
+    "noEmit": true,
+
+    "types": ["node"]
+  }
+}

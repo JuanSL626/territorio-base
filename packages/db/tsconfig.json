@@ -1,0 +1,14 @@
+{
+  "extends": "@territorio/tsconfig/base.json",
+  "_comment": [
+    "`allowImportingTsExtensions` is required, not cosmetic: the scripts in",
+    "scripts/ run under Node 24's native type stripping, which does no module",
+    "resolution of its own and needs the real `./foo.ts` specifier. Vite and",
+    "drizzle-kit both resolve explicit .ts specifiers fine, so one import style",
+    "works everywhere."
+  ],
+  "compilerOptions": {
+    "allowImportingTsExtensions": true
+  },
+  "include": ["src/**/*", "scripts/**/*", "*.ts", "*.js"]
+}

@@ -1,0 +1,34 @@
+{
+  "type": "Feature",
+  "properties": {
+    "nombre": "Costura de tiles del DEM (meridiano 70°O)",
+    "por_que": "Copernicus DEM GLO-30 se publica en tiles de 1°×1°, así que este AOI obliga a mosaiquear dos ítems STAC y a que la unión no deje una costura de nodata."
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          -70.002,
+          18.45
+        ],
+        [
+          -69.998,
+          18.45
+        ],
+        [
+          -69.998,
+          18.453
+        ],
+        [
+          -70.002,
+          18.453
+        ],
+        [
+          -70.002,
+          18.45
+        ]
+      ]
+    ]
+  }
+}

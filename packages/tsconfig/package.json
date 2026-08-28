@@ -1,0 +1,16 @@
+{
+  "name": "@territorio/tsconfig",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "files": [
+    "base.json",
+    "react-library.json",
+    "app.json"
+  ],
+  "exports": {
+    "./base.json": "./base.json",
+    "./react-library.json": "./react-library.json",
+    "./app.json": "./app.json"
+  }
+}

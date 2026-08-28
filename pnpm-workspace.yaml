@@ -1,0 +1,105 @@
+# Workspace layout + single source of truth for every shared dependency version.
+#
+# Rule: a package NEVER writes a version range in its package.json — it writes
+# "catalog:" and the version is resolved here. Versions are pinned EXACTLY
+# (no ^ / ~) so every workspace member and CI run compiles the same bytes.
+
+packages:
+  - apps/*
+  - packages/*
+  - services/*
+
+# Postinstall/native builds are opt-in in pnpm 11. Everything allowed here is a
+# native binary we actually need: the SQLite driver, the bundler, and
+# eslint-plugin-import-x's resolver. Anything added later must be reviewed.
+allowBuilds:
+  better-sqlite3: true
+  esbuild: true
+  unrs-resolver: true
+
+# services/api is Python (uv). It carries a package.json only so Turborepo can
+# orchestrate `uv run ...` as a first-class task; it declares no npm dependencies.
+
+catalog:
+  # --- React ---
+  react: 19.2.8
+  react-dom: 19.2.8
+  "@types/react": 19.2.18
+  "@types/react-dom": 19.2.5
+
+  # --- TanStack ---
+  "@tanstack/react-router": 1.170.32
+  "@tanstack/react-start": 1.168.49
+  "@tanstack/react-query": 5.102.8
+  "@tanstack/react-table": 9.2.3
+
+  # --- Build ---
+  vite: 8.2.2
+  "@vitejs/plugin-react": 6.1.0
+
+  # --- Types / typecheck ---
+  # `typescript` is here for the language service and as typescript-eslint's peer.
+  # It is pinned to 6.0.3 because typescript-eslint 8.68.0 declares
+  # `typescript: >=4.8.4 <6.1.0`; TypeScript 7.x would break that peer range.
+  # Actual typechecking is done by tsgo (@typescript/native-preview), per the
+  # tooling rules: `"typecheck": "tsgo --noEmit"`.
+  typescript: 6.0.3
+  "@typescript/native-preview": 7.0.0-dev.20260707.2
+  "@types/node": 26.4.0
+
+  # --- Lint / format ---
+  eslint: 10.9.1
+  "@eslint/js": 10.0.1
+  typescript-eslint: 8.68.0
+  "@typescript-eslint/utils": 8.68.0
+  eslint-plugin-react-hooks: 7.1.1
+  eslint-plugin-import-x: 4.17.1
+  globals: 17.11.0
+  prettier: 3.9.6
+  prettier-plugin-tailwindcss: 0.8.1
+
+  # --- Task runner ---
+  turbo: 2.10.12
+
+  # --- Map / UI ---
+  maplibre-gl: 6.6.0
+  tailwindcss: 4.3.3
+  "@tailwindcss/vite": 4.3.3
+
+  # --- Auth / DB (packages/db) ---
+  better-auth: 1.7.2
+  drizzle-orm: 0.45.2
+  drizzle-kit: 0.31.10
+  # 12.x, not 13.x: better-auth 1.7.2 declares `better-sqlite3: ^12.0.0`.
+  better-sqlite3: 12.11.1
+  "@types/better-sqlite3": 9.6.0
+
+  # --- Validation (shared contracts, URL search params) ---
+  zod: 4.4.3
+
+  # --- Contrato con el servicio raster (packages/api-client) ---
+  # Los tipos del cliente se GENERAN desde services/api/openapi.json; no se
+  # escriben a mano. Ver `pnpm --filter @territorio/api-client generate`.
+  openapi-typescript: 7.13.0
+
+  # --- Vector geo (packages/geo owns ALL vector work) ---
+  "@turf/turf": 7.4.0
+  # proj4 >=2.21 ships its own d.ts; @types/proj4 is a deprecated stub. Do not add it.
+  proj4: 2.21.0
+  "@tmcw/togeojson": 7.1.2
+  "@xmldom/xmldom": 0.9.12
+  jszip: 3.10.1
+  archiver: 8.0.0
+  "@types/archiver": 8.0.0
+
+  # --- Test ---
+  vitest: 4.1.11
+  "@vitest/coverage-v8": 4.1.11
+  jsdom: 30.0.1
+
+# Appended by pnpm's new-release gate: these exact versions are explicitly
+# allowed even though they are newer than the default cooldown window.
+minimumReleaseAgeExclude:
+  - "@tanstack/query-core@5.102.8"
+  - "@tanstack/react-query@5.102.8"
+  - "@types/node@26.4.0"

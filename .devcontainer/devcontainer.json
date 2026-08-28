@@ -1,33 +1,106 @@
 {
-  "name": "Python 3",
-  // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+  // Territorio Base — entorno de desarrollo completo: Node 24 + Python 3.11.
+  //
+  // El repo es un monorepo con DOS toolchains, así que el devcontainer instala
+  // las dos. Sin la mitad de Node no hay app; sin la mitad de Python no hay
+  // servicio raster y el mapa se queda sin DEM, NDVI ni WorldCover.
+  //
+  // La imagen base es la de Python y Node entra por feature (y no al revés)
+  // porque la base de Python está anclada a bookworm/glibc por rasterio y GDAL:
+  // esas wheels no existen para musl. Es la misma razón por la que
+  // `services/api/Dockerfile` usa `python:3.11-slim-bookworm`, documentada en
+  // `docs/migration/01-engine-decision-memo.md`.
+  "name": "Territorio Base (Node 24 + Python 3.11)",
   "image": "mcr.microsoft.com/devcontainers/python:1-3.11-bookworm",
-  "customizations": {
-    "codespaces": {
-      "openFiles": [
-        "README.md",
-        "app.py"
-      ]
+
+  "features": {
+    // La versión tiene que coincidir con `.nvmrc` y con el `ARG NODE_VERSION`
+    // del Dockerfile de la web. `.npmrc` lleva `engine-strict=true`, así que un
+    // Node menor a 24 hace fallar `pnpm install` con un mensaje claro.
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "24"
     },
+    // uv gestiona el entorno de `services/api` (crea su propio `.venv` con
+    // `uv sync`). No se usa pip: el lockfile del servicio es `uv.lock`.
+    "ghcr.io/va-h/devcontainers-features/uv:1": {
+      "version": "latest"
+    }
+  },
+
+  // Se ejecuta una vez, cuando se crea o reconstruye el contenedor.
+  //
+  //   corepack   → pnpm en la versión exacta de `packageManager`
+  //   pnpm i     → workspace TS completo (apps/web + packages/*)
+  //   uv sync    → services/api/.venv con rasterio, odc-stac, FastAPI
+  //
+  // `set -eux` a propósito: si algo de esto falla, el contenedor tiene que
+  // nacer roto y visible, no medio instalado y en silencio.
+  "onCreateCommand": {
+    "toolchains": "bash -lc 'set -eux; corepack enable; corepack prepare --activate; pnpm --version; uv --version'"
+  },
+  "updateContentCommand": {
+    "node": "bash -lc 'set -eux; pnpm install --frozen-lockfile'",
+    "python": "bash -lc 'set -eux; cd services/api && uv sync --frozen'"
+  },
+
+  // Después de conectarse: si no hay `.env`, dejar uno usable. Sin
+  // BETTER_AUTH_SECRET la app no arranca, y el mensaje de error correcto es
+  // mejor recibirlo una vez acá que en cada `pnpm dev`.
+  "postCreateCommand": {
+    "env": "bash -lc 'if [ ! -f .env ]; then cp .env.example .env; printf \"BETTER_AUTH_SECRET=%s\\n\" \"$(openssl rand -base64 32)\" >> .env; echo \"Creado .env con un BETTER_AUTH_SECRET nuevo. Completá ADMIN_EMAIL y ADMIN_PASSWORD antes de db:seed.\"; fi'"
+  },
+
+  // No se arranca nada solo. La app son dos procesos (`pnpm dev` levanta el
+  // servidor Vite y el servicio raster vía Turborepo) y arrancarlos en
+  // `postAttachCommand` deja logs que se pierden al reconectar. El README
+  // documenta el arranque en una línea.
+  "forwardPorts": [3000, 8787],
+  "portsAttributes": {
+    "3000": {
+      "label": "web · TanStack Start (SSR)",
+      "onAutoForward": "notify"
+    },
+    "8787": {
+      "label": "api · FastAPI raster (/docs, /openapi.json)",
+      "onAutoForward": "silent"
+    }
+  },
+
+  "customizations": {
     "vscode": {
-      "settings": {},
       "extensions": [
         "ms-python.python",
-        "ms-python.vscode-pylance"
-      ]
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss"
+      ],
+      "settings": {
+        // El intérprete del servicio, no el del sistema: es el único que tiene
+        // rasterio y odc-stac.
+        "python.defaultInterpreterPath": "${workspaceFolder}/services/api/.venv/bin/python",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff"
+        },
+        // ESLint es plano (`eslint.config.js` por paquete) y se corre con el
+        // directorio del paquete como cwd — igual que Turborepo.
+        "eslint.workingDirectories": [{ "mode": "auto" }],
+        "files.exclude": {
+          "**/.turbo": true,
+          "**/node_modules": true
+        }
+      }
+    },
+    "codespaces": {
+      "openFiles": ["README.md", "CONTRIBUTING.md"]
     }
   },
-  "updateContentCommand": "[ -f packages.txt ] && sudo apt update && sudo apt upgrade -y && sudo xargs apt install -y <packages.txt; [ -f requirements.txt ] && pip3 install --user -r requirements.txt; pip3 install --user streamlit; echo '✅ Packages installed and Requirements met'",
-  "postAttachCommand": {
-    "server": "streamlit run app.py --server.enableCORS false --server.enableXsrfProtection false"
-  },
-  "portsAttributes": {
-    "8501": {
-      "label": "Application",
-      "onAutoForward": "openPreview"
-    }
-  },
-  "forwardPorts": [
-    8501
-  ]
+
+  "remoteEnv": {
+    "PNPM_HOME": "/home/vscode/.local/share/pnpm",
+    "PATH": "${containerEnv:PATH}:/home/vscode/.local/share/pnpm"
+  }
 }

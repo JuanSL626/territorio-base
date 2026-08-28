@@ -1,0 +1,35 @@
+{
+  "name": "@territorio/eslint-config",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "files": [
+    "src"
+  ],
+  "exports": {
+    ".": "./src/index.js",
+    "./base": "./src/base.js",
+    "./react": "./src/react.js"
+  },
+  "scripts": {
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@eslint/js": "catalog:",
+    "@typescript-eslint/utils": "catalog:",
+    "eslint-plugin-import-x": "catalog:",
+    "eslint-plugin-react-hooks": "catalog:",
+    "globals": "catalog:",
+    "typescript-eslint": "catalog:"
+  },
+  "devDependencies": {
+    "@territorio/tsconfig": "workspace:*",
+    "eslint": "catalog:",
+    "typescript": "catalog:"
+  },
+  "peerDependencies": {
+    "eslint": ">=10",
+    "typescript": ">=5.8"
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "tui",
+
+  "globalDependencies": [
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    ".npmrc",
+    ".nvmrc",
+    "packages/tsconfig/**",
+    "packages/eslint-config/**"
+  ],
+  "globalEnv": ["NODE_ENV"],
+  "globalPassThroughEnv": ["CI", "FORCE_COLOR", "TERM", "npm_config_user_agent"],
+
+  "tasks": {
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "interactive": true,
+      "env": [
+        "BETTER_AUTH_SECRET",
+        "BETTER_AUTH_URL",
+        "DATABASE_URL",
+        "API_URL",
+        "API_TOKEN",
+        "ADMIN_EMAIL",
+        "ADMIN_PASSWORD",
+        "TERRITORIO_*"
+      ]
+    },
+
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!**/*.test.ts",
+        "!**/*.test.tsx",
+        "!**/*.bench.ts",
+        "!**/__tests__/**",
+        "!**/*.md"
+      ],
+      "outputs": [
+        "dist/**",
+        ".output/**",
+        ".vinxi/**",
+        ".nitro/**",
+        ".tanstack/**",
+        "!.output/**/cache/**"
+      ],
+      "env": ["VITE_*", "TERRITORIO_*", "GEO_API_URL", "DATABASE_URL"]
+    },
+
+    "lint": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.md"],
+      "outputs": []
+    },
+
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.md"],
+      "outputs": []
+    },
+
+    "test": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.md"],
+      "outputs": [],
+      "env": ["VITEST_*"]
+    },
+
+    "test:coverage": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.md"],
+      "outputs": ["coverage/**"],
+      "env": ["VITEST_*"]
+    },
+
+    "db:generate": {
+      "cache": false
+    },
+    "db:migrate": {
+      "cache": false
+    }
+  }
+}
