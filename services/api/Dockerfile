@@ -40,8 +40,18 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 FROM python:3.11-slim-bookworm AS runtime
 
 # curl para el HEALTHCHECK; ca-certificates para HTTPS contra Planetary Computer y WRI.
+#
+# libexpat1: la rueda binaria de rasterio trae vendorizadas sus dependencias
+# nativas (GEOS, PROJ, GDAL, libtiff…) con nombres hasheados, pero enlaza
+# libexpat contra el sistema. La imagen slim no la trae, así que sin esto
+# `import rasterio` explota con
+#   ImportError: libexpat.so.1: cannot open shared object file
+# y el contenedor arranca, queda `unhealthy` y `web` nunca levanta por el
+# depends_on. Es la ÚNICA librería de sistema que falta: todo lo demás que
+# `ldd` reporta como "not found" está vendorizado en los wheels y resuelve
+# por RPATH (los nombres con sufijo hash, p. ej. libgeos-9c5cb28e.so.3.13.1).
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y ca-certificates curl \
+    && apt-get install --no-install-recommends -y ca-certificates curl libexpat1 \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system --gid 10001 territorio \
     && useradd --system --uid 10001 --gid territorio --create-home territorio

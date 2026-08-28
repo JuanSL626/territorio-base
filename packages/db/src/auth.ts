@@ -82,6 +82,17 @@ export function buildAuthOptions(input: BuildAuthOptionsInput = {}) {
   const db = input.db ?? getDb();
   const isProduction = env.NODE_ENV === 'production';
 
+  // `Secure` es una propiedad del TRANSPORTE, no del modo de build, así que se
+  // decide por el esquema de BETTER_AUTH_URL y no por NODE_ENV.
+  //
+  // Atarlo a NODE_ENV rompe el stack de Docker Compose tal como lo documenta el
+  // README: ahí NODE_ENV=production (correcto, es un build de producción) pero
+  // la URL es http://localhost:3000. Con `Secure` sobre http plano el navegador
+  // descarta la cookie, así que el login devuelve 200, no setea sesión y rebota
+  // a /login para siempre — sin un solo error visible. Verificado en el
+  // contenedor con `docker compose up` antes de este cambio.
+  const servesOverHttps = env.BETTER_AUTH_URL.startsWith('https://');
+
   return {
     appName: 'territorio-base',
     baseURL: env.BETTER_AUTH_URL,
@@ -121,10 +132,10 @@ export function buildAuthOptions(input: BuildAuthOptionsInput = {}) {
     },
 
     advanced: {
-      // Adds `Secure` and the `__Secure-` cookie prefix. Must stay off over
-      // plain-http localhost or the browser drops the cookie and login "works"
-      // but never sticks.
-      useSecureCookies: isProduction,
+      // Agrega `Secure` y el prefijo `__Secure-`. Tiene que quedar apagado
+      // sobre http plano o el navegador descarta la cookie y el login
+      // "funciona" pero nunca persiste. Ver el comentario en `servesOverHttps`.
+      useSecureCookies: servesOverHttps,
       defaultCookieAttributes: {
         httpOnly: true,
         sameSite: 'lax',
