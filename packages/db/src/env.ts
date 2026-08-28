@@ -1,5 +1,11 @@
 /**
- * Server-side environment contract.
+ * Server-side environment contract for this package: `DATABASE_URL` only.
+ *
+ * Everything Better Auth used to need here (`BETTER_AUTH_SECRET`,
+ * `BETTER_AUTH_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`) is gone along with
+ * `auth.ts` — Supabase Auth owns authentication now, and whatever env
+ * contract it needs lives with whichever module wires it up next, not here.
+ * See `README.md` for the full list of what left this package and why.
  *
  * Validated with zod, parsed **lazily**. Importing `@territorio/db` must never
  * be enough to crash a process: `pnpm typecheck`, `pnpm lint` and unit tests all
@@ -7,53 +13,35 @@
  * call to `getEnv()`, which is memoized.
  *
  * This module is server-only. It reads `process.env` and must never be pulled
- * into a browser bundle — `apps/web` imports it exclusively from server
- * functions and `beforeLoad` guards.
+ * into a browser bundle.
  */
-import { existsSync } from 'node:fs';
-import { dirname, isAbsolute, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import * as z from 'zod';
 
-/**
- * The variables the web server validates at boot.
- *
- * `.env.example` documents more than this — the ones `services/api` reads
- * (`TERRITORIO_*`) and the ones only `compose.yaml` interpolates. Those are
- * deliberately outside this schema: they belong to processes that never
- * import this package.
- */
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
   /**
-   * Signing key for session tokens and every other Better Auth secret.
-   * 32 bytes minimum: `openssl rand -base64 32`.
-   */
-  BETTER_AUTH_SECRET: z
-    .string()
-    .min(32, 'BETTER_AUTH_SECRET debe tener al menos 32 caracteres (openssl rand -base64 32)'),
-
-  /** Public origin of the web app. Drives cookie `Secure` and trusted origins. */
-  BETTER_AUTH_URL: z.url().default('http://localhost:3000'),
-
-  /** SQLite file. `file:` prefix optional; relative paths resolve to the repo root. */
-  DATABASE_URL: z.string().min(1).default('file:./data/territorio.db'),
-
-  /**
-   * Base URL of the Python raster service (`services/api`).
+   * Postgres connection string for Drizzle (`postgres-js`), pointed at
+   * Supabase Postgres. No default, on purpose — a wrong-but-valid default
+   * (e.g. a stray local Postgres) is a worse failure mode for a database
+   * connection than failing loudly at boot.
    *
-   * 8787 — the port `services/api` binds in `pnpm dev`, in its Dockerfile and
-   * in its README, and the fallback hardcoded in `apps/web/src/lib/api.ts`.
-   * This default used to say 8000, which meant an unset `API_URL` pointed the
-   * SSR server at a port nothing listens on. Every file in the repo now says
-   * 8787; a 8000 anywhere is a leftover, not a convention.
+   * Three valid shapes, see `docs/supabase/03-datos-migracion.md` §5 and
+   * `.env.example`:
+   *   - Supavisor session mode (port 5432, `*.pooler.supabase.com`) — the
+   *     recommended shape for this app's long-lived Node server.
+   *   - Supavisor transaction mode (port 6543) — needs `{ prepare: false }`
+   *     in `client.ts` if ever switched to; not the current default.
+   *   - Direct connection (port 5432, `db.<project>.supabase.co`) — needs
+   *     IPv6 egress.
    */
-  API_URL: z.url().default('http://localhost:8787'),
-
-  /** Only read by `scripts/seed.ts`. Optional everywhere else. */
-  ADMIN_EMAIL: z.email().optional(),
-  ADMIN_PASSWORD: z.string().min(12, 'ADMIN_PASSWORD debe tener al menos 12 caracteres').optional(),
+  DATABASE_URL: z
+    .string()
+    .min(1, 'DATABASE_URL es obligatoria: la cadena de conexión de Postgres (ver .env.example).')
+    .refine(
+      (value) => value.startsWith('postgres://') || value.startsWith('postgresql://'),
+      'DATABASE_URL debe empezar con postgres:// o postgresql:// (cadena de conexión de Postgres, no un archivo SQLite).',
+    ),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -64,7 +52,7 @@ let cached: Env | null = null;
  * Parse and memoize the environment.
  *
  * Throws once, with every failing variable listed, instead of surfacing
- * `undefined` three layers down inside Better Auth.
+ * `undefined` three layers down inside a query.
  */
 export function getEnv(source: NodeJS.ProcessEnv = process.env): Env {
   if (cached !== null) return cached;
@@ -86,49 +74,4 @@ export function getEnv(source: NodeJS.ProcessEnv = process.env): Env {
 /** Test seam. Never call this from application code. */
 export function resetEnvCache(): void {
   cached = null;
-}
-
-/**
- * The database file, validating `DATABASE_URL` and nothing else.
- *
- * Running migrations must not require `BETTER_AUTH_SECRET`: a deploy applies
- * schema changes from contexts that have no business holding the signing key.
- */
-export function getDatabaseFile(source: NodeJS.ProcessEnv = process.env): string {
-  return resolveDatabaseFile(envSchema.shape.DATABASE_URL.parse(source.DATABASE_URL));
-}
-
-/**
- * Walk up from this file until the workspace root (the directory holding
- * `pnpm-workspace.yaml`) is found.
- *
- * `DATABASE_URL` is relative by default, and Turborepo runs every task with the
- * *package* directory as cwd. Resolving against `process.cwd()` would therefore
- * give `packages/db/data/territorio.db` for a migration and
- * `apps/web/data/territorio.db` for the server — two different databases, no
- * error message, and a login that "randomly" stops working. Anchoring on the
- * workspace root makes the path mean the same thing from every cwd.
- */
-function findWorkspaceRoot(): string {
-  let dir = dirname(fileURLToPath(import.meta.url));
-  for (let depth = 0; depth < 12; depth += 1) {
-    if (existsSync(resolve(dir, 'pnpm-workspace.yaml'))) return dir;
-    const parent = dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return process.cwd();
-}
-
-/**
- * Turn `DATABASE_URL` into an absolute filesystem path.
- *
- * Accepts `file:./data/territorio.db`, `./data/territorio.db`, `:memory:` and
- * absolute paths. In production, prefer an absolute path.
- */
-export function resolveDatabaseFile(databaseUrl: string): string {
-  const raw = databaseUrl.startsWith('file:') ? databaseUrl.slice('file:'.length) : databaseUrl;
-  if (raw === ':memory:' || raw === '') return raw;
-  if (isAbsolute(raw)) return raw;
-  return resolve(findWorkspaceRoot(), raw);
 }

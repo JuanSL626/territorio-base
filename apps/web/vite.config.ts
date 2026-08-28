@@ -97,18 +97,6 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['maplibre-gl'],
   },
-  ssr: {
-    /*
-      `better-sqlite3` debe quedar FUERA del bundle SSR: inlinearlo arrastra
-      `bindings@1.5.0` (CommonJS, referencia `__filename`, inexistente en
-      ESM). `getSession` explotaba con `ReferenceError: __filename is not
-      defined`, `session.ts` atrapaba el error y devolvía `null` — la app
-      arrancaba y servía HTML normal, pero NADIE podía iniciar sesión, sin un
-      solo error en los logs. Externalizado, Node lo resuelve desde
-      `node_modules` igual que en `dev`, con su `.node` en su lugar.
-    */
-    external: ['better-sqlite3'],
-  },
   plugins: [
     // Orden obligatorio: tanstackStart() SIEMPRE antes de viteReact(), o la
     // generación del árbol de rutas y la compilación de server functions falla.

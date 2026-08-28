@@ -1,180 +1,73 @@
 /**
- * Drizzle schema — the whole persistence surface of territorio-base.
+ * Drizzle schema — the whole persistence surface of territorio-base, on
+ * Supabase Postgres.
  *
- * Two halves:
+ * Better Auth's own tables (`user`, `session`, `account`, `verification`) and
+ * `invite` are GONE from this package. Supabase Auth (GoTrue) owns
+ * authentication now: `auth.users` is provisioned and migrated by Supabase
+ * itself, never by a migration in this repo. `authUsers` below is Drizzle's
+ * read-only *reference* to that table — just enough shape to declare a
+ * foreign key from `analysis.user_id`, not a table this package creates.
  *
- *  1. **Better Auth core tables** (`user`, `session`, `account`, `verification`,
- *     `rateLimit`). Their *exported const names* are load-bearing: the Drizzle
- *     adapter looks models up as `schema[modelName]`, so `user` must be exported
- *     as `user`, not `users`. Their *property* names are load-bearing too — the
- *     adapter resolves fields as `schemaModel[fieldName]` with Better Auth's
- *     camelCase field names (`emailVerified`, `createdAt`, …). SQL column names
- *     are free, so they are snake_case.
+ * What's left are the two tables that were never Better Auth's: `analysis`
+ * and `rate_limit`. See `README.md` for what moved where.
  *
- *     `account.issuer` is required by Better Auth 1.7 and is easy to miss when
- *     copying an older schema — without it, sign-in fails at account lookup.
- *
- *  2. **App tables** (`invite`, `analysis`).
- *
- * Timestamps are `integer` in `timestamp_ms` mode: Drizzle hands Better Auth a
- * real `Date` back, which is what its `customTransformOutput` expects.
+ * RLS: both tables call `.enableRLS()` with zero `pgPolicy()` calls attached.
+ * That is *default-deny*, on purpose — a cheap safety net against the fact
+ * that Supabase exposes every table in `public` over PostgREST by default
+ * (`anon`/`authenticated` roles), not the real authorization mechanism. The
+ * real mechanism is unchanged: every function in `analyses.ts` /
+ * `rate-limit.ts` filters explicitly on `userId`, and the only thing that
+ * ever opens a Postgres connection is this one trusted Node process (via
+ * `client.ts`, using the Postgres role in `DATABASE_URL` — not the `anon` or
+ * `authenticated` roles RLS is guarding against), which RLS does not
+ * restrict.
  */
 import { sql } from 'drizzle-orm';
-import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  bigint,
+  index,
+  jsonb,
+  pgEnum,
+  pgTable,
+  real,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
+import { authUsers } from 'drizzle-orm/supabase';
 
-import type * as SqliteDriver from 'drizzle-orm/better-sqlite3';
-
-export const user = sqliteTable(
-  'user',
-  {
-    id: text('id').primaryKey(),
-    name: text('name').notNull(),
-    email: text('email').notNull(),
-    emailVerified: integer('email_verified', { mode: 'boolean' }).notNull().default(false),
-    image: text('image'),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' })
-      .notNull()
-      .$defaultFn(() => new Date()),
-    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
-      .notNull()
-      .$defaultFn(() => new Date()),
-  },
-  (table) => [uniqueIndex('user_email_unique').on(table.email)],
-);
-
-export const session = sqliteTable(
-  'session',
-  {
-    id: text('id').primaryKey(),
-    token: text('token').notNull(),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
-    ipAddress: text('ip_address'),
-    userAgent: text('user_agent'),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' })
-      .notNull()
-      .$defaultFn(() => new Date()),
-    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
-      .notNull()
-      .$defaultFn(() => new Date()),
-  },
-  (table) => [
-    uniqueIndex('session_token_unique').on(table.token),
-    index('session_user_id_idx').on(table.userId),
-  ],
-);
-
-export const account = sqliteTable(
-  'account',
-  {
-    id: text('id').primaryKey(),
-    // Better Auth 1.7 namespaces credentials as `local:<providerId>` /
-    // `oauth:<providerId>`; this column is NOT optional.
-    issuer: text('issuer').notNull(),
-    providerId: text('provider_id').notNull(),
-    accountId: text('account_id').notNull(),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    accessToken: text('access_token'),
-    refreshToken: text('refresh_token'),
-    idToken: text('id_token'),
-    accessTokenExpiresAt: integer('access_token_expires_at', { mode: 'timestamp_ms' }),
-    refreshTokenExpiresAt: integer('refresh_token_expires_at', { mode: 'timestamp_ms' }),
-    scope: text('scope'),
-    /** Scrypt hash. Never leaves the server. */
-    password: text('password'),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' })
-      .notNull()
-      .$defaultFn(() => new Date()),
-    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
-      .notNull()
-      .$defaultFn(() => new Date()),
-  },
-  (table) => [
-    index('account_user_id_idx').on(table.userId),
-    index('account_issuer_account_id_idx').on(table.issuer, table.accountId),
-  ],
-);
-
-export const verification = sqliteTable(
-  'verification',
-  {
-    id: text('id').primaryKey(),
-    identifier: text('identifier').notNull(),
-    value: text('value').notNull(),
-    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' })
-      .notNull()
-      .$defaultFn(() => new Date()),
-    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
-      .notNull()
-      .$defaultFn(() => new Date()),
-  },
-  (table) => [index('verification_identifier_idx').on(table.identifier)],
-);
+import type * as PostgresJsDriver from 'drizzle-orm/postgres-js';
 
 /**
  * Backing store for the login/sign-up rate limiter in `rate-limit.ts`.
  *
- * Shaped to match Better Auth's own `rateLimit.storage: 'database'` model
- * (`modelName: 'rateLimit'`) so the table stays reusable if the HTTP handler
- * is ever mounted — but today `rate-limit.ts` is the sole reader/writer, via
- * an atomic `INSERT ... ON CONFLICT(key) DO UPDATE`, which is why `key` is
- * unique and non-null (Better Auth's own default schema leaves it nullable
- * and non-unique; this app's usage needs the upsert target).
+ * `last_request` stays `bigint` (epoch ms), NOT `timestamptz`: the CAS upsert
+ * in `consumeRateLimit` does integer arithmetic directly
+ * (`(now - last_request) > windowMs`, all in milliseconds). Making this a
+ * `timestamptz` would force rewriting that comparison as interval arithmetic
+ * for no benefit — this table is never read by date range or `ORDER BY`, it
+ * is the one timestamp in the schema that participates in integer math
+ * instead of date comparison. See `docs/supabase/03-datos-migracion.md`.
  */
-export const rateLimit = sqliteTable(
+export const rateLimit = pgTable(
   'rate_limit',
   {
-    id: text('id').primaryKey(),
+    id: uuid('id').primaryKey(),
     key: text('key').notNull(),
-    count: integer('count'),
-    lastRequest: integer('last_request'),
+    count: bigint('count', { mode: 'number' }),
+    lastRequest: bigint('last_request', { mode: 'number' }),
   },
   (table) => [uniqueIndex('rate_limit_key_unique').on(table.key)],
-);
-
-/**
- * The only way to create an account.
- *
- * `code` is stored normalized (see `normalizeInviteCode`): uppercase, no
- * separators. It is a single-use bearer credential, kept in plaintext so an
- * admin can re-read and re-send a code that never arrived; it is scoped by
- * `expiresAt` and optionally pinned to one `email`.
- *
- * `usedAt` is the claim marker. It is set by a single conditional UPDATE
- * (`WHERE code = ? AND used_at IS NULL`), which is what makes the invite
- * genuinely single-use under concurrent sign-ups — see `claimInvite`.
- */
-export const invite = sqliteTable(
-  'invite',
-  {
-    id: text('id').primaryKey(),
-    code: text('code').notNull(),
-    /** Optional pin: if set, only this address may redeem the code. */
-    email: text('email'),
-    /** Author of the invite. Null for the bootstrap invite created by `seed`. */
-    createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' }),
-    note: text('note'),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' })
-      .notNull()
-      .$defaultFn(() => new Date()),
-    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }),
-    usedAt: integer('used_at', { mode: 'timestamp_ms' }),
-    usedByUserId: text('used_by_user_id').references(() => user.id, { onDelete: 'set null' }),
-  },
-  (table) => [
-    uniqueIndex('invite_code_unique').on(table.code),
-    index('invite_email_idx').on(table.email),
-  ],
-);
+).enableRLS();
 
 /** Lifecycle of one analysis run. `partial` is a real, expected outcome. */
 export const ANALYSIS_STATUSES = ['pending', 'running', 'ok', 'partial', 'error'] as const;
 export type AnalysisStatus = (typeof ANALYSIS_STATUSES)[number];
+
+/** Postgres-enforced version of the same status list — SQLite only ever validated it in TypeScript. */
+export const analysisStatus = pgEnum('analysis_status', ANALYSIS_STATUSES);
 
 /**
  * Minimal structural type for a stored AOI.
@@ -197,59 +90,64 @@ export type AoiGeometry = {
  * `resultJson` is deliberately loose. The analysis contract lives in
  * `packages/api-client` / `packages/geo`; once it is a type, narrow this column
  * with `.$type<AnalysisResult>()` — one edit, no migration.
+ *
+ * `resultJson` is `jsonb`, not `json`: Postgres has no ~6 MB ceiling the way
+ * SQLite effectively did, but a large value still pays TOAST
+ * compression/decompression on every read — which is why `MAX_RESULT_BYTES`
+ * in `apps/web/src/lib/analysis-runtime.ts` stays exactly as it was, as an
+ * app-level constant, not something Postgres makes unnecessary. What `jsonb`
+ * *does* buy over plain `text`+`json.parse` is the two expression indexes
+ * below, replacing what used to be a `json_extract(...)` full table scan.
  */
-export const analysis = sqliteTable(
+export const analysis = pgTable(
   'analysis',
   {
-    id: text('id').primaryKey(),
-    userId: text('user_id')
+    id: uuid('id').primaryKey(),
+    userId: uuid('user_id')
       .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+      .references(() => authUsers.id, { onDelete: 'cascade' }),
     name: text('name'),
-    aoiGeojson: text('aoi_geojson', { mode: 'json' }).$type<AoiGeometry>().notNull(),
+    aoiGeojson: jsonb('aoi_geojson').$type<AoiGeometry>().notNull(),
     areaHa: real('area_ha'),
-    status: text('status', { enum: ANALYSIS_STATUSES }).notNull().default('pending'),
-    resultJson: text('result_json', { mode: 'json' }).$type<Record<string, unknown>>(),
+    status: analysisStatus('status').notNull().default('pending'),
+    resultJson: jsonb('result_json').$type<Record<string, unknown>>(),
     /** Plain-Spanish failure reason, rendered verbatim in the `no-data` card. */
     errorMessage: text('error_message'),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
-      .$defaultFn(() => new Date()),
-    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
       .notNull()
-      .$defaultFn(() => new Date()),
+      .defaultNow(),
   },
   (table) => [
     index('analysis_user_id_created_at_idx').on(table.userId, sql`${table.createdAt} DESC`),
+    // Replaces the old `json_extract(result_json, '$.raster_job_id')` full
+    // table scan (see `getAnalysisByRasterJobIdForUser` in `analyses.ts`).
+    index('analysis_raster_job_id_idx').on(sql`(${table.resultJson} ->> 'raster_job_id')`),
+    // Same idea for the coastal overlay cache key
+    // (`getAnalysisByCoastalCacheKeyForUser`); `coastal` is nested one level
+    // deeper than `raster_job_id`, hence the `->` then `->>`.
+    index('analysis_coastal_cache_key_idx').on(
+      sql`(${table.resultJson} -> 'coastal' ->> 'cache_key')`,
+    ),
   ],
-);
+).enableRLS();
 
 /**
- * Every table, keyed by the name Better Auth looks models up under.
+ * Every table this package owns and creates.
  *
- * Handed both to `drizzle()` and to `drizzleAdapter()`. Keeping one object
- * (instead of `import * as schema`) means the adapter sees tables and nothing
- * else, and that the two consumers can never drift apart.
+ * `auth.users` (via `authUsers`) is intentionally NOT in here: it is a
+ * reference for foreign keys, not a table this schema object should ever be
+ * asked to migrate or seed.
  */
 export const schema = {
-  user,
-  session,
-  account,
-  verification,
   rateLimit,
-  invite,
   analysis,
 };
 
 /** The typed Drizzle client. Lives here so modules can import it next to a table. */
-export type TerritorioDb = SqliteDriver.BetterSQLite3Database<typeof schema>;
+export type TerritorioDb = PostgresJsDriver.PostgresJsDatabase<typeof schema>;
 
-export type User = typeof user.$inferSelect;
-export type NewUser = typeof user.$inferInsert;
-export type Session = typeof session.$inferSelect;
-export type Account = typeof account.$inferSelect;
-export type Verification = typeof verification.$inferSelect;
-export type Invite = typeof invite.$inferSelect;
-export type NewInvite = typeof invite.$inferInsert;
 export type Analysis = typeof analysis.$inferSelect;
 export type NewAnalysis = typeof analysis.$inferInsert;

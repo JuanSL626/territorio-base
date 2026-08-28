@@ -1,16 +1,11 @@
 /**
  * Login/sign-up rate limiting — the real enforcement.
  *
- * `auth.ts` used to configure Better Auth's own `rateLimit` option
- * (`customRules` for `/sign-in/email`, `/sign-up/email`, `/forget-password`).
- * That option only ever takes effect through `auth.handler()`'s router
- * `onRequest` hook (better-call) — the individual endpoint definitions attach
- * no rate-limit middleware of their own. This app never dispatches a Request
- * through that handler: `web-boundary.ts` calls `.api.signInEmail()` /
- * `.signUpEmail()` directly with `asResponse: true` (see its header for why).
- * The config was therefore dead code — confirmed live, 8 straight
- * wrong-password attempts all returned 200 with no delay. This module is
- * what `web-boundary.ts` calls instead, *before* delegating to Better Auth.
+ * Supabase Auth (GoTrue) has no equivalent hook this app can lean on for
+ * per-identifier throttling of sign-in/sign-up attempts, so this module keeps
+ * doing the job it always did: whatever calls into Supabase Auth for
+ * `/sign-in`/`/sign-up` calls `consumeRateLimit` first — that wiring is the
+ * auth agent's, this table and this function are the mechanism.
  *
  * Keyed by the identifier under attack (normalized email), not by IP. No
  * reverse proxy is required in front of this app, so `X-Forwarded-For` would
@@ -19,16 +14,18 @@
  * guessed can't be rotated away; it's the entire point of the attack.
  *
  * No `NODE_ENV` gate. A brute-force control that only runs in production
- * cannot be verified outside it, and this app's Docker Compose stack already
- * runs with `NODE_ENV=production` (see `auth.ts`) — that gate is exactly why
- * the dead config's absence went unnoticed live. This one is always active.
+ * cannot be verified outside it. This one is always active.
  *
  * Fixed window, one atomic upsert per attempt: `rate_limit.key` is unique
  * (see `schema.ts`), so `INSERT ... ON CONFLICT DO UPDATE` either creates the
  * counter or advances it in a single statement — no read-then-write gap for
  * two concurrent attempts to both slip through under the limit. The window
  * starts at the first attempt in it and does not slide on later attempts, so
- * continued hammering cannot itself keep postponing the reset.
+ * continued hammering cannot itself keep postponing the reset. Unchanged from
+ * SQLite: Postgres's `ON CONFLICT ... DO UPDATE` takes the identical
+ * `sql\`case when ... end\`` CAS expression on the right-hand side, and
+ * `count`/`last_request` stay `bigint` (epoch ms) precisely so this integer
+ * arithmetic needs no rewriting — see `schema.ts`.
  */
 import { sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';

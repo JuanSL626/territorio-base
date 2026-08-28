@@ -1,0 +1,21 @@
+<!--
+  Template del email de invitación (GoTrue). Referenciado desde
+  `[auth.email.template.invite]` en `supabase/config.toml`.
+
+  El link apunta a `/auth/confirm` — la ruta HTTP real que hace
+  `verifyOtp({ type: 'invite', token_hash })` y establece la sesión
+  (`apps/web/src/routes/auth/confirm.ts`) — y no al `{{ .ConfirmationURL }}`
+  por default de Supabase, que resuelve contra el propio dominio de Auth en
+  vez de esta app. `redirect_to` queda fijo en `/auth/set-password`, el único
+  paso que le falta a una cuenta recién invitada.
+
+  Variables disponibles: https://supabase.com/docs/guides/auth/auth-smtp#templates
+-->
+<h2>Te invitaron a Territorio Base</h2>
+<p>Alguien de tu equipo te dio acceso a la plataforma de análisis territorial.</p>
+<p>
+  <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&redirect_to=/auth/set-password">
+    Aceptar invitación
+  </a>
+</p>
+<p>Si no esperabas este email, podés ignorarlo.</p>

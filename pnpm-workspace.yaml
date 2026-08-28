@@ -10,10 +10,14 @@ packages:
   - services/*
 
 # Postinstall/native builds are opt-in in pnpm 11. Everything allowed here is a
-# native binary we actually need: the SQLite driver, the bundler, and
-# eslint-plugin-import-x's resolver. Anything added later must be reviewed.
+# native binary we actually need: the bundler and eslint-plugin-import-x's
+# resolver. Anything added later must be reviewed.
 allowBuilds:
-  better-sqlite3: true
+  # Peer opcional de drizzle-orm, sin usar desde la migración a Postgres.
+  # En `false` a propósito: no queremos compilar el binario nativo de algo que
+  # nadie importa. No se puede simplemente omitir — pnpm 11 falla con
+  # ERR_PNPM_IGNORED_BUILDS si un paquete con script de build no está declarado.
+  better-sqlite3: false
   esbuild: true
   unrs-resolver: true
 
@@ -66,13 +70,20 @@ catalog:
   tailwindcss: 4.3.3
   "@tailwindcss/vite": 4.3.3
 
-  # --- Auth / DB (packages/db) ---
-  better-auth: 1.7.2
+  # --- DB (packages/db) ---
   drizzle-orm: 0.45.2
   drizzle-kit: 0.31.10
-  # 12.x, not 13.x: better-auth 1.7.2 declares `better-sqlite3: ^12.0.0`.
-  better-sqlite3: 12.11.1
-  "@types/better-sqlite3": 9.6.0
+  # postgres-js: the driver Drizzle talks to Supabase Postgres through
+  # (replaces better-sqlite3 — see docs/supabase/03-datos-migracion.md).
+  postgres: 3.4.9
+
+  # --- Auth (apps/web) ---
+  # Supabase Auth nativo, reemplazo de better-auth (retirado del todo del
+  # workspace — ver docs/supabase/). `@supabase/ssr` en 0.12.x trae la API
+  # `getAll`/`setAll` de cookies (`get`/`set`/`remove` está deprecado desde
+  # 0.4.0) y el fix de "chunking" de cookies para JWTs largos.
+  "@supabase/ssr": 0.12.5
+  "@supabase/supabase-js": 2.112.4
 
   # --- Validation (shared contracts, URL search params) ---
   zod: 4.4.3

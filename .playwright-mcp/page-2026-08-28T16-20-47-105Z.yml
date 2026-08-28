@@ -1,0 +1,38 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e15]:
+    - banner [ref=f1e16]:
+      - generic [ref=f1e17]: Territorio Base
+      - radiogroup "Vista" [ref=f1e19]:
+        - radio "Topografía" [checked] [ref=f1e20]
+        - radio "Vegetación" [ref=f1e21]
+        - radio "Hidrología" [ref=f1e22]
+        - radio "Áreas protegidas" [ref=f1e23]
+        - radio "Riesgo RD" [ref=f1e24]
+      - generic [ref=f1e25]:
+        - button "Sin AOI" [disabled] [ref=f1e27]
+        - button "Reporte" [disabled] [ref=f1e30]
+        - button "Exportar" [disabled] [ref=f1e35]
+        - button "Cuenta" [ref=f1e40]
+    - generic [ref=f1e44]:
+      - application "Mapa de la zona de estudio" [ref=f1e45]:
+        - paragraph [ref=f1e46]: Usá las flechas del teclado para desplazar el mapa y las teclas más y menos para acercar y alejar. Los elementos de las capas visibles se abren en el panel de detalle al hacerles clic. En modo dibujo, Escape cancela y Retroceso deshace el último vértice.
+        - button "Subir archivo de AOI" [ref=f1e47]
+        - generic:
+          - generic: 1 km
+          - paragraph:
+            - generic: "Coordenadas del cursor:"
+            - text: 18,45300 N · 69,57100 O
+            - generic: · z13.0
+            - generic: · nivel de zoom 13.0
+      - toolbar "Herramientas del mapa" [ref=f1e48]:
+        - button "Dibujar AOI" [ref=f1e49]
+        - button "Subir AOI" [ref=f1e56]
+        - button "Cambiar mapa base" [ref=f1e61]
+        - button "Zoom al AOI" [disabled] [ref=f1e65]
+      - generic [ref=f1e69]:
+        - button "Leyenda compacta" [ref=f1e70]
+        - generic [ref=f1e71]:
+          - generic [ref=f1e72]: 1 km
+          - generic [ref=f1e73]: © OpenStreetMap · Copernicus · ESA · UNEP-WCMC · MEPyD
+      - button "Capas y análisis" [ref=f1e74]
+  - region "Notificaciones"

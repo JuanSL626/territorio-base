@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
+import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { useServerFn } from '@tanstack/react-start';
 import { useState } from 'react';
 import { z } from 'zod';
@@ -9,7 +9,12 @@ import { AUTH_ERROR_MESSAGES, signIn, type AuthErrorCode } from '~/lib/auth-clie
 import { clearSessionCache, redirectIfSignedIn, safeRedirectPath } from '~/lib/auth-server';
 
 export const Route = createFileRoute('/login')({
-  validateSearch: z.object({ redirect: z.string().max(2000).optional() }),
+  validateSearch: z.object({
+    redirect: z.string().max(2000).optional(),
+    // Sólo llega de `routes/auth/confirm.ts` cuando `verifyOtp` rechaza un
+    // link de invitación vencido o ya usado.
+    error: z.literal('invitacion-invalida').optional(),
+  }),
   // Un usuario ya logueado no tiene nada que hacer en /login. La política de
   // redirección (incluida la defensa de open redirect) es del workstream de
   // auth: acá se importa.
@@ -28,7 +33,7 @@ function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<AuthErrorCode | null>(null);
+  const [error, setError] = useState<AuthErrorCode | null>(search.error ?? null);
   const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(null);
 
   const onSubmit = () => {
@@ -128,11 +133,7 @@ function LoginPage() {
         </form>
 
         <p className="text-12 text-fg-muted mt-4">
-          ¿Tenés un código de invitación?{' '}
-          <Link to="/register" className="text-accent font-medium underline underline-offset-2">
-            Creá tu cuenta
-          </Link>
-          .
+          El acceso es solo por invitación. Si no tenés cuenta, pedile una a quien te invitó.
         </p>
       </div>
     </main>

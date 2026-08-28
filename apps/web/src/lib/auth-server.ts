@@ -34,9 +34,10 @@
  * (`staleTime: 'static'`). Es correcto porque este guard protege la NAVEGACIÓN,
  * no los datos — cada `createServerFn` valida su propia sesión, como dice
  * `routes/_app.tsx`. Lo que sí hay que hacer es TIRAR el cache cuando la sesión
- * cambia de verdad: `clearSessionCache` se llama en `signIn`, `signUp` y
- * `signOut` (login.tsx, register.tsx, _app/index.tsx). Sin eso, entrar después
- * de salir vería el `null` viejo y rebotaría a /login en loop.
+ * cambia de verdad: `clearSessionCache` se llama en `signIn` y `signOut`
+ * (login.tsx, _app/index.tsx) y en `setPassword`, que es lo que cierra el
+ * flujo de invitación (`routes/auth/set-password.tsx`). Sin eso, entrar
+ * después de salir vería el `null` viejo y rebotaría a /login en loop.
  *
  * Session reading itself is `fetchSession` from `~/lib/session` — the single
  * server function for it. This module adds only the redirect policy on top, so
@@ -76,8 +77,8 @@ export const sessionQueryOptions = queryOptions({
 
 /**
  * Olvidar la sesión cacheada. Se llama después de CUALQUIER mutación de auth
- * (`signIn`, `signUp`, `signOut`) y antes de `router.invalidate()`, que es lo
- * que vuelve a correr los guards.
+ * (`signIn`, `signOut`, `setPassword`) y antes de `router.invalidate()`, que
+ * es lo que vuelve a correr los guards.
  */
 export function clearSessionCache(queryClient: QueryClient): void {
   queryClient.removeQueries({ queryKey: sessionQueryOptions.queryKey });
@@ -131,15 +132,19 @@ export async function requireUser(
 }
 
 /**
- * Guard for `/login` and `/registro`: a signed-in user has no business on them.
+ * Guard for `/login`: a signed-in user has no business on it. (There is no
+ * public `/registro` any more — see `session.ts`'s header and
+ * `routes/auth/set-password.tsx` for why: registration moved to
+ * `inviteUserByEmail` + a confirmation link, not a form a stranger can fill
+ * in.)
  *
  * `redirectTo` is the route's validated `?redirect=` search param. It is passed
  * through `safeRedirectPath` first — see below.
  *
- * Éste SÍ lee del servidor cada vez, a propósito: `/login` y `/registro` no
- * escriben search params en bucle, se visitan una vez, y la lectura fresca es
- * la que decide si la persona ya tiene sesión. Cachearla acá sólo agregaría un
- * estado más que sincronizar con `clearSessionCache`.
+ * Éste SÍ lee del servidor cada vez, a propósito: `/login` no escribe search
+ * params en bucle, se visita una vez, y la lectura fresca es la que decide si
+ * la persona ya tiene sesión. Cachearla acá sólo agregaría un estado más que
+ * sincronizar con `clearSessionCache`.
  */
 export async function redirectIfSignedIn(redirectTo?: string): Promise<void> {
   const user = await fetchSession();

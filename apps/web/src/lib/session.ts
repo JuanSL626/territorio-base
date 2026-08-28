@@ -1,22 +1,31 @@
+/**
+ * Auth server functions — the ENTIRE surface that talks to Supabase Auth.
+ *
+ * Everything here is a `createServerFn`: TanStack Start strips the handler
+ * body from the client bundle, so a credential or the `service_role` key
+ * never ships to the browser. Components import the client-safe re-export in
+ * `~/lib/auth-client`; route guards import `~/lib/auth-server`. Neither of
+ * those files reimplements anything — they only wrap what's here.
+ *
+ * `fetchSession` is the ONLY place that decides "who is this" and it does so
+ * with `getUser()`, never `getSession()`. `getSession()` reads the access
+ * token out of the cookie and trusts it as-is — a token revoked server-side
+ * (global sign-out, a banned user, a rotated `service_role`) still reads as
+ * "signed in" until it expires on its own. `getUser()` performs a network
+ * call to the Supabase Auth server, so a revoked session shows up as `null`
+ * immediately. That round-trip is the entire reason `~/lib/auth-server`
+ * caches the result per tab (`staleTime: 'static'`) instead of calling this
+ * on every navigation — see that file's header for the full argument.
+ */
 import { createServerFn } from '@tanstack/react-start';
-import { getRequestHeaders, setResponseHeader } from '@tanstack/react-start/server';
 import { z } from 'zod';
 
-/*
-  Costura de autenticación (la implementación NO vive acá).
-  El workstream de auth es dueño de `packages/db` (Drizzle + SQLite + Better
-  Auth, invitación obligatoria) y de `apps/web/src/lib/auth*.ts`. Este módulo
-  sólo declara el CONTRATO que el shell consume y lo resuelve en runtime.
+import { consumeRateLimit, getDb } from '@territorio/db';
 
-  Para conectarlo, `@territorio/db` tiene que exportar `webAuthBoundary`
-  cumpliendo `AuthBoundary`. Mientras no exista, `resolveAuthBoundary()`
-  devuelve `null` y todo falla CERRADO: sin sesión, redirección a /login, y el
-  formulario muestra "servicio". Nunca al revés.
+import { getSupabaseAdminClient } from './supabase/admin';
+import { getSupabaseServerClient } from './supabase/server';
 
-  Se resuelve con `import()` dinámico y type guards en vez de un import
-  estático para que este paquete typechequee y buildee hoy, y para que el día
-  que el módulo aparezca no haya que tocar ninguna ruta.
-*/
+import type { User } from '@supabase/supabase-js';
 
 export type SessionUser = {
   id: string;
@@ -27,77 +36,56 @@ export type SessionUser = {
 export type AuthErrorCode =
   | 'credenciales'
   | 'invitacion-invalida'
-  | 'invitacion-usada'
   | 'email-en-uso'
   | 'password-debil'
   | 'demasiados-intentos'
+  | 'no-autorizado'
   | 'servicio';
 
-export type AuthOutcome =
-  | { ok: true; setCookie: string[] }
-  | { ok: false; code: AuthErrorCode; retryAfterSeconds?: number };
-
-export type SignInInput = { email: string; password: string };
-export type SignUpInput = { name: string; email: string; password: string; inviteCode: string };
-
-export type AuthBoundary = {
-  getSession: (headers: Headers) => Promise<SessionUser | null>;
-  signIn: (input: SignInInput, headers: Headers) => Promise<AuthOutcome>;
-  signUp: (input: SignUpInput, headers: Headers) => Promise<AuthOutcome>;
-  signOut: (headers: Headers) => Promise<AuthOutcome>;
+/** Copy en español de cada código de error, en un solo lugar. */
+export const AUTH_ERROR_MESSAGES: Record<AuthErrorCode, string> = {
+  credenciales: 'Email o contraseña incorrectos.',
+  'invitacion-invalida': 'El link de invitación no es válido o ya venció.',
+  'email-en-uso': 'Ya hay una cuenta con ese email.',
+  'password-debil': 'La contraseña tiene que tener al menos 8 caracteres.',
+  'demasiados-intentos': 'Demasiados intentos. Probá de nuevo en unos minutos.',
+  'no-autorizado': 'Necesitás iniciar sesión para hacer eso.',
+  servicio: 'No se pudo contactar el servicio de cuentas. Probá de nuevo en un momento.',
 };
 
-function hasFunction(value: Record<string, unknown>, key: string): boolean {
-  return typeof value[key] === 'function';
+type AuthActionResult = { ok: boolean; code?: AuthErrorCode; retryAfterSeconds?: number };
+
+/**
+ * `user.user_metadata` is `{ [key: string]: any }` on the SDK's own types —
+ * this is the one narrowing point so `any` never leaks past this function.
+ */
+function toSessionUser(user: User): SessionUser {
+  const name: unknown = user.user_metadata.name;
+  return {
+    id: user.id,
+    // Password sign-in always has an email; `User.email` is only optional
+    // because the SDK also models phone-only accounts, which this app never
+    // creates.
+    email: user.email ?? '',
+    name: typeof name === 'string' && name.trim() !== '' ? name : null,
+  };
 }
 
-function asAuthBoundary(candidate: unknown): AuthBoundary | null {
-  if (typeof candidate !== 'object' || candidate === null) return null;
-  const record = candidate as Record<string, unknown>;
-  const required = ['getSession', 'signIn', 'signUp', 'signOut'];
-  if (!required.every((key) => hasFunction(record, key))) return null;
-  return candidate as AuthBoundary;
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
 }
 
-let boundaryPromise: Promise<AuthBoundary | null> | undefined;
+/** Rate limit for `/login`: 5 attempts per 60s, keyed by normalized email — see `packages/db/src/rate-limit.ts`. */
+const SIGN_IN_RATE_LIMIT = { windowSeconds: 60, max: 5 };
 
-async function resolveAuthBoundary(): Promise<AuthBoundary | null> {
-  boundaryPromise ??= (async () => {
-    try {
-      const mod: unknown = await import('@territorio/db');
-      if (typeof mod !== 'object' || mod === null) return null;
-      return asAuthBoundary((mod as Record<string, unknown>).webAuthBoundary);
-    } catch {
-      // El paquete todavía no exporta la costura: fallar cerrado, no romper el
-      // render del shell.
-      return null;
-    }
-  })();
-
-  return await boundaryPromise;
-}
-
-function currentHeaders(): Headers {
-  const headers = new Headers();
-  for (const [key, value] of getRequestHeaders().entries()) {
-    headers.set(key, value);
-  }
-  return headers;
-}
-
-function applySetCookie(values: string[]): void {
-  for (const value of values) {
-    setResponseHeader('set-cookie', value);
-  }
-}
-
-/** Lee la sesión del cookie httpOnly. Nunca lanza: sin auth configurada → null. */
+/** Lee la sesión vía `getUser()`. Nunca lanza: sin sesión o error de red → null. */
 export const fetchSession = createServerFn({ method: 'GET' }).handler(
   async (): Promise<SessionUser | null> => {
-    const boundary = await resolveAuthBoundary();
-    if (!boundary) return null;
     try {
-      return await boundary.getSession(currentHeaders());
+      const supabase = getSupabaseServerClient();
+      const { data, error } = await supabase.auth.getUser();
+      if (error) return null;
+      return toSessionUser(data.user);
     } catch {
       return null;
     }
@@ -109,41 +97,30 @@ const signInSchema = z.object({
   password: z.string().min(1).max(256),
 });
 
-const signUpSchema = z.object({
-  name: z.string().trim().min(1).max(120),
-  email: z.string().trim().min(1).max(320),
-  password: z.string().min(1).max(256),
-  inviteCode: z.string().trim().min(1).max(64),
-});
-
-type AuthActionResult = { ok: boolean; code?: AuthErrorCode; retryAfterSeconds?: number };
-
 export const signIn = createServerFn({ method: 'POST' })
   .validator(signInSchema)
   .handler(async ({ data }): Promise<AuthActionResult> => {
-    const boundary = await resolveAuthBoundary();
-    if (!boundary) return { ok: false, code: 'servicio' };
+    const email = normalizeEmail(data.email);
 
-    try {
-      const outcome = await boundary.signIn(data, currentHeaders());
-      if (!outcome.ok) return { ok: false, code: outcome.code, retryAfterSeconds: outcome.retryAfterSeconds };
-      applySetCookie(outcome.setCookie);
-      return { ok: true };
-    } catch {
-      return { ok: false, code: 'servicio' };
+    // Supabase's own `/token` limit is per-IP and generic (see
+    // `docs/supabase/02-auth-invitaciones.md` §6) — it does not stop credential
+    // stuffing against one account from rotating IPs. This check is what does,
+    // and it runs BEFORE Supabase ever sees the attempt.
+    const limited = await consumeRateLimit(getDb(), {
+      bucket: 'sign-in',
+      identifier: email,
+      rule: SIGN_IN_RATE_LIMIT,
+    });
+    if (!limited.ok) {
+      return { ok: false, code: 'demasiados-intentos', retryAfterSeconds: limited.retryAfterSeconds };
     }
-  });
-
-export const signUp = createServerFn({ method: 'POST' })
-  .validator(signUpSchema)
-  .handler(async ({ data }): Promise<AuthActionResult> => {
-    const boundary = await resolveAuthBoundary();
-    if (!boundary) return { ok: false, code: 'servicio' };
 
     try {
-      const outcome = await boundary.signUp(data, currentHeaders());
-      if (!outcome.ok) return { ok: false, code: outcome.code, retryAfterSeconds: outcome.retryAfterSeconds };
-      applySetCookie(outcome.setCookie);
+      const supabase = getSupabaseServerClient();
+      const { error } = await supabase.auth.signInWithPassword({ email, password: data.password });
+      if (error) {
+        return { ok: false, code: error.code === 'invalid_credentials' ? 'credenciales' : 'servicio' };
+      }
       return { ok: true };
     } catch {
       return { ok: false, code: 'servicio' };
@@ -152,26 +129,82 @@ export const signUp = createServerFn({ method: 'POST' })
 
 export const signOut = createServerFn({ method: 'POST' }).handler(
   async (): Promise<{ ok: boolean }> => {
-    const boundary = await resolveAuthBoundary();
-    if (!boundary) return { ok: true };
-
     try {
-      const outcome = await boundary.signOut(currentHeaders());
-      if (outcome.ok) applySetCookie(outcome.setCookie);
-      return { ok: true };
+      const supabase = getSupabaseServerClient();
+      await supabase.auth.signOut();
     } catch {
-      return { ok: true };
+      // Sign-out never fails visibly: whatever state Supabase is in, the
+      // client clears its own cached session right after this call.
     }
+    return { ok: true };
   },
 );
 
-/** Copy en español de cada código de error, en un solo lugar. */
-export const AUTH_ERROR_MESSAGES: Record<AuthErrorCode, string> = {
-  credenciales: 'Email o contraseña incorrectos.',
-  'invitacion-invalida': 'El código de invitación no existe.',
-  'invitacion-usada': 'Ese código de invitación ya fue usado.',
-  'email-en-uso': 'Ya hay una cuenta con ese email.',
-  'password-debil': 'La contraseña tiene que tener al menos 8 caracteres.',
-  'demasiados-intentos': 'Demasiados intentos. Probá de nuevo en unos minutos.',
-  servicio: 'No se pudo contactar el servicio de cuentas. Probá de nuevo en un momento.',
-};
+const setPasswordSchema = z.object({
+  password: z.string().min(8).max(256),
+});
+
+/**
+ * Finish the invite flow: the visitor already has a valid session from
+ * `routes/auth/confirm.ts`'s `verifyOtp` — this just gives that account a
+ * password so future sign-ins don't need a fresh email link.
+ */
+export const setPassword = createServerFn({ method: 'POST' })
+  .validator(setPasswordSchema)
+  .handler(async ({ data }): Promise<AuthActionResult> => {
+    try {
+      const supabase = getSupabaseServerClient();
+      const { data: current } = await supabase.auth.getUser();
+      if (current.user === null) return { ok: false, code: 'no-autorizado' };
+
+      const { error } = await supabase.auth.updateUser({ password: data.password });
+      if (error) {
+        return { ok: false, code: error.code === 'weak_password' ? 'password-debil' : 'servicio' };
+      }
+      return { ok: true };
+    } catch {
+      return { ok: false, code: 'servicio' };
+    }
+  });
+
+const inviteSchema = z.object({
+  email: z.string().trim().min(1).max(320),
+  name: z.string().trim().max(120).optional(),
+});
+
+/**
+ * Invite someone by email — `supabase.auth.admin.inviteUserByEmail()`, the
+ * `service_role` Admin API. Server-only twice over: it's a `createServerFn`
+ * AND it reaches into `~/lib/supabase/admin`, which throws if
+ * `SUPABASE_SERVICE_ROLE_KEY` ever ended up in a browser bundle by mistake.
+ *
+ * Gate: the caller has to be signed in. That's the whole gate — this repo has
+ * no roles/permissions table yet (`packages/db/README.md`: "Roles / who may
+ * invite ... this package has no opinion on it any more"). Any signed-in user
+ * can invite another today; tighten this the day a roles table exists.
+ *
+ * `email_exists` is the one Supabase error worth a specific message —
+ * everything else (rate-limited, malformed, transient) collapses to
+ * `servicio` rather than inventing codes for cases this app can't yet act on
+ * differently.
+ */
+export const adminInviteUser = createServerFn({ method: 'POST' })
+  .validator(inviteSchema)
+  .handler(async ({ data }): Promise<AuthActionResult> => {
+    const supabase = getSupabaseServerClient();
+    const { data: current } = await supabase.auth.getUser();
+    if (current.user === null) return { ok: false, code: 'no-autorizado' };
+
+    try {
+      const admin = getSupabaseAdminClient();
+      const { error } = await admin.auth.admin.inviteUserByEmail(normalizeEmail(data.email), {
+        data: data.name !== undefined && data.name !== '' ? { name: data.name } : undefined,
+      });
+      if (error) {
+        return { ok: false, code: error.code === 'email_exists' ? 'email-en-uso' : 'servicio' };
+      }
+      return { ok: true };
+    } catch {
+      return { ok: false, code: 'servicio' };
+    }
+  });

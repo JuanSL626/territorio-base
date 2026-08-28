@@ -1,0 +1,16 @@
+- generic [active] [ref=f2e1]:
+  - main [ref=f2e277]:
+    - generic [ref=f2e278]:
+      - heading "Territorio Base" [level=1] [ref=f2e279]
+      - paragraph [ref=f2e280]: Entrá con tu cuenta para abrir el mapa.
+      - generic [ref=f2e281]:
+        - generic [ref=f2e282]:
+          - generic [ref=f2e283]: Email
+          - textbox "Email" [ref=f2e284]: tercera@territorio.local
+        - generic [ref=f2e285]:
+          - generic [ref=f2e286]: Contraseña
+          - textbox "Contraseña" [ref=f2e287]: SuperSegura2026!
+        - alert [ref=f2e290]: No se pudo contactar el servicio de cuentas. Probá de nuevo en un momento.
+        - button "Entrar" [ref=f2e288]
+      - paragraph [ref=f2e289]: El acceso es solo por invitación. Si no tenés cuenta, pedile una a quien te invitó.
+  - region "Notificaciones"

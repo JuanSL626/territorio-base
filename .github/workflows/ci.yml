@@ -38,6 +38,34 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
+    # `packages/db` corre sus tests contra Postgres real, no `:memory:`
+    # (no hay equivalente en memoria con Supabase — ver
+    # `docs/supabase/03-datos-migracion.md` §4). `services:` en vez de
+    # `docker compose up`: GitHub Actions lo arranca y espera el healthcheck
+    # ANTES del primer step, así que no hace falta orquestar el esperado acá.
+    # `postgres:17`, no `17-alpine`: coincide con `major_version` de
+    # `supabase/config.toml` (la misma mayor que Supabase Cloud) — no hace
+    # falta más que la mayor coincida para que las migraciones se comporten
+    # igual, así que la imagen oficial (más liviana de bajar en el runner por
+    # estar cacheada de otros workflows) alcanza; no es el stack completo de
+    # `supabase start` (Auth/Storage/Studio no hacen falta para testear
+    # `packages/db`, y bajar esas imágenes en cada run de CI sería más lento
+    # sin cubrir nada que este job ejercite).
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     env:
       # Caché remota de Turborepo: opt-in y sin romperse si no está
       # configurada (si los secrets no existen, turbo cae a la caché local).
@@ -49,9 +77,48 @@ jobs:
       # Etiqueta los artefactos por rama: main puede leer y escribir, un PR sólo
       # debería leer lo que main dejó.
       TURBO_REMOTE_ONLY: "false"
+      # `rate-limit.test.ts` (packages/db) lee esta primero, con `DATABASE_URL`
+      # como fallback (ver su propio header) — separada a propósito para poder
+      # apuntar los tests a una base disponible sin pisar la que usaría la app.
+      # Rol `postgres`/contraseña `postgres`: son las credenciales de arranque
+      # del contenedor `services.postgres` de arriba, no un secreto real.
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
 
     steps:
       - uses: actions/checkout@v4
+
+      # Que las migraciones de `supabase/migrations/` apliquen limpio contra
+      # un Postgres 17 recién creado — antes de gastar tiempo en pnpm/turbo,
+      # para fallar rápido si alguien commiteó SQL que no corre. NO usa el CLI
+      # de Supabase (`supabase start`/`db reset`): levanta su stack completo
+      # (Auth/Storage/Studio/Kong, media docena de imágenes) solo para validar
+      # esto, y es más lento en un runner efímero sin esas imágenes
+      # cacheadas — un `psql` directo contra `services.postgres` de arriba
+      # alcanza y sobra (`docs/supabase/03-datos-migracion.md` §4, sobre por
+      # qué un `postgres:17` suelto es la opción correcta para CI).
+      #
+      # El único motivo por el que este Postgres "de verdad" NO alcanza tal
+      # cual es que la migración trae `analysis.user_id REFERENCES
+      # auth.users(id)` — `auth.users` no existe hasta que GoTrue la crea.
+      # No se emula GoTrue: alcanza con la forma mínima que la FK necesita
+      # (una columna `id uuid` para referenciar), sin pretender validar nada
+      # de Auth — eso no es lo que este paso prueba.
+      #
+      # `ON_ERROR_STOP=1` es lo que hace que un archivo con SQL inválido
+      # tumbe el step en vez de seguir de largo con un exit code 0 engañoso.
+      - name: Instalar cliente de Postgres
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y postgresql-client
+
+      - name: Validar migraciones de Supabase desde cero
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c 'create schema if not exists auth; create table if not exists auth.users (id uuid primary key);'
+          for f in supabase/migrations/*.sql; do
+            echo "Aplicando $f"
+            psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f "$f"
+          done
 
       # `packageManager` del package.json raíz fija la versión exacta de pnpm.
       # Nunca se escribe un número acá: si el equipo sube pnpm, CI lo sigue solo.
@@ -203,14 +270,12 @@ jobs:
       # `env_file: .env` es obligatorio en compose.yaml; en CI no hay `.env`
       # (ni debe haberlo), así que se sintetiza uno con los valores del ejemplo.
       # Es exactamente lo que hace una persona al desplegar por primera vez.
+      # `.env.example` ya deja `VITE_SUPABASE_URL`/`DATABASE_URL`/etc. vacías
+      # a propósito (ver ese archivo) — `docker compose config` solo valida
+      # sintaxis e interpolación, así que vacío alcanza acá; no hace falta
+      # un proyecto Supabase real para este chequeo.
       - name: Preparar .env de validación
-        run: |
-          cp .env.example .env
-          {
-            echo "BETTER_AUTH_SECRET=$(openssl rand -base64 32)"
-            echo "ADMIN_EMAIL=ci@example.invalid"
-            echo "ADMIN_PASSWORD=ci-placeholder-password"
-          } >> .env
+        run: cp .env.example .env
 
       - name: Validar producción (solo compose.yaml)
         run: docker compose -f compose.yaml config --quiet

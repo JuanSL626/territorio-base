@@ -11,10 +11,6 @@ dist/
 # `TB_DIST_DIR` permite builds paralelos con salidas separadas (`dist-a`,
 # `dist-b`, …). Ver `apps/web/vite.config.ts`.
 dist-*/
-# `apps/web/build/Release/better_sqlite3.node`: lo deja el Dockerfile para el
-# binding nativo de better-sqlite3. Es un artefacto por plataforma; nunca se
-# versiona. (`server.mjs` ya no lo escribe: desde que `vite.config.ts` declara
-# `ssr.external: ['better-sqlite3']`, Node lo resuelve desde node_modules.)
 build/
 .output/
 .vinxi/
@@ -42,12 +38,11 @@ coverage/
 .env.*
 !.env.example
 
-# --- SQLite (packages/db) ---
-*.db
-*.db-shm
-*.db-wal
-*.sqlite
-*.sqlite3
+# --- Supabase CLI (supabase/) ---
+# `config.toml` y `migrations/` SÍ se versionan — son el proyecto Supabase de
+# este repo, no salida generada. Solo lo que el CLI arma localmente:
+supabase/.branches/
+supabase/.temp/
 
 # --- Python-generated files ---
 __pycache__/

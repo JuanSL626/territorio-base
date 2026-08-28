@@ -1,82 +1,74 @@
 /**
- * The SQLite connection and the typed Drizzle client.
+ * The Postgres connection and the typed Drizzle client.
  *
  * Opened lazily and memoized: importing this module must not touch the
- * filesystem, so `lint`, `typecheck` and unit tests stay side-effect free.
+ * network, so `lint`, `typecheck` and unit tests stay side-effect free.
+ *
+ * `postgres-js` in **Supavisor session mode** (port 5432, `*.pooler.supabase.com`
+ * host, or a direct `db.<project>.supabase.co:5432` connection) is the
+ * intended target — see `docs/supabase/03-datos-migracion.md` §5 for why:
+ * this process holds one long-lived connection (or a small pool) for its
+ * whole lifetime, which is exactly what session mode is for, and it supports
+ * prepared statements (`postgres-js`'s default), unlike transaction mode
+ * (port 6543), which would need `{ prepare: false }`. Nothing here hardcodes
+ * a port or host — that's `DATABASE_URL`'s job (see `.env.example`) — but
+ * `prepare: true` (the default) is *only* correct for session mode/direct
+ * connection; pointing `DATABASE_URL` at the transaction pooler without also
+ * flipping this to `prepare: false` will fail at the first prepared query.
  */
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
 
-import { getEnv, resolveDatabaseFile } from './env.ts';
+import { getEnv } from './env.ts';
 import { type TerritorioDb, schema } from './schema.ts';
 
-/**
- * PRAGMAs, and why each one is not optional:
- *
- * - `foreign_keys = ON` — SQLite ignores foreign keys **per connection** unless
- *   this is set. Without it, `analysis.user_id` and `invite.used_by_user_id`
- *   are decorative: deleting a user leaves orphan rows and no error.
- * - `journal_mode = WAL` — readers do not block the writer. The SSR guard reads
- *   the session on every request while the analysis writer is running.
- * - `busy_timeout` — turns a `SQLITE_BUSY` throw into a bounded wait.
- * - `synchronous = NORMAL` — the safe pairing with WAL.
- */
-function applyPragmas(sqlite: Database.Database): void {
-  sqlite.pragma('journal_mode = WAL');
-  sqlite.pragma('foreign_keys = ON');
-  sqlite.pragma('busy_timeout = 5000');
-  sqlite.pragma('synchronous = NORMAL');
+function createDb(connectionString: string) {
+  const sql = postgres(connectionString);
+  return { sql, db: drizzle({ client: sql, schema }) };
 }
 
-function createDb(file: string) {
-  if (file !== ':memory:' && file !== '') {
-    mkdirSync(dirname(file), { recursive: true });
-  }
-  const sqlite = new Database(file);
-  applyPragmas(sqlite);
-  return { sqlite, db: drizzle(sqlite, { schema }) };
-}
-
-let cached: { file: string; sqlite: Database.Database; db: TerritorioDb } | null = null;
+let cached: {
+  connectionString: string;
+  sql: ReturnType<typeof postgres>;
+  db: TerritorioDb;
+} | null = null;
 
 /**
  * The Drizzle client. Same instance for the whole process.
  *
- * `file` is only for tests and one-off scripts; leave it out in app code so the
- * path comes from `DATABASE_URL`.
+ * `connectionString` is only for tests and one-off scripts; leave it out in
+ * app code so it comes from `DATABASE_URL`.
  */
-export function getDb(file?: string): TerritorioDb {
-  return getConnection(file).db;
+export function getDb(connectionString?: string): TerritorioDb {
+  return getConnection(connectionString).db;
 }
 
-/** The raw better-sqlite3 handle — needed by the migrator and by `PRAGMA` work. */
-export function getSqlite(file?: string): Database.Database {
-  return getConnection(file).sqlite;
+/** The raw `postgres-js` handle — needed by anything that wants a raw query. */
+export function getSql(connectionString?: string): ReturnType<typeof postgres> {
+  return getConnection(connectionString).sql;
 }
 
-function getConnection(file?: string): {
-  file: string;
-  sqlite: Database.Database;
+function getConnection(connectionString?: string): {
+  connectionString: string;
+  sql: ReturnType<typeof postgres>;
   db: TerritorioDb;
 } {
-  const target = file ?? resolveDatabaseFile(getEnv().DATABASE_URL);
+  const target = connectionString ?? getEnv().DATABASE_URL;
   if (cached !== null) {
-    if (cached.file !== target) {
+    if (cached.connectionString !== target) {
       throw new Error(
-        `Ya hay una conexión abierta a "${cached.file}"; se pidió "${target}". Cerrala con closeDb() antes de abrir otra.`,
+        'Ya hay una conexión abierta a otra base; cerrala con closeDb() antes de abrir otra.',
       );
     }
     return cached;
   }
-  cached = { file: target, ...createDb(target) };
+  cached = { connectionString: target, ...createDb(target) };
   return cached;
 }
 
 /** Close the connection. For tests and for scripts that must exit cleanly. */
-export function closeDb(): void {
+export async function closeDb(): Promise<void> {
   if (cached === null) return;
-  cached.sqlite.close();
+  await cached.sql.end();
   cached = null;
 }

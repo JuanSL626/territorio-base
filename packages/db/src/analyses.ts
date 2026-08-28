@@ -73,9 +73,11 @@ export async function getAnalysisForUser(
  * ITS OWN job id (`/analysis/{raster_job_id}/overlay/dem.png`), not by the
  * app's `analysis.id` — the two are different UUIDs, generated on different
  * sides. `raster_job_id` isn't its own column (it lives inside `resultJson`,
- * set once the raster pipeline starts), so this resolves it with
- * `json_extract` instead of a schema migration for one lookup. It stays a
- * full table scan; fine at self-hosted scale, worth an index if that changes.
+ * set once the raster pipeline starts), so this resolves it with the jsonb
+ * `->>` operator, backed by `analysis_raster_job_id_idx` (`schema.ts`). The
+ * SQLite predecessor of this query was a `json_extract(...)` **full table
+ * scan** with a comment flagging it as worth an index "if that changes" —
+ * this migration is that change: same shape, now an index scan.
  */
 export async function getAnalysisByRasterJobIdForUser(
   db: TerritorioDb,
@@ -87,7 +89,7 @@ export async function getAnalysisByRasterJobIdForUser(
     .where(
       and(
         eq(analysis.userId, params.userId),
-        sql`json_extract(${analysis.resultJson}, '$.raster_job_id') = ${params.rasterJobId}`,
+        sql`${analysis.resultJson} ->> 'raster_job_id' = ${params.rasterJobId}`,
       ),
     )
     .limit(1);
@@ -104,6 +106,11 @@ export async function getAnalysisByRasterJobIdForUser(
  * `resultJson`), so that's what this checks: not "is this cache key secret"
  * (it isn't, particularly), but "did YOUR analysis actually request this
  * scenario" — same bar as every other overlay this proxy serves.
+ *
+ * Nested one level deeper than `raster_job_id`, hence `->` then `->>`,
+ * matching `analysis_coastal_cache_key_idx` (`schema.ts`) exactly — a jsonb
+ * expression index only gets used when the query expression matches it
+ * structurally, not just semantically.
  */
 export async function getAnalysisByCoastalCacheKeyForUser(
   db: TerritorioDb,
@@ -115,7 +122,7 @@ export async function getAnalysisByCoastalCacheKeyForUser(
     .where(
       and(
         eq(analysis.userId, params.userId),
-        sql`json_extract(${analysis.resultJson}, '$.coastal.cache_key') = ${params.cacheKey}`,
+        sql`${analysis.resultJson} -> 'coastal' ->> 'cache_key' = ${params.cacheKey}`,
       ),
     )
     .limit(1);

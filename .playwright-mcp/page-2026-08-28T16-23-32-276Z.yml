@@ -1,0 +1,42 @@
+- generic [active] [ref=f4e1]:
+  - generic [ref=f4e15]:
+    - banner [ref=f4e16]:
+      - generic [ref=f4e17]: Territorio Base
+      - radiogroup "Vista" [ref=f4e19]:
+        - radio "Topografía" [checked] [ref=f4e20]
+        - radio "Vegetación" [ref=f4e21]
+        - radio "Hidrología" [ref=f4e22]
+        - radio "Áreas protegidas" [ref=f4e23]
+        - radio "Riesgo RD" [ref=f4e24]
+      - generic [ref=f4e25]:
+        - button "Sin AOI" [disabled] [ref=f4e27]
+        - button "Reporte" [disabled] [ref=f4e30]
+        - button "Exportar" [disabled] [ref=f4e35]
+        - button "Cuenta" [ref=f4e40]
+    - generic [ref=f4e44]:
+      - application "Mapa de la zona de estudio" [ref=f4e45]:
+        - paragraph [ref=f4e46]: Usá las flechas del teclado para desplazar el mapa y las teclas más y menos para acercar y alejar. Los elementos de las capas visibles se abren en el panel de detalle al hacerles clic. En modo dibujo, Escape cancela y Retroceso deshace el último vértice.
+        - button "Subir archivo de AOI" [ref=f4e47]
+        - generic:
+          - generic: 1 km
+          - paragraph:
+            - generic: "Coordenadas del cursor:"
+            - text: 18,45300 N · 69,57100 O
+            - generic: · z13.0
+            - generic: · nivel de zoom 13.0
+        - region "Map" [ref=f4e48]
+        - group [ref=f4e49]:
+          - generic "Toggle attribution" [ref=f4e50] [cursor=pointer]
+          - generic [ref=f4e51]: © OpenStreetMap contributors · SRTM | © OpenTopoMap (CC-BY-SA)
+      - toolbar "Herramientas del mapa" [ref=f4e52]:
+        - button "Dibujar AOI" [ref=f4e53]
+        - button "Subir AOI" [ref=f4e60]
+        - button "Cambiar mapa base" [ref=f4e65]
+        - button "Zoom al AOI" [disabled] [ref=f4e69]
+      - generic [ref=f4e73]:
+        - button "Leyenda compacta" [ref=f4e74]
+        - generic [ref=f4e75]:
+          - generic [ref=f4e76]: 1 km
+          - generic [ref=f4e77]: © OpenStreetMap · Copernicus · ESA · UNEP-WCMC · MEPyD
+      - button "Capas y análisis" [ref=f4e78]
+  - region "Notificaciones"

@@ -1,44 +1,19 @@
-// @territorio/db — Drizzle + SQLite + Better Auth (invite-only, email+password,
-// httpOnly session cookie). Schema, client and auth wiring live here.
+// @territorio/db — Drizzle + Supabase Postgres. Schema and the database
+// client live here; ownership-scoped queries for `analysis` and the
+// `rate_limit` upsert are the whole surface.
 //
-// SERVER ONLY. Every export in this barrel reaches `node:fs`, `node:crypto` or
-// better-sqlite3. Import it from server functions, `beforeLoad` guards and
-// scripts — never from a component.
-export { closeDb, getDb, getSqlite } from './client.ts';
+// Authentication (`auth.ts`, `invites.ts`, `web-boundary.ts`, the `user` /
+// `session` / `account` / `verification` / `invite` tables) is GONE from this
+// package — Supabase Auth (`auth.users`, managed by Supabase, not by a
+// migration in this repo) replaces it. See `README.md` for the full account
+// of what left and where its replacement is expected to land.
+//
+// SERVER ONLY. Every export in this barrel reaches `node:crypto` or the
+// Postgres connection. Import it from server functions, `beforeLoad` guards
+// and scripts — never from a component.
+export { closeDb, getDb, getSql } from './client.ts';
 
-export { getDatabaseFile, getEnv, resetEnvCache, resolveDatabaseFile, type Env } from './env.ts';
-
-export {
-  buildAuthOptions,
-  createAuth,
-  getAuth,
-  INVITE_CODE_FIELD,
-  resetAuthInstance,
-  signUpWithInvite,
-  type Auth,
-  type BuildAuthOptionsInput,
-  type SignUpWithInviteParams,
-} from './auth.ts';
-
-export {
-  attachInviteUserByCode,
-  checkInvite,
-  claimInvite,
-  createInvite,
-  formatInviteCode,
-  generateInviteCode,
-  INVITE_REJECTIONS,
-  inviteRejectionMessage,
-  listInvites,
-  normalizeEmail,
-  normalizeInviteCode,
-  releaseOrphanedClaim,
-  revokeInvite,
-  type InviteCheck,
-  type InviteRejection,
-} from './invites.ts';
-
-export { consumeRateLimit, type RateLimitOutcome, type RateLimitRule } from './rate-limit.ts';
+export { getEnv, resetEnvCache, type Env } from './env.ts';
 
 export {
   createAnalysis,
@@ -50,36 +25,17 @@ export {
   updateAnalysisForUser,
 } from './analyses.ts';
 
+export { consumeRateLimit, type RateLimitOutcome, type RateLimitRule } from './rate-limit.ts';
+
 export {
-  account,
   analysis,
   ANALYSIS_STATUSES,
-  invite,
+  analysisStatus,
   rateLimit,
   schema,
-  session,
-  user,
-  verification,
-  type Account,
   type Analysis,
   type AnalysisStatus,
   type AoiGeometry,
-  type Invite,
   type NewAnalysis,
-  type NewInvite,
-  type NewUser,
-  type Session,
   type TerritorioDb,
-  type User,
-  type Verification,
 } from './schema.ts';
-
-export {
-  webAuthBoundary,
-  type WebAuthBoundary,
-  type WebAuthErrorCode,
-  type WebAuthOutcome,
-  type WebSessionUser,
-  type WebSignInInput,
-  type WebSignUpInput,
-} from './web-boundary.ts';

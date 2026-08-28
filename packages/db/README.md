@@ -1,11 +1,48 @@
 # @territorio/db
 
-Drizzle + SQLite + Better Auth. Owns the schema, the migrations, the database
-client, and the whole authentication policy.
+Drizzle + Supabase Postgres. Owns the schema, the typed Drizzle client, and
+ownership-scoped queries for `analysis` and the `rate_limit` upsert.
 
-**Server only.** Every export reaches `node:fs`, `node:crypto` or
-better-sqlite3. Import it from server functions, route guards and scripts —
+**Server only.** Every export reaches `node:crypto` or opens a Postgres
+connection. Import it from server functions, route guards and scripts —
 never from a component.
+
+---
+
+## What moved, with the SQLite → Supabase migration
+
+This package used to also own the whole authentication policy (Better Auth:
+`user`/`session`/`account`/`verification`, plus the app's own `invite` table
+and gate). That is **gone**:
+
+| Was here | Now |
+| --- | --- |
+| `user`, `session`, `account`, `verification` tables | `auth.users` etc., provisioned and migrated by Supabase (GoTrue) — not a table this repo creates or versions |
+| `invite` table + `src/invites.ts` | Retired. Sign-up is expected to move to Supabase's native `inviteUserByEmail`, which needs no app-owned invite table |
+| `src/auth.ts` (Better Auth instance, invite-gated sign-up hooks) | Deleted. Its replacement — wiring Supabase Auth — is a separate, in-flight piece of work, not part of this package |
+| `src/web-boundary.ts` + `web-boundary.test.ts` (the `webAuthBoundary` seam `apps/web/src/lib/session.ts` resolves) | Deleted along with `auth.ts`/`invites.ts`: it was pure Better-Auth-to-Supabase-error-code glue, and Supabase Auth's session/cookie model isn't the same shape (JWT-based, typically `@supabase/ssr`). Rebuilding this seam against Supabase Auth is the next piece of work — see `apps/web/src/lib/session.ts` for the contract it needs to satisfy |
+| `scripts/migrate.ts` | Deleted. Applying schema changes is now the Supabase CLI's job (`supabase db push` / `supabase db reset`) — see "Changing the schema" below |
+| `scripts/seed.ts`, `scripts/create-invite.ts`, `scripts/argv.ts` | Deleted. Both were invite-table CLIs; with `invite` gone they have nothing to operate on. Provisioning the first user is expected to go through Supabase's own admin tooling (`inviteUserByEmail` / the Dashboard), not a script in this package |
+| `packages/db/drizzle/*.sql` (SQLite migrations) | Deleted. Postgres migrations now live in `supabase/migrations/` at the repo root — the Supabase CLI's own directory, not a package-local one (see below) |
+
+What **survived**, translated to Postgres (full mapping and rationale in
+`docs/supabase/03-datos-migracion.md`):
+
+- `analysis` — `id`/`user_id` are now `uuid` (`user_id` a real FK to
+  `auth.users(id) ON DELETE CASCADE`), timestamps are `timestamptz`,
+  `aoi_geojson`/`result_json` are `jsonb`, `status` is a Postgres
+  `analysis_status` enum (Postgres-enforced now, not just a TypeScript union).
+- `rate_limit` — `id` is `uuid`; `count`/`last_request` **stay `bigint`**
+  (epoch ms), not `timestamptz` — the CAS upsert in `rate-limit.ts` does
+  integer arithmetic directly, see that file's header.
+
+Both tables call `.enableRLS()` in `schema.ts` with **zero** `pgPolicy()`
+attached — default-deny. That's a safety net against Supabase exposing every
+`public` table over PostgREST by default, not the real authorization
+mechanism: the real mechanism is unchanged, every function in `analyses.ts`
+still filters explicitly on `userId`, and the only thing that ever opens a
+Postgres connection here is this one trusted Node process (via `client.ts`),
+which RLS does not restrict.
 
 ---
 
@@ -13,203 +50,94 @@ never from a component.
 
 ```bash
 cp .env.example .env                                   # from the repo root
-# set BETTER_AUTH_SECRET (openssl rand -base64 32), ADMIN_EMAIL, ADMIN_PASSWORD
-
-pnpm --filter @territorio/db db:migrate                # create/upgrade the file
-pnpm --filter @territorio/db db:seed -- --name "Tu Nombre"
+# set DATABASE_URL to a Supabase Postgres connection string
 ```
 
-Then invite people:
-
-```bash
-pnpm --filter @territorio/db db:create-invite -- --email ana@ejemplo.do --days 7
-# → Código de invitación: 10ZE-0FRW-16M0
-```
-
-| script | what it does |
-| --- | --- |
-| `db:generate` | drizzle-kit: diff the schema, write a new migration into `drizzle/` |
-| `db:migrate` | apply the checked-in migrations (programmatic migrator, idempotent) |
-| `db:seed` | create the first administrator |
-| `db:create-invite` | mint / list / revoke invite codes |
-
-`db:migrate` and `db:create-invite` read only `DATABASE_URL` — applying schema
-changes or minting a code must not require the auth signing key.
-
----
-
-## Sign-up is closed
-
-There is no open registration and no back door. `POST /sign-up/email` succeeds
-only when the body carries an `inviteCode` that is:
-
-- **known** — present in the `invite` table,
-- **unused** — `used_at IS NULL`,
-- **unexpired** — `expires_at` in the future, or null,
-- **for you** — if the invite was pinned to an address, only that address
-  redeems it.
-
-Two layers enforce it (`src/auth.ts`):
-
-1. `hooks.before` on `/sign-up/email` — read-only validation, so a bad code is
-   rejected with a precise Spanish message *before* a password is hashed.
-2. `databaseHooks.user.create.before` — the atomic claim, and the real gate. It
-   is **fail-closed**: any user-creating endpoint not on the `USER_CREATING_PATHS`
-   allow-list is refused outright, so adding a social provider or the admin
-   plugin later cannot quietly open registration. You have to come here and say
-   so.
-
-The single-use guarantee is one conditional UPDATE, never a read-then-write:
-
-```sql
-UPDATE invite SET used_at = ? WHERE code = ? AND used_at IS NULL AND ...
-```
-
-SQLite serializes writers, so of two concurrent sign-ups exactly one gets a row
-back. This matters because the Drizzle adapter's `transaction` option is
-deliberately **off** — with better-sqlite3 it commits an empty transaction and
-runs the real work outside it, silently. See the header of `src/auth.ts`.
-
-Even `db:seed` goes through this path: it mints an invite for `ADMIN_EMAIL` and
-redeems it. A bootstrap shortcut that writes a user row directly would also be
-the path a future bug takes.
-
-Codes are Crockford base32 (`ABCD-EFGH-JKMN`) — no `I`, `L`, `O` or `U`, and the
-lookalikes a person might type are folded back, so a code read over the phone
-works. Dashes and lowercase are fine everywhere.
-
----
-
-## Protecting a route
-
-Route guards live in `apps/web/src/lib/auth-server.ts`. The rule they exist to
-enforce: **the session is resolved before the first byte of HTML.** `beforeLoad`
-runs on the server during SSR, so a thrown `redirect` becomes a real HTTP
-redirect — no signed-in shell painting and then snapping to a login form. A
-`useEffect` guard cannot do that.
-
-Protect a whole subtree with one layout route:
-
-```ts
-// apps/web/src/routes/_app.tsx
-import { createFileRoute } from '@tanstack/react-router';
-
-import { requireUser } from '~/lib/auth-server';
-
-export const Route = createFileRoute('/_app')({
-  beforeLoad: async ({ location }) => ({ user: await requireUser(location) }),
-  component: AppShell,
-});
-```
-
-Every child route now has `user` in context:
-
-```ts
-const { user } = Route.useRouteContext();
-```
-
-The other two guards:
-
-```ts
-// on /login and /registro — a signed-in user has no business there
-beforeLoad: async ({ search }) => { await redirectIfSignedIn(search.redirect); }
-
-// on a route that renders differently when signed in, but renders either way
-beforeLoad: async () => ({ user: await optionalUser() }),
-```
-
-`requireUser` puts the attempted URL in `?redirect=`, so `/login` can send the
-user back to the map with its `aoi`, `theme` and `layers` search params intact.
-Feed that value through **`safeRedirectPath`** before navigating — it is
-attacker-controlled, and anything that is not a plain absolute path (a full URL,
-`//evil.example`, `/\evil.example`) is discarded rather than sanitized.
-
-`/login` must therefore declare `redirect` in its search schema:
-
-```ts
-validateSearch: z.object({ redirect: z.string().optional() }),
-```
-
----
-
-## What `apps/web` imports
-
-| module | for | runs where |
-| --- | --- | --- |
-| `~/lib/auth-server` | `requireUser`, `redirectIfSignedIn`, `optionalUser`, `safeRedirectPath` | route files (`beforeLoad`) |
-| `~/lib/auth-client` | `signIn`, `signUp`, `signOut`, `AUTH_ERROR_MESSAGES` | components |
-| `~/lib/db` | `getDb`, the `analysis` helpers | server functions only |
-| `~/lib/auth` | the raw Better Auth instance | only if the HTTP surface gets mounted |
-
-Auth actions are TanStack Start **server functions** (`~/lib/session`), not HTTP
-calls to `/api/auth/*`. The credential never touches client JavaScript and the
-cookie is set on the server response. `@territorio/db` fills that seam with
-`webAuthBoundary`, which `~/lib/session` resolves by dynamic import and structural
-type guard — and which fails closed (no session, redirect to `/login`) if it is
-ever missing.
-
-There is no `useSession()` hook on purpose. The signed-in user comes from route
-context, resolved server-side; a client hook would re-fetch what SSR already
-knows and flash `null` on the way. After `signIn`/`signOut`, call
-`router.invalidate()` to re-run the guards.
-
-Sign-in/sign-up errors arrive as a closed set of codes with Spanish copy in
-`AUTH_ERROR_MESSAGES`: `credenciales`, `invitacion-invalida`, `invitacion-usada`,
-`email-en-uso`, `password-debil`, `demasiados-intentos`, `servicio`. The mapping
-from Better Auth's machine-readable codes happens in `src/web-boundary.ts` —
-never against message text, which is translated and will be reworded.
-`demasiados-intentos` carries a `retryAfterSeconds` alongside the code (see
-`src/rate-limit.ts`).
+There is no `db:migrate` / `db:seed` in this package any more. Schema changes
+are applied with the Supabase CLI, against either the local Docker stack
+(`supabase start` + `supabase db reset`) or the linked remote project
+(`supabase db push`) — see "Changing the schema" below.
 
 ---
 
 ## Schema notes
 
-Two of these will cost you an afternoon if you change them without reading:
-
-- **Export names are load-bearing.** The Drizzle adapter looks models up as
-  `schema[modelName]`, so the table must be exported as `user`, not `users`.
-  Property names are load-bearing too — the adapter resolves fields as
-  `schemaModel[fieldName]` using Better Auth's camelCase names (`emailVerified`,
-  `createdAt`). SQL column names are free, and are snake_case.
-- **`account.issuer` is required** in Better Auth 1.7. It is easy to miss when
-  copying an older schema, and its absence breaks sign-in at account lookup, not
-  at startup.
-
-`PRAGMA foreign_keys = ON` is set per connection in `src/client.ts`. SQLite
-ignores foreign keys without it, which would make `analysis.user_id` decorative.
-
-`rate_limit` backs `src/rate-limit.ts`, the actual login/sign-up rate limiter —
-**not** Better Auth's own `rateLimit` option, which this app deliberately does
-not configure (it only takes effect through `auth.handler()`, and nothing here
-dispatches a Request through it; see the header of `src/auth.ts`). `key` is
-unique, so every attempt is a single atomic `INSERT ... ON CONFLICT DO UPDATE`
-— no read-then-write gap. Always on, in every environment; a brute-force
-control that only ran in production couldn't have been verified outside it.
-
-`analysis.result_json` is typed loosely (`Record<string, unknown>`). Once
-`packages/api-client` / `packages/geo` publish the analysis contract, narrow it
-with `.$type<AnalysisResult>()` — one edit, no migration.
+- **`analysis.result_json` is `jsonb`.** Postgres has no ~6 MB ceiling the way
+  SQLite effectively did — the practical limit is ~1 GB per value — but a
+  large value still pays TOAST compression/decompression on every read. The
+  6 MB cap in `apps/web/src/lib/analysis-runtime.ts` (`MAX_RESULT_BYTES`)
+  stays exactly as it was: an app-level constant, not a SQLite limitation
+  Postgres removes the need for.
+- **Two jsonb expression indexes** replace what used to be
+  `json_extract(...)` full table scans in `analyses.ts`:
+  `analysis_raster_job_id_idx` on `(result_json ->> 'raster_job_id')` and
+  `analysis_coastal_cache_key_idx` on
+  `(result_json -> 'coastal' ->> 'cache_key')`. The query code has to match
+  the index expression exactly (`->`/`->>` in the same shape) for Postgres to
+  use it — see the comments in `analyses.ts` at each call site.
+- **IDs are `uuid`, generation unchanged.** `createAnalysis` still calls
+  `randomUUID()` from `node:crypto` and passes the value explicitly — no
+  `defaultRandom()` in the schema, same as before.
+- **`rate_limit.last_request` stays `bigint`, not `timestamptz`** — see
+  `rate-limit.ts`'s header for why (it's arithmetic, not a date comparison).
 
 ### Changing the schema
 
 ```bash
 # edit src/schema.ts
-pnpm --filter @territorio/db db:generate     # writes drizzle/NNNN_*.sql
-pnpm --filter @territorio/db db:migrate
-git add packages/db/drizzle                  # migrations are checked in
+pnpm --filter @territorio/db db:generate    # writes supabase/migrations/<timestamp>_*.sql
+supabase db reset                            # applies + validates against the local Docker stack
+git add supabase/migrations                  # migrations are checked in, at the repo root — not here
+supabase db push                             # applies to the linked remote project
 ```
+
+`drizzle-kit generate` (what `db:generate` runs) only ever GENERATES SQL —
+`drizzle.config.ts` points its `out` at `supabase/migrations` with
+`migrations.prefix: 'supabase'`, matching the filename shape the Supabase CLI
+expects. **Never** run `drizzle-kit migrate`/`drizzle-kit push`, or the
+programmatic `drizzle-orm/postgres-js/migrator`, against the real project:
+that migrator keeps its own history table
+(`drizzle.__drizzle_migrations`), independent of the Supabase CLI's own
+(`supabase_migrations` schema) — running both against the same database
+means each believes it owns migration history and neither sees the other,
+which is exactly what broke for people who tried it in production (see
+`docs/supabase/03-datos-migracion.md` §2 for the sourced writeup). This
+package's `db:generate` is the only drizzle-kit command that's safe to run
+against the real project, because it never opens a connection to it.
+
+---
+
+## Connecting: which Postgres URL
+
+`DATABASE_URL` is a Postgres connection string, not a SQLite file path.
+Three valid shapes (`docs/supabase/03-datos-migracion.md` §5, `.env.example`):
+
+| Mode | Port | When |
+| --- | --- | --- |
+| Supavisor **session mode** | 5432, `*.pooler.supabase.com` | **Recommended for this app** — one long-lived Node server holding a persistent connection (or small pool), same pattern as the memoized `better-sqlite3` handle this used to be. Supports prepared statements, which `client.ts` leaves on (`postgres-js`'s default). |
+| Supavisor **transaction mode** | 6543 | Serverless/edge, many short-lived connections — not this app's shape. Needs `postgres(url, { prepare: false })` if ever used; `client.ts` does not set this today. |
+| Direct connection | 5432, `db.<project>.supabase.co` | Lowest latency, but needs IPv6 egress from the host. |
 
 ---
 
 ## Not built (deliberate, not forgotten)
 
+Carried over from before the migration, unaffected by it:
+
 - **Public sharing of `/reporte/$id`.** Every analysis read is owner-scoped;
-  there is no `getAnalysis(id)` that skips the owner check, because an id-only
-  accessor is how a report route ends up serving someone else's AOI to whoever
-  guesses a uuid. Logged-out sharing needs a `shareToken` column and a second,
-  token-scoped read — a product decision, not an oversight.
-- **Password reset / email verification.** No mail transport is configured.
-  `sendResetPassword` is unset, so the endpoints exist but send nothing.
-- **Roles.** Every user is equal. Invites are minted from the CLI, so "who may
-  invite" is currently "who has shell access".
+  there is no `getAnalysis(id)` that skips the owner check. Logged-out
+  sharing needs a `shareToken` column and a second, token-scoped read — a
+  product decision, not an oversight.
+
+New, a direct consequence of this migration:
+
+- **Roles / who may invite.** With `invite` gone, "who may create an account"
+  is now whatever Supabase Auth's own admin flow decides
+  (`inviteUserByEmail`, or the Dashboard) — this package has no opinion on it
+  any more.
+- **A local `:memory:`-equivalent for tests.** There is no in-process
+  Postgres. `rate-limit.test.ts` needs `TEST_DATABASE_URL` (or `DATABASE_URL`)
+  pointed at a real, disposable Postgres — `supabase start`'s stack, or a bare
+  `postgres:17` container — and skips itself when neither is reachable. This
+  is a real new CI requirement (Docker + a cached Postgres image), not
+  cosmetic — see `docs/supabase/03-datos-migracion.md` §4.
