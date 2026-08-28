@@ -67,14 +67,14 @@
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", "!**/*.md"],
       "outputs": [],
-      "env": ["VITEST_*"]
+      "env": ["VITEST_*", "DATABASE_URL", "TEST_DATABASE_URL"]
     },
 
     "test:coverage": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", "!**/*.md"],
       "outputs": ["coverage/**"],
-      "env": ["VITEST_*"]
+      "env": ["VITEST_*", "DATABASE_URL", "TEST_DATABASE_URL"]
     },
 
     "db:generate": {

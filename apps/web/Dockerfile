@@ -13,38 +13,38 @@
 #
 # Cómo se resuelven el workspace y los catálogos acá adentro:
 #
-# 1. `catalog:` no es una versión, es un puntero a `pnpm-workspace.yaml`. Sin
-#    ese archivo en la imagen, cada `"react": "catalog:"` es irresoluble y
-#    `pnpm install` muere con `ERR_PNPM_CATALOG_ENTRY_NOT_FOUND_FOR_SPEC`. Por
-#    eso `pnpm-workspace.yaml` se copia siempre, y antes que el código.
+# 1. `catalog:` es un puntero a `pnpm-workspace.yaml`. Sin ese archivo en la
+#    imagen, cada `"react": "catalog:"` es irresoluble y `pnpm install`
+#    muere con `ERR_PNPM_CATALOG_ENTRY_NOT_FOUND_FOR_SPEC`. Por eso se copia
+#    siempre, y antes que el código.
 #
 # 2. `--frozen-lockfile` valida el lockfile contra **todos** los importers
-#    declarados en `packages:` (apps/*, packages/*, services/*). Si falta un
-#    solo `package.json` de un miembro, pnpm aborta con
-#    `Cannot install with "frozen-lockfile" because pnpm-lock.yaml is not up
-#    to date with <manifest>`. Por eso se copian los manifiestos de todos los
-#    paquetes —incluido `services/api`, que es Python y no declara deps npm—
-#    aunque esta imagen sólo construya `apps/web`.
+#    declarados en `packages:` (apps/*, packages/*, services/*); si falta un
+#    solo `package.json` de un miembro, pnpm aborta. Por eso se copian los
+#    manifiestos de todos los paquetes —incluido `services/api`, que es
+#    Python y no declara deps npm— aunque esta imagen sólo construya
+#    `apps/web`.
 #
-# 3. Los manifiestos se copian en una capa propia, antes del código fuente,
-#    por eso el COPY es explícito y no `COPY . .`: tocar un `.tsx` no debe
-#    invalidar la capa de `pnpm install`, que es la cara.
+# 3. Los manifiestos se copian en una capa propia, antes del código fuente
+#    (COPY explícito, no `COPY . .`): tocar un `.tsx` no debe invalidar la
+#    capa de `pnpm install`, que es la cara.
 #
 # 4. `.npmrc` también se copia (`engine-strict`, `save-exact`, link del
 #    workspace): sin él pnpm resolvería distinto adentro que afuera.
 #
-# 5. `--filter @territorio/web...` (con los tres puntos) = "web y todo aquello
-#    de lo que depende". Sin los puntos, los `packages/*` quedan sin instalar
-#    y el build falla al resolver `@territorio/geo`.
+# 5. `--filter @territorio/web...` (con los tres puntos) = "web y todo
+#    aquello de lo que depende". Sin los puntos, los `packages/*` quedan sin
+#    instalar y el build falla al resolver `@territorio/geo`.
 
 ARG NODE_VERSION=24.19.0
 
 # Etapa 0 — base común: Node + pnpm por corepack
 #
-# Debian (bookworm-slim), no Alpine: `better-sqlite3` publica prebuilds contra
-# glibc; con musl habría que compilarlo (mismo argumento que fija la base de
-# `services/api`, ver su Dockerfile). La versión coincide con `.nvmrc` a
-# propósito: un solo Node en todo el repo.
+# Debian (bookworm-slim), no Alpine: ya no hay una razón puntual para eso
+# (era `better-sqlite3`, prebuilds contra glibc, retirado con la migración a
+# Supabase/`postgres-js`), pero cambiar de base es una decisión aparte que
+# afecta a toda la imagen, así que se deja por ahora. La versión coincide
+# con `.nvmrc` a propósito: un solo Node en todo el repo.
 FROM node:${NODE_VERSION}-bookworm-slim AS base
 
 ENV PNPM_HOME=/pnpm \
@@ -57,7 +57,7 @@ ENV PNPM_HOME=/pnpm \
 WORKDIR /app
 
 # `corepack prepare` lee `packageManager` del package.json raíz, así que pnpm
-# queda clavado en el mismo que usa el equipo (11.23.0).
+# queda clavado en el mismo que usa el equipo.
 #
 # Si el corepack de la imagen es viejo, `prepare` puede fallar con
 # `Cannot find matching keyid` (problema de firmas de corepack, no del repo);
@@ -85,27 +85,31 @@ COPY services/api/package.json             services/api/
 # Etapa 2 — dependencias de build (dev incluidas)
 FROM manifests AS deps
 
-# `better-sqlite3` intenta bajar un prebuild; si no hay uno para esta
-# combinación de Node/plataforma cae a compilar con node-gyp y necesita
-# python3 + g++ + make. Están sólo acá: la imagen final no los ve.
-RUN apt-get update \
-    && apt-get install --no-install-recommends -y build-essential python3 \
-    && rm -rf /var/lib/apt/lists/*
-
 # El store de pnpm va a un cache mount de BuildKit: se reusa entre builds sin
 # quedar dentro de ninguna capa.
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile --filter @territorio/web...
 
 # Etapa 3 — build
+#
+# `VITE_SUPABASE_URL`/`VITE_SUPABASE_PUBLISHABLE_KEY` SÍ van por `ARG` acá,
+# a diferencia de todo lo demás (API_URL, DATABASE_URL,
+# SUPABASE_SERVICE_ROLE_KEY, TERRITORIO_API_TOKEN, que son de runtime y van
+# por entorno del contenedor). Vite reemplaza `import.meta.env.VITE_*` de
+# forma ESTÁTICA durante `vite build` — si no están seteadas EN ESTE PASO el
+# bundle del browser queda con `undefined` horneado adentro, y ningún `ENV`
+# posterior en "Etapa 5" lo arregla. `compose.yaml` las pasa como
+# `build.args` desde el `.env` de despliegue. Consecuencia práctica: cambiar
+# el proyecto de Supabase implica reconstruir la imagen, no solo reiniciar
+# el contenedor — son las únicas dos variables de este Dockerfile con esa
+# propiedad.
 FROM deps AS build
 
-# El bundle del BROWSER no lleva ninguna variable horneada para el servicio
-# raster: los PNG y GeoTIFF de overlay se piden al proxy del mismo origen
-# (`src/routes/api/raster.*.ts`, ver `src/components/map/raster-base.ts`), no
-# al servicio directo. Todo lo de acá (API_URL, DATABASE_URL, BETTER_AUTH_*,
-# TERRITORIO_API_TOKEN) es de runtime y va por entorno, no por `ARG`.
-ENV NODE_ENV=production
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_PUBLISHABLE_KEY
+ENV NODE_ENV=production \
+    VITE_SUPABASE_URL=${VITE_SUPABASE_URL} \
+    VITE_SUPABASE_PUBLISHABLE_KEY=${VITE_SUPABASE_PUBLISHABLE_KEY}
 
 COPY packages/ packages/
 COPY apps/web/ apps/web/
@@ -120,23 +124,11 @@ RUN pnpm --filter @territorio/web build
 #
 # Hace falta un node_modules real —no alcanza con `dist/`— porque el bundle
 # SSR deja externalizados: react, react-dom, @tanstack/react-router,
-# @tanstack/react-query, better-auth, better-sqlite3, archiver y zod.
+# @tanstack/react-query, archiver y zod.
 FROM manifests AS prod-deps
-
-RUN apt-get update \
-    && apt-get install --no-install-recommends -y build-essential python3 \
-    && rm -rf /var/lib/apt/lists/*
 
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile --prod --filter @territorio/web...
-
-# No hace falta escenificar `better_sqlite3.node` en ningún lado: externalizado
-# (`vite.config.ts` → `ssr: { external: ['better-sqlite3'] }`), el `require`
-# lo resuelve Node desde `node_modules/.pnpm/better-sqlite3@…`, que ya trae su
-# propio `build/Release/better_sqlite3.node` — el mismo camino que en `dev` y
-# el que usan las migraciones. Si algún día se vuelve a inlinear, el síntoma es
-# una app que levanta y en la que NADIE puede iniciar sesión, sin error en los
-# logs; la solución de fondo es no inlinearlo.
 
 # Etapa 5 — runtime
 FROM node:${NODE_VERSION}-bookworm-slim AS runtime
@@ -148,15 +140,12 @@ ENV NODE_ENV=production \
 
 WORKDIR /app/apps/web
 
-# Usuario: MISMO uid/gid que `services/api` (10001), a propósito.
-#
-# Los dos contenedores montan el mismo volumen en /data — la app web escribe
-# ahí el SQLite, el servicio raster escribe ahí los GeoTIFF, y la app web los
-# lee de vuelta para armar el ZIP de descarga. Docker siembra el dueño de un
-# volumen nuevo con el del primer contenedor que lo monta: si los uid no
-# coincidieran, el segundo se encontraría /data de otro usuario y fallaría con
-# EACCES en el primer análisis o en la primera migración. (La imagen `node`
-# ya trae un usuario `node` en uid 1000; no se usa.)
+# Usuario: no-root, mismo uid/gid que `services/api` (10001) por consistencia
+# entre las dos imágenes del repo, aunque ya no comparten volumen (`web` no
+# monta `territorio-data`; solo `api` lo necesita, ver `compose.yaml`) — un
+# uid fijo y conocido sigue siendo mejor que el que trae la imagen base. (La
+# imagen `node` ya trae un usuario `node` en uid 1000; no se usa, para no
+# heredar lo que sea que esa imagen decida en el futuro.)
 RUN groupadd --system --gid 10001 territorio \
     && useradd --system --uid 10001 --gid territorio --create-home territorio
 
@@ -172,27 +161,11 @@ COPY --from=prod-deps --chown=territorio:territorio /app/package.json /app/pnpm-
 COPY --from=build --chown=territorio:territorio /app/apps/web/dist         /app/apps/web/dist
 COPY --chown=territorio:territorio apps/web/package.json apps/web/server.mjs /app/apps/web/
 
-# Migraciones y seed: sin ellos un despliegue nuevo no puede crear el esquema
-# ni el primer usuario sin abrir un contenedor con el repo entero.
+# Las migraciones de Postgres viven en `supabase/migrations/` en la raíz del
+# repo, aplicadas por el CLI de Supabase — no por esta imagen, que no copia
+# ningún directorio de `packages/db` para eso.
 #
-# Corren con `node <archivo>.ts` directo — Node 24 hace type stripping nativo,
-# que es lo que hacen los scripts `db:*` de `packages/db`. No hacen falta tsx,
-# drizzle-kit ni ninguna dependencia de desarrollo.
-#
-# `better-sqlite3` se carga desde node_modules como un require normal, igual
-# que en el servidor SSR: un solo mecanismo de resolución para los dos
-# procesos.
-COPY --chown=territorio:territorio packages/db/src      /app/packages/db/src
-COPY --chown=territorio:territorio packages/db/scripts  /app/packages/db/scripts
-COPY --chown=territorio:territorio packages/db/drizzle  /app/packages/db/drizzle
-
-# `data/` es el volumen compartido con el servicio raster. Dueño `territorio`
-# para que las migraciones lo escriban, y para sembrar el dueño correcto si
-# este contenedor es el primero en montarlo.
-RUN mkdir -p /data && chown territorio:territorio /data
-
-# Nada de este servicio necesita root: no abre puertos privilegiados ni
-# escribe fuera de /data.
+# Nada de este servicio necesita root: no abre puertos privilegiados.
 USER territorio
 
 EXPOSE 3000

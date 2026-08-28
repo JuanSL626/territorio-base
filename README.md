@@ -20,26 +20,26 @@ Dos procesos y una regla que decide dónde va cada cosa:
 
 ```
                     ┌─────────────────────────────────────────┐
-   navegador ──────▶│  apps/web — TanStack Start (SSR, :3000) │
-        │           │                                         │
-        │           │  · sesión (Better Auth + SQLite)        │
-        │           │  · TODO lo vectorial: Overpass, WDPA,   │
-        │           │    catálogo MEPyD, KML/KMZ/GeoJSON      │
-        │           │  · mapa (MapLibre), reporte, ZIP        │
-        │           └──────────────────┬──────────────────────┘
-        │                              │ HTTP interno
-        │                              ▼
-        │           ┌─────────────────────────────────────────┐
-        └──────────▶│  services/api — FastAPI raster (:8787)  │
-        PNG de      │                                         │
-        overlay     │  · STAC + firma SAS (Planetary Computer)│
-                    │  · odc.stac.load → mosaico → recorte AOI│
+   navegador ──────▶│  apps/web — TanStack Start (SSR, :3000) │──┐
+        │           │                                         │  │
+        │           │  · sesión (Supabase Auth, @supabase/ssr)│  │ Postgres +
+        │           │  · TODO lo vectorial: Overpass, WDPA,   │  │ Auth
+        │           │    catálogo MEPyD, KML/KMZ/GeoJSON      │  │ (Supabase,
+        │           │  · mapa (MapLibre), reporte, ZIP        │  │  externo)
+        │           └──────────────────┬──────────────────────┘  │
+        │                              │ HTTP interno             │
+        │                              ▼                          ▼
+        │           ┌─────────────────────────────────────────┐  proyecto
+        └──────────▶│  services/api — FastAPI raster (:8787)  │  Supabase
+        PNG de      │                                         │  (cloud, o
+        overlay     │  · STAC + firma SAS (Planetary Computer)│  self-hosted
+                    │  · odc.stac.load → mosaico → recorte AOI│  aparte)
                     │  · NDVI, pendiente, WorldCover, Aqueduct│
                     │  · GeoTIFF y overlays PNG               │
-                    └─────────────────────────────────────────┘
+                    └──────────────────┬──────────────────────┘
                                        │
-                              volumen compartido /data
-                       (territorio.db + GeoTIFF por análisis)
+                          volumen propio /data
+                    (GeoTIFF por análisis + caché de Aqueduct)
 ```
 
 ### Por qué híbrida y no todo en un lenguaje
@@ -69,7 +69,8 @@ justamente el punto de haberla elegido ahí.
 apps/web              TanStack Start (SSR) · MapLibre · Tailwind v4 — la app
 services/api          FastAPI + odc-stac (Python 3.11, uv) — el motor raster
 packages/geo          TODO lo vectorial: AOI, Overpass, WDPA, MEPyD, exports
-packages/db           Drizzle + SQLite + Better Auth (acceso por invitación)
+packages/db           Drizzle + Supabase Postgres (analysis, rate_limit)
+supabase               proyecto Supabase: config.toml + migrations/ (SQL, generadas por drizzle-kit)
 packages/ui           primitivas de UI compartidas
 packages/api-client    cliente tipado del servicio raster, GENERADO desde su OpenAPI
 packages/tsconfig      configs de TypeScript compartidas
@@ -81,8 +82,11 @@ docs/migration        inventario del legacy, memo del motor, brief de diseño
 
 ## Puesta en marcha (desarrollo local)
 
-Requisitos: **Node 24** (ver `.nvmrc`), **pnpm 11** (por corepack) y **uv** para
-el servicio Python. Con el devcontainer del repo no hace falta instalar nada.
+Requisitos: **Node 24** (ver `.nvmrc`), **pnpm 11** (por corepack), **uv** para
+el servicio Python, **Docker** (lo usa el stack local de Supabase) y el
+[**CLI de Supabase**](https://supabase.com/docs/guides/local-development/cli/getting-started)
+(`brew install supabase/tap/supabase`, o ver el link para otras plataformas).
+Con el devcontainer del repo no hace falta instalar nada de esto a mano.
 
 ```bash
 # 1. Toolchain
@@ -92,25 +96,42 @@ corepack enable && corepack prepare --activate
 pnpm install
 pnpm --filter @territorio/api-service sync        # = uv sync en services/api
 
-# 3. Entorno
+# 3. Stack de Supabase local (Postgres real + Auth + Studio + Mailpit, en Docker)
+supabase start
+supabase status        # imprime las URLs y claves que van al .env
+
+# 4. Entorno — pegá acá el DB URL y las claves que imprimió `supabase status`
 cp .env.example .env
-openssl rand -base64 32                            # → BETTER_AUTH_SECRET
+#   VITE_SUPABASE_URL             = API_URL          (http://127.0.0.1:54321)
+#   VITE_SUPABASE_PUBLISHABLE_KEY = ANON_KEY
+#   SUPABASE_SERVICE_ROLE_KEY     = SERVICE_ROLE_KEY
+#   DATABASE_URL                  = DB_URL           (postgresql://postgres:postgres@127.0.0.1:54322/postgres)
 
-# 4. Base de datos y primer usuario
-#    Completá ADMIN_EMAIL y ADMIN_PASSWORD en .env antes del seed.
-pnpm --filter @territorio/db db:migrate
-pnpm --filter @territorio/db db:seed -- --name "Tu Nombre"
+# 5. Esquema — aplica supabase/migrations/*.sql contra el Postgres local
+supabase db reset
 
-# 5. Arrancar los dos servicios (Turborepo los levanta en paralelo)
+# 6. Arrancar los dos servicios (Turborepo los levanta en paralelo)
 pnpm dev
 ```
 
 - App: <http://localhost:3000>
 - Servicio raster: <http://localhost:8787/docs> · `/openapi.json` · `/healthz`
+- Studio de Supabase (tablas, SQL Editor, Auth → Users): <http://127.0.0.1:54323>
+- **Mailpit** — acá caen los emails de invitación en desarrollo, sin salir a
+  internet: <http://127.0.0.1:54324>
 
-El seed **no** escribe el usuario a mano: emite una invitación a nombre de
-`ADMIN_EMAIL` y la canjea por el mismo camino que cualquier otra persona. No hay
-puerta trasera, ni siquiera para el primer usuario. Es idempotente.
+### Primer usuario
+
+No hay seed ni script propio: no hay puerta trasera, ni siquiera para el
+primer usuario. El registro público está cerrado (`enable_signup = false` en
+`supabase/config.toml`) — la única forma de crear una cuenta es invitarla:
+
+- **Studio** (local): <http://127.0.0.1:54323> → Authentication → Users →
+  Add user → Send invitation. El email cae en Mailpit; abrilo ahí y seguí el
+  link para fijar la contraseña.
+- **Admin API**, para automatizar o para producción:
+  `supabase.auth.admin.inviteUserByEmail(email, { redirectTo })`, server-side,
+  con `SUPABASE_SERVICE_ROLE_KEY` — ver `docs/supabase/02-auth-invitaciones.md`.
 
 ### Los comandos que se usan todos los días
 
@@ -118,12 +139,14 @@ puerta trasera, ni siquiera para el primer usuario. Es idempotente.
 pnpm dev            # web + api en paralelo
 pnpm lint           # eslint en cada paquete
 pnpm typecheck      # tsgo --noEmit
-pnpm test           # vitest (TS) — los tests de Python se corren aparte
+pnpm test           # vitest (TS) — algunos tests de packages/db necesitan
+                     # Postgres real (`supabase start`) o se saltan solos
 pnpm build          # build de producción de todo el workspace
 pnpm format         # prettier
 
-pnpm --filter @territorio/db db:create-invite     # invitar a alguien
-pnpm --filter @territorio/api-client generate     # regenerar tipos del OpenAPI
+supabase db reset                                 # reaplica el esquema desde cero
+pnpm --filter @territorio/db db:generate           # nueva migración desde src/schema.ts
+pnpm --filter @territorio/api-client generate      # regenerar tipos del OpenAPI
 
 cd services/api && uv run pytest -m "not network" # suite offline (la de CI)
 cd services/api && uv run pytest                  # incluye la de aceptación real
@@ -133,8 +156,9 @@ cd services/api && uv run pytest                  # incluye la de aceptación re
 
 ## Puesta en marcha (Docker Compose, autoalojado)
 
-El único objetivo de despliegue soportado. Dos contenedores, un volumen, sin
-base de datos externa.
+El único objetivo de despliegue soportado. Dos contenedores y un volumen — la
+base de datos NO es uno de ellos: es un proyecto Supabase (Postgres + Auth)
+externo, cloud o autoalojado aparte.
 
 **Docker es solo para producción.** Para desarrollar, usá `pnpm dev` (sección
 anterior): es más rápido y no tiene la capa de filesystem de Docker en el medio.
@@ -143,29 +167,34 @@ más.
 
 ```bash
 cp .env.example .env
-# Completá BETTER_AUTH_SECRET (openssl rand -base64 32), ADMIN_EMAIL y
-# ADMIN_PASSWORD. El resto tiene defaults que sirven.
+# Completá VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY,
+# SUPABASE_SERVICE_ROLE_KEY y DATABASE_URL con los datos de tu proyecto
+# Supabase (dashboard → Project Settings → API / Database). WEB_PUBLIC_URL
+# con la URL pública real si vas a publicar esto. El resto tiene defaults
+# que sirven.
 
-docker compose build
+# Esquema — una sola vez, y cada vez que agregues una migración nueva.
+# `supabase link` (una vez) conecta el CLI al proyecto; después alcanza con
+# `db push`. Corre en tu máquina/CI, no en un contenedor de este compose.
+supabase link --project-ref <tu-project-ref>
+supabase db push
 
-# Esquema y primer usuario (una sola vez; ambos son idempotentes)
-docker compose run --rm migrate
-docker compose run --rm migrate node /app/packages/db/scripts/seed.ts --name "Tu Nombre"
-
+docker compose build   # VITE_SUPABASE_* se hornean en el bundle acá — ver
+                        # compose.yaml, servicio `web`, `build.args`
 docker compose up -d
 docker compose ps          # `api` tiene que quedar en (healthy)
 docker compose logs -f web
 ```
 
-| Servicio  | Puerto host                | Qué es |
+| Servicio | Puerto host          | Qué es |
 |---|---|---|
-| `web`     | `${WEB_PORT:-3000}`        | El servidor SSR. El ÚNICO servicio que el navegador necesita alcanzar. |
-| `api`     | — (sin publicar)           | El servicio raster. Interno: `web` le habla por `api:8787` en la red de compose y proxea los PNG/GeoTIFF de overlay al navegador (`apps/web/src/routes/api/raster.*.ts`). |
-| `migrate` | —                          | Utilidad de un solo uso detrás del profile `tools`. `up` la ignora. |
+| `web`    | `${WEB_PORT:-3000}`  | El servidor SSR. El ÚNICO servicio que el navegador necesita alcanzar. |
+| `api`    | — (sin publicar)     | El servicio raster. Interno: `web` le habla por `api:8787` en la red de compose y proxea los PNG/GeoTIFF de overlay al navegador (`apps/web/src/routes/api/raster.*.ts`). |
 
-Compose pisa `API_URL` (a `http://api:8787`) y `DATABASE_URL` (a
-`file:/data/territorio.db`) con los valores que corresponden dentro de la red de
-contenedores: no hay que editarlos en el `.env` para desplegar.
+Compose pisa `API_URL` (a `http://api:8787`) con el valor que corresponde
+dentro de la red de contenedores. `DATABASE_URL`/`VITE_SUPABASE_*`/
+`SUPABASE_SERVICE_ROLE_KEY` NO los pisa — son un proyecto Supabase real, así
+que hay que completarlos en el `.env` para que arranque.
 
 El navegador no necesita ninguna variable de build para llegar al servicio
 raster — no existe un `VITE_API_URL` que hornear. Todo el tráfico de overlay
@@ -179,28 +208,35 @@ temporal).
 Compose no incluye proxy ni TLS. Para publicar en internet va un Caddy / nginx /
 Traefik delante apuntando a `web:3000`. Dos cosas tienen que ser ciertas:
 
-1. `BETTER_AUTH_URL` = la URL **pública** (`https://…`). De ahí salen los
-   orígenes de confianza y el flag `Secure` de la cookie de sesión.
+1. `WEB_PUBLIC_URL` = la URL **pública** (`https://…`) — la usa `compose.yaml`
+   como default de `TERRITORIO_CORS_ORIGINS` del servicio raster. Además,
+   configurá esa misma URL como **Site URL** (y en **Redirect URLs**) en tu
+   proyecto Supabase (Authentication → URL Configuration): de ahí sale a dónde
+   apunta el link de los emails de invitación.
 2. El proxy manda `X-Forwarded-Proto` y `X-Forwarded-Host`. `apps/web/server.mjs`
-   los usa para reconstruir el origen real; sin ellos Better Auth ve `http://`
-   y el login falla con un error de origen, no de configuración.
+   los usa para reconstruir el origen real; sin ellos el cliente de Supabase
+   Auth (`@supabase/ssr`) ve `http://` y la cookie de sesión no se marca
+   `Secure` como corresponde detrás de TLS.
 
 ### Respaldo
 
-Todo lo que sobrevive a un `docker compose down` está en un volumen con nombre
-`<proyecto>_territorio-data` — `territorio-base_territorio-data` si desplegaste
-sin `-p` (el `name:` de la cabecera de `compose.yaml` es `territorio-base`), o
-`<lo-que-hayas-pasado-a--p>_territorio-data` si usaste `-p`. Para confirmarlo:
-`docker compose config | grep -A2 '^volumes:'`, o `docker volume ls`.
+Con la base de datos en Supabase, **usuarios y análisis ya no viven en un
+volumen de este host** — su respaldo es el de tu proyecto Supabase (backups
+automáticos en Pro y superior; `pg_dump` manual alcanza en Free). Lo único
+que sobrevive a un `docker compose down` EN ESTE host es el volumen
+`<proyecto>_territorio-data`, montado solo por `api`:
 
 ```
-/data/territorio.db      usuarios, invitaciones y análisis (SQLite, modo WAL)
 /data/analyses/<job>/    GeoTIFF y PNG de cada análisis
 /data/coastal/           caché de los COG de WRI Aqueduct
 ```
 
-Respaldar es copiar ese volumen. Por WAL, para una copia consistente en caliente
-usá `sqlite3 /data/territorio.db ".backup /data/backup.db"` en vez de `cp`.
+Perder este volumen no pierde datos de usuario — pierde el recómputo (volver a
+descargar/procesar Sentinel-2 y Aqueduct para análisis viejos). Respaldarlo es
+opcional, solo por costo/tiempo de recómputo, y es una simple copia del
+volumen — nada de WAL ni de consistencia transaccional de por medio, a
+diferencia de cuando esto era SQLite. Para confirmar el nombre real del
+volumen: `docker compose config | grep -A2 '^volumes:'`, o `docker volume ls`.
 
 ### Migrar el volumen de datos (despliegues anteriores a este cambio)
 
@@ -215,8 +251,15 @@ lleva `name:` fijo, así que Compose lo namespacea por proyecto:
 Esto significa que **un despliegue que ya tenía el volumen viejo
 (`territorio-data`, sin prefijo) no lo va a encontrar más**: el próximo
 `docker compose up` crea `territorio-base_territorio-data` vacío y arranca sin
-usuarios ni análisis, en silencio. Si tenías un despliegue de antes de este
-cambio, migrá el volumen ANTES de levantar la versión nueva:
+los análisis de antes (GeoTIFF, PNG, caché de Aqueduct), en silencio. Si tenías
+un despliegue de antes de este cambio, migrá el volumen ANTES de levantar la
+versión nueva:
+
+> Si venís de un despliegue anterior a la migración a Supabase (con SQLite
+> en este mismo volumen), lo de usuarios/invitaciones/análisis-como-fila-de-
+> base-de-datos **no está acá**: eso ahora vive en Postgres, en tu proyecto
+> Supabase, y su migración es aparte (`supabase db push`, sección de arriba)
+> — este procedimiento solo mueve GeoTIFF/PNG/caché.
 
 ```bash
 docker compose down     # con la versión vieja de compose.yaml, todavía
@@ -357,5 +400,9 @@ Límites que **ya no aplican** y por qué, para quien venga del README viejo:
 | [`docs/migration/01-engine-decision-memo.md`](docs/migration/01-engine-decision-memo.md) | Por qué la arquitectura es híbrida y dónde va exactamente la costura |
 | [`docs/migration/02-design-brief.md`](docs/migration/02-design-brief.md) | Especificación de la UI: rutas, vistas, panel de capas, reporte, exports |
 | [`docs/migration/04-correctness-fixes.md`](docs/migration/04-correctness-fixes.md) | H1 (offset BOA de Sentinel-2), H2 (época de WorldCover), H3 (máscara compartida elevación/pendiente) |
+| [`docs/supabase/01-tanstack-ssr.md`](docs/supabase/01-tanstack-ssr.md) | Patrón de `@supabase/ssr` con TanStack Start: cliente por request, cookies, `staleTime` del guard SSR |
+| [`docs/supabase/02-auth-invitaciones.md`](docs/supabase/02-auth-invitaciones.md) | Por qué `inviteUserByEmail`, cómo se cierra el registro público, rate limiting propio vs. el de Supabase |
+| [`docs/supabase/03-datos-migracion.md`](docs/supabase/03-datos-migracion.md) | Por qué Drizzle + `postgres-js` (no `supabase-js`) para datos, mapeo de esquema SQLite → Postgres, pooling |
+| [`packages/db/README.md`](packages/db/README.md) | Qué se borró de `packages/db` con la migración, qué sobrevivió, cómo generar una migración nueva |
 | [`services/api/README.md`](services/api/README.md) | Qué es y qué no es del servicio raster, sus variables y sus tests |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Convenciones del workspace: catálogos, tsgo, ESLint plano, commits |

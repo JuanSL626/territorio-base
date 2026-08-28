@@ -1,36 +1,52 @@
 # Territorio Base — despliegue autoalojado con Docker Compose.
 #
-#     cp .env.example .env      # y completar BETTER_AUTH_SECRET
+#     cp .env.example .env      # y completar las variables de Supabase
 #     docker compose up -d --build
-#     docker compose exec web node --run db:migrate   # ver README, "Puesta en marcha"
+#     supabase db push          # aplica el esquema al proyecto — ver README, "Puesta en marcha"
 #
-# Dos servicios y un volumen. No hay base de datos aparte porque no hace falta:
-# la persistencia es un archivo SQLite dentro del volumen `territorio-data`, que
-# es el MISMO volumen donde el servicio raster escribe sus GeoTIFF. Un solo lugar
-# que respaldar.
+# Dos servicios y un volumen. NO hay un tercer servicio de base de datos: la
+# persistencia de usuarios/análisis es Postgres en un proyecto Supabase
+# EXTERNO (cloud, o autoalojado por separado) — `web` le habla por red con
+# `DATABASE_URL`/`VITE_SUPABASE_*`/`SUPABASE_SERVICE_ROLE_KEY` (ver
+# `.env.example`). El único volumen, `territorio-data`, es exclusivo del
+# servicio raster (`api`): GeoTIFF de cada análisis y la caché de los COG de
+# WRI Aqueduct. `web` NO lo monta: sirve los ZIP de descarga desde un
+# directorio temporal (`/tmp`, cubierto por el `tmpfs` de abajo), pidiéndole
+# los bytes a `api` por HTTP.
 #
-# No incluye proxy inverso. Para publicar esto en internet va delante un Caddy /
-# nginx / Traefik que termine TLS y apunte a `web:3000`; `server.mjs` ya lee
-# `X-Forwarded-Proto` y `X-Forwarded-Host`, así que Better Auth ve el origen
-# real. Ver README, "Detrás de un proxy".
+# No incluye proxy inverso. Para publicar esto en internet va delante un
+# Caddy/nginx/Traefik que termine TLS y apunte a `web:3000`; `server.mjs` ya
+# lee `X-Forwarded-Proto`/`X-Forwarded-Host`, así que Supabase Auth (vía
+# `@supabase/ssr`) ve el origen real. Ver README, "Detrás de un proxy".
 
 name: territorio-base
 
 services:
   # web — servidor SSR de TanStack Start. Sirve HTML, assets y server
-  # functions; dueño de la sesión (Better Auth sobre SQLite) y de todo lo
-  # VECTORIAL: Overpass, WDPA, catálogo MEPyD, parseo KML/KMZ/GeoJSON y ZIP de
-  # descarga. Es el ÚNICO servicio expuesto al navegador.
+  # functions; dueño de la sesión (Supabase Auth vía `@supabase/ssr`) y de
+  # todo lo VECTORIAL: Overpass, WDPA, catálogo MEPyD, parseo KML/KMZ/GeoJSON
+  # y armado del ZIP de descarga. Es el ÚNICO servicio expuesto al navegador.
   #
   # Le habla al servicio raster server-to-server (`http://api:8787`). El
-  # browser NUNCA lo llama directo — ni siquiera para los PNG de overlay: esos
-  # los pide a `web`, que los proxea (`apps/web/src/routes/api/raster.*.ts`).
-  # Por eso no hay un `VITE_API_URL` que hornear acá: nada del browser
-  # necesita saber dónde vive `api`.
+  # browser NUNCA lo llama directo — ni para los PNG de overlay: esos se
+  # piden a `web`, que los proxea (`apps/web/src/routes/api/raster.*.ts`).
+  # Por eso no hay un `VITE_API_URL` que hornear acá.
+  #
+  # Le habla a Postgres/Auth de Supabase por red (`DATABASE_URL`,
+  # `VITE_SUPABASE_*`, `SUPABASE_SERVICE_ROLE_KEY` — del `.env`, sin pisar
+  # acá: es un host externo real tanto en desarrollo como en producción).
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      # Ver el Dockerfile, "Etapa 3": estas dos SÍ hace falta pasarlas como
+      # build arg (no alcanza con `environment:` más abajo) porque Vite las
+      # hornea en el bundle del browser durante `vite build`, no las lee en
+      # runtime. Sin esto, `docker compose build` produce un bundle con
+      # `VITE_SUPABASE_URL` vacío aunque el `.env` esté completo.
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY}
     image: territorio-base/web:latest
     restart: unless-stopped
     depends_on:
@@ -45,23 +61,21 @@ services:
       # Nombre de servicio de compose + puerto interno. Pisa lo que diga el
       # .env, que está escrito para desarrollo local (`localhost`).
       API_URL: http://api:8787
-      # Ruta ABSOLUTA dentro del volumen. En el .env de desarrollo esto es
-      # relativo a la raíz del repo; acá no hay raíz de repo.
-      DATABASE_URL: file:/data/territorio.db
       NODE_ENV: production
       PORT: "3000"
     ports:
       - "${WEB_PORT:-3000}:3000"
-    volumes:
-      # Comparte volumen con `api` porque comparte el directorio: el SQLite de
-      # la app y los GeoTIFF de los análisis viven juntos. La app web lo lee
-      # para servir el ZIP de descarga sin proxear bytes por HTTP.
-      - territorio-data:/data
-    # El mismo uid/gid que `api`, y por la misma razón: los dos escriben en el
-    # volumen `territorio-data`. Ya está en el Dockerfile; se repite acá para
-    # que un `docker compose run --user` accidental no lo pierda de vista.
+    # SIN `volumes:` — a diferencia de `api`, este servicio no tiene nada
+    # propio que persistir en `territorio-data` (ver el comentario de arriba
+    # del archivo). El `read_only` de abajo alcanza sin montar nada más que
+    # `/tmp`.
+    #
+    # El mismo uid/gid que `api` (10001), por consistencia entre imágenes —
+    # ya no comparten volumen, ver Dockerfile. Ya está fijado ahí; se repite
+    # acá para que un `docker compose run --user` accidental no lo pierda de
+    # vista.
     user: "10001:10001"
-    # Endurecimiento barato: el proceso no escribe fuera de /data ni de /tmp.
+    # Endurecimiento barato: el proceso no escribe fuera de /tmp.
     read_only: true
     tmpfs:
       - /tmp
@@ -78,20 +92,19 @@ services:
   # AOI, NDVI, pendiente/orientación, WorldCover, WRI Aqueduct, export GeoTIFF
   # y overlays PNG (porqué en `docs/migration/01-engine-decision-memo.md`).
   #
-  # Servicio INTERNO, sin puerto publicado al host: el navegador ya no le pide
+  # Servicio INTERNO, sin puerto publicado al host: el navegador no le pide
   # nada directo. Los PNG y GeoTIFF de overlay se piden a `web`
   # (`apps/web/src/routes/api/raster.*.ts`), que exige sesión, compara dueño
   # contra `packages/db` y recién ahí le pega a `api:8787` por la red interna
   # de compose, con `TERRITORIO_API_TOKEN` si está configurado. Publicar este
   # puerto dejaba el overlay de CUALQUIER análisis a la vista de quien
-  # adivinara un id — `TERRITORIO_API_TOKEN` vacío por default en
-  # `.env.example` significa que hoy no hay NADA más protegiéndolo.
+  # adivinara un id — `TERRITORIO_API_TOKEN` vacío por default significa que
+  # hoy no hay nada más protegiéndolo.
   #
-  # Para debuggear el servicio raster solo (Swagger en `/docs`, curl directo),
-  # agregar temporalmente acá lo mismo que tenía `web`:
-  #     ports: ["${API_PORT:-8787}:8787"]
-  # o, sin tocar el archivo: `docker compose exec api sh` y curlear adentro, o
-  # `docker compose port api 8787` + un túnel puntual.
+  # Para debuggear el servicio solo (Swagger en `/docs`, curl directo),
+  # agregar temporalmente `ports: ["${API_PORT:-8787}:8787"]`, o sin tocar el
+  # archivo: `docker compose exec api sh`, o `docker compose port api 8787`
+  # + un túnel puntual.
   api:
     build:
       # Contexto acotado al servicio: no necesita nada del workspace npm, y así
@@ -105,7 +118,7 @@ services:
       TERRITORIO_DATA_DIR: /data
       # Orígenes que pueden pedir overlays desde el navegador. Tiene que incluir
       # la URL pública de la app web, no la interna.
-      TERRITORIO_CORS_ORIGINS: ${BETTER_AUTH_URL:-http://localhost:3000}
+      TERRITORIO_CORS_ORIGINS: ${WEB_PUBLIC_URL:-http://localhost:3000}
       TERRITORIO_MAX_CONCURRENT_JOBS: ${TERRITORIO_MAX_CONCURRENT_JOBS:-2}
       TERRITORIO_JOB_TTL_HOURS: ${TERRITORIO_JOB_TTL_HOURS:-72}
       TERRITORIO_API_TOKEN: ${TERRITORIO_API_TOKEN:-}
@@ -130,50 +143,35 @@ services:
       retries: 3
     logging: *default-logging
 
-  # migrate — utilidad de un solo uso, no un servicio. Vive detrás de un
-  # `profile`, así que `docker compose up` la ignora. Se invoca a mano:
+  # No hay un servicio `migrate` acá: aplicar el esquema no es trabajo de un
+  # contenedor de este archivo. El CLI de Supabase lo hace, fuera de compose
+  # por completo — corre en la máquina/CI que despliega, porque habla con el
+  # proyecto Supabase por su propia autenticación (`supabase link`), no con
+  # `DATABASE_URL`:
   #
-  #     docker compose run --rm migrate                       # crea/actualiza el esquema
-  #     docker compose run --rm migrate node /app/packages/db/scripts/seed.ts --name "Tu Nombre"
+  #     supabase db push       # aplica supabase/migrations/*.sql al proyecto linkeado
   #
-  # Reusa la imagen de `web` (trae `packages/db/scripts` y las migraciones de
-  # drizzle) pero no depende de que `web` esté arriba: en el primer despliegue
-  # el esquema todavía no existe.
-  migrate:
-    profiles: ["tools"]
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-    image: territorio-base/web:latest
-    env_file:
-      - .env
-    environment:
-      DATABASE_URL: file:/data/territorio.db
-      NODE_ENV: production
-    volumes:
-      - territorio-data:/data
-    user: "10001:10001"
-    security_opt:
-      - no-new-privileges:true
-    # `migrate` es idempotente (drizzle salta lo ya aplicado vía
-    # `__drizzle_migrations`), así que repetirlo no rompe nada.
-    command: ["node", "/app/packages/db/scripts/migrate.ts"]
-    restart: "no"
+  # Ver README, "Puesta en marcha" (primer despliegue) y "Aplicar una
+  # migración nueva" (cambios de esquema posteriores).
 
 volumes:
-  # Un volumen para las dos cosas que sobreviven a un `docker compose down`:
-  #   /data/territorio.db   → usuarios, invitaciones y análisis (SQLite)
+  # Un volumen, montado SOLO por `api` (ver el comentario de `web` más
+  # arriba), para lo que sobrevive a un `docker compose down`:
   #   /data/analyses/<job>/ → GeoTIFF y PNG de cada análisis
   #   /data/coastal/        → caché de los COG de WRI Aqueduct
-  # Respaldo = copiar este volumen. Ver README, "Respaldo".
+  # Usuarios, sesiones y análisis viven en Postgres, en el proyecto Supabase
+  # — no acá; el respaldo de eso es el propio de Supabase. Respaldar ESTE
+  # volumen solo importa por costo de recómputo (evitar re-descargar/
+  # re-procesar Sentinel-2 y Aqueduct), no por pérdida de datos de usuario.
+  # Ver README, "Respaldo".
   #
-  # SIN `name:` explícito a propósito: un `name:` fijo le gana al namespacing
-  # por proyecto de Compose, así que TODO despliegue de este archivo en un
-  # mismo host terminaba escribiendo el mismo volumen físico — staging y
-  # producción, o dos `-p` distintos, comparten una sola base SQLite sin
-  # avisar. Sin `name:`, Compose arma el volumen real como
-  # `<proyecto>_territorio-data` (proyecto = `-p`, o el `name:` de la cabecera
-  # de este archivo si no se pasa `-p`), así que cada proyecto tiene el suyo.
-  # Ver README, "Migrar el volumen de datos" si ya tenías un despliegue con el
-  # volumen viejo (`territorio-data`, sin prefijo).
+  # SIN `name:` explícito a propósito: un `name:` fijo le gana al
+  # namespacing por proyecto de Compose, así que todo despliegue de este
+  # archivo en un mismo host terminaría escribiendo el mismo volumen físico
+  # — staging y producción, o dos `-p` distintos, comparten un directorio de
+  # GeoTIFF sin avisar. Sin `name:`, Compose arma el volumen real como
+  # `<proyecto>_territorio-data` (proyecto = `-p`, o el `name:` de la
+  # cabecera de este archivo), así que cada proyecto tiene el suyo. Ver
+  # README, "Migrar el volumen de datos" si ya tenías un despliegue con el
+  # volumen viejo (sin prefijo).
   territorio-data: {}

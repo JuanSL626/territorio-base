@@ -11,10 +11,6 @@ dist/
 # `TB_DIST_DIR` permite builds paralelos con salidas separadas (`dist-a`,
 # `dist-b`, …). Ver `apps/web/vite.config.ts`.
 dist-*/
-# `apps/web/build/Release/better_sqlite3.node`: lo deja el Dockerfile para el
-# binding nativo de better-sqlite3. Es un artefacto por plataforma; nunca se
-# versiona. (`server.mjs` ya no lo escribe: desde que `vite.config.ts` declara
-# `ssr.external: ['better-sqlite3']`, Node lo resuelve desde node_modules.)
 build/
 .output/
 .vinxi/
@@ -26,15 +22,15 @@ coverage/
 # --- Generated ---
 # routeTree.gen.ts SÍ se versiona, a propósito.
 #
-# Lo genera el plugin de TanStack Router durante `dev`/`build`, pero la tarea
-# `typecheck` de turbo sólo depende de `^build` (los paquetes de arriba), nunca
-# del build propio de la app. Si el archivo no está en el repo, CI hace checkout
-# de un árbol sin él y `tsgo` falla con
+# Lo genera el plugin de TanStack Router durante `dev`/`build`, pero
+# `typecheck` de turbo sólo depende de `^build` (los paquetes de arriba),
+# nunca del build propio de la app. Si el archivo no está en el repo, CI
+# hace checkout de un árbol sin él y `tsgo` falla con
 #   TS2307: Cannot find module './routeTree.gen'
-# y detrás de eso cascadean ~20 errores de `createFileRoute` que parecen reales
-# y no lo son. En local nunca se reproduce porque el archivo quedó del último
-# build. Versionarlo es además lo que recomienda TanStack Router, y hace que un
-# cambio de rutas se vea en el diff.
+# y detrás cascadean ~20 errores de `createFileRoute` que parecen reales y
+# no lo son. En local nunca se reproduce porque el archivo quedó del último
+# build. Versionarlo también es lo que recomienda TanStack Router, y hace
+# que un cambio de rutas se vea en el diff.
 # **/routeTree.gen.ts
 
 # --- Env ---
@@ -42,12 +38,11 @@ coverage/
 .env.*
 !.env.example
 
-# --- SQLite (packages/db) ---
-*.db
-*.db-shm
-*.db-wal
-*.sqlite
-*.sqlite3
+# --- Supabase CLI (supabase/) ---
+# `config.toml` y `migrations/` SÍ se versionan — son el proyecto Supabase de
+# este repo, no salida generada. Solo lo que el CLI arma localmente:
+supabase/.branches/
+supabase/.temp/
 
 # --- Python-generated files ---
 __pycache__/
@@ -64,3 +59,8 @@ outputs/
 
 # --- OS / editor ---
 .DS_Store
+.env.remote
+.playwright-mcp/
+.valb-tmp/
+data-val-*/
+dist-juan/

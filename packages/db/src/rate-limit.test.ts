@@ -1,33 +1,79 @@
 /**
  * Unit coverage for the atomic upsert itself — window reset, concurrent
  * increments, per-key isolation. The end-to-end "the login endpoint actually
- * refuses attempt 6" behavior is covered in `web-boundary.test.ts`, against
- * the real `webAuthBoundary.signIn`.
+ * refuses attempt 6" behavior belongs to whatever wires Supabase Auth up to
+ * `consumeRateLimit` (see `README.md`).
+ *
+ * Runs against a REAL Postgres — `rate_limit`'s CAS upsert is a property of
+ * the database, not of the TypeScript, so a mock would not catch a
+ * regression here. There is no `:memory:` equivalent for Postgres (see
+ * `docs/supabase/03-datos-migracion.md` §4): point `TEST_DATABASE_URL`
+ * (falling back to `DATABASE_URL`) at a disposable Postgres — `supabase
+ * start`'s local stack, or a bare `postgres:17` container — and the suite
+ * runs; otherwise it skips instead of failing the whole package on
+ * machines/CI without Docker.
  */
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { closeDb, getDb } from './client.ts';
 import { consumeRateLimit, type RateLimitRule } from './rate-limit.ts';
+import { type TerritorioDb, rateLimit, schema } from './schema.ts';
 
-const migrationsFolder = resolve(dirname(fileURLToPath(import.meta.url)), '../drizzle');
+const connectionString = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
 
-let db: ReturnType<typeof getDb>;
+let client: ReturnType<typeof postgres> | null = null;
+let db: TerritorioDb;
 
-beforeEach(() => {
-  db = getDb(':memory:');
-  migrate(db, { migrationsFolder });
-});
+async function canConnect(url: string): Promise<boolean> {
+  const probe = postgres(url, { max: 1, connect_timeout: 3 });
+  try {
+    await probe`select 1`;
+    return true;
+  } catch {
+    return false;
+  } finally {
+    await probe.end({ timeout: 1 });
+  }
+}
 
-afterEach(() => {
-  closeDb();
-});
+const reachable = connectionString !== undefined && (await canConnect(connectionString));
 
-const rule: RateLimitRule = { windowSeconds: 60, max: 5 };
+describe.skipIf(!reachable)('consumeRateLimit', () => {
+  beforeAll(async () => {
+    if (connectionString === undefined) throw new Error('unreachable: guarded by `reachable` above');
+    client = postgres(connectionString);
+    db = drizzle({ client, schema });
+    // No migration runner lives in this package any more (Supabase CLI owns
+    // that, see `README.md`); a disposable test database gets just enough
+    // schema to exercise the upsert.
+    await client`
+      create table if not exists rate_limit (
+        id uuid primary key,
+        key text not null,
+        count bigint,
+        last_request bigint
+      )
+    `;
+    await client`
+      create unique index if not exists rate_limit_key_unique on rate_limit (key)
+    `;
+  });
 
-describe('consumeRateLimit', () => {
+  afterAll(async () => {
+    await client?.end();
+  });
+
+  beforeEach(async () => {
+    await db.delete(rateLimit);
+  });
+
+  afterEach(async () => {
+    await db.delete(rateLimit);
+  });
+
+  const rule: RateLimitRule = { windowSeconds: 60, max: 5 };
+
   it('allows exactly `max` attempts and refuses the next one', async () => {
     const now = new Date('2026-01-01T00:00:00.000Z');
     const outcomes = [];
@@ -45,13 +91,10 @@ describe('consumeRateLimit', () => {
     for (let i = 0; i < 5; i += 1) {
       await consumeRateLimit(db, { bucket: 'sign-in', identifier: 'ana@ejemplo.do', rule, now });
     }
-    // Same email, different endpoint: untouched.
     const signUp = await consumeRateLimit(db, { bucket: 'sign-up', identifier: 'ana@ejemplo.do', rule, now });
     expect(signUp.ok).toBe(true);
-    // Different email, same endpoint: untouched.
     const otherEmail = await consumeRateLimit(db, { bucket: 'sign-in', identifier: 'beto@ejemplo.do', rule, now });
     expect(otherEmail.ok).toBe(true);
-    // The original counter is still at its limit.
     const stillBlocked = await consumeRateLimit(db, { bucket: 'sign-in', identifier: 'ana@ejemplo.do', rule, now });
     expect(stillBlocked.ok).toBe(false);
   });

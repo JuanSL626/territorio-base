@@ -38,6 +38,31 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
+    # `packages/db` corre sus tests contra Postgres real, no `:memory:` (no
+    # hay equivalente con Supabase — `docs/supabase/03-datos-migracion.md`
+    # §4). `services:` en vez de `docker compose up`: Actions lo arranca y
+    # espera el healthcheck antes del primer step. `postgres:17`, no
+    # `17-alpine`: coincide con `major_version` de `supabase/config.toml`
+    # (la misma mayor que Supabase Cloud, que es lo único que hace falta
+    # para que las migraciones se comporten igual) y está cacheada de otros
+    # workflows. No es el stack completo de `supabase start`: Auth/Storage/
+    # Studio no hacen falta para testear `packages/db`, y bajar esas
+    # imágenes en cada run sería más lento sin cubrir nada extra.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     env:
       # Caché remota de Turborepo: opt-in y sin romperse si no está
       # configurada (si los secrets no existen, turbo cae a la caché local).
@@ -49,9 +74,45 @@ jobs:
       # Etiqueta los artefactos por rama: main puede leer y escribir, un PR sólo
       # debería leer lo que main dejó.
       TURBO_REMOTE_ONLY: "false"
+      # `rate-limit.test.ts` (packages/db) lee esta primero, con `DATABASE_URL`
+      # como fallback — separada a propósito para apuntar los tests a una
+      # base disponible sin pisar la que usaría la app. Rol `postgres`/
+      # contraseña `postgres`: credenciales de arranque del contenedor
+      # `services.postgres` de arriba, no un secreto real.
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
 
     steps:
       - uses: actions/checkout@v4
+
+      # Que las migraciones de `supabase/migrations/` apliquen limpio contra
+      # un Postgres 17 recién creado, antes de gastar tiempo en pnpm/turbo —
+      # para fallar rápido. NO usa el CLI de Supabase (`supabase start`/
+      # `db reset`): levanta su stack completo (Auth/Storage/Studio/Kong,
+      # media docena de imágenes) solo para esto, más lento en un runner
+      # efímero sin esas imágenes cacheadas; un `psql` directo contra
+      # `services.postgres` de arriba alcanza
+      # (`docs/supabase/03-datos-migracion.md` §4).
+      #
+      # Este Postgres "de verdad" no alcanza tal cual porque la migración
+      # trae `analysis.user_id REFERENCES auth.users(id)` — `auth.users` no
+      # existe hasta que GoTrue la crea. No se emula GoTrue: alcanza con la
+      # forma mínima que la FK necesita (una columna `id uuid`).
+      #
+      # `ON_ERROR_STOP=1` hace que un archivo con SQL inválido tumbe el step
+      # en vez de seguir con un exit code 0 engañoso.
+      - name: Instalar cliente de Postgres
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y postgresql-client
+
+      - name: Validar migraciones de Supabase desde cero
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c 'create schema if not exists auth; create table if not exists auth.users (id uuid primary key);'
+          for f in supabase/migrations/*.sql; do
+            echo "Aplicando $f"
+            psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f "$f"
+          done
 
       # `packageManager` del package.json raíz fija la versión exacta de pnpm.
       # Nunca se escribe un número acá: si el equipo sube pnpm, CI lo sigue solo.
@@ -82,21 +143,20 @@ jobs:
           restore-keys: |
             turbo-${{ runner.os }}-
 
-      # Una sola invocación: turbo resuelve el grafo (`lint`/`typecheck`/`test`
-      # dependen de `^build`) y paraleliza. Cuatro pasos separados repetirían
-      # los builds de las dependencias cuatro veces.
+      # Una sola invocación: turbo resuelve el grafo (`lint`/`typecheck`/
+      # `test` dependen de `^build`) y paraleliza — cuatro pasos separados
+      # repetirían los builds de las dependencias cuatro veces.
       #
-      # `--filter=!@territorio/api-service` es obligatorio. `services/api` tiene
-      # package.json (entra al workspace pnpm y al grafo de turbo) pero es el
-      # servicio Python: su `test` es `uv run pytest`, y en este job no hay uv.
-      # Sin el filtro, turbo lo ejecuta, falla con ELIFECYCLE y cancela las
-      # tareas hermanas en vuelo — el log queda lleno de eslint/vitest muriendo
-      # al instante, que es ruido, no la causa. Las pruebas de ese paquete las
-      # corre el job `Python · ruff · pytest`, que sí instala uv.
+      # `--filter=!@territorio/api-service` es obligatorio: `services/api`
+      # tiene package.json (entra al workspace pnpm y al grafo de turbo) pero
+      # es el servicio Python — su `test` es `uv run pytest`, y este job no
+      # tiene uv. Sin el filtro, turbo lo ejecuta, falla con ELIFECYCLE y
+      # cancela las tareas hermanas en vuelo. Ese paquete lo prueba el job
+      # `Python · ruff · pytest`, que sí instala uv.
       #
-      # No se reproduce en local: ahí uv está instalado, así que `pnpm test`
-      # pasa y CI falla. Si algún día se quiere correr todo junto en local,
-      # ese es el motivo de la divergencia.
+      # No se reproduce en local (ahí uv está instalado, así que `pnpm test`
+      # pasa y CI falla) — motivo de la divergencia si algún día se quiere
+      # correr todo junto en local.
       - name: lint · typecheck · test · build
         run: pnpm exec turbo run lint typecheck test build --filter='!@territorio/api-service'
 
@@ -152,12 +212,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
-    # Matriz de dos entradas, y se gana el lugar: son dos imágenes con contextos
-    # y Dockerfiles distintos que fallan por motivos distintos (una por
-    # resolución del workspace pnpm, la otra por wheels de GDAL), y así el PR
-    # muestra cuál de las dos se rompió sin abrir el log. No hay matriz de
-    # versiones ni de plataformas: construir para arm64 por emulación en cada
-    # PR cuesta minutos y no cubre nada que el despliegue real no cubra.
+    # Dos imágenes con contextos y Dockerfiles distintos que fallan por
+    # motivos distintos (una por resolución del workspace pnpm, la otra por
+    # wheels de GDAL), así el PR muestra cuál se rompió sin abrir el log. No
+    # hay matriz de plataformas: arm64 por emulación cuesta minutos por PR y
+    # no cubre nada que el despliegue real no cubra.
     strategy:
       fail-fast: false
       matrix:
@@ -201,16 +260,12 @@ jobs:
       - uses: actions/checkout@v4
 
       # `env_file: .env` es obligatorio en compose.yaml; en CI no hay `.env`
-      # (ni debe haberlo), así que se sintetiza uno con los valores del ejemplo.
-      # Es exactamente lo que hace una persona al desplegar por primera vez.
+      # (ni debe haberlo), así que se sintetiza uno con los valores del
+      # ejemplo — lo mismo que hace una persona al desplegar por primera vez.
+      # `docker compose config` solo valida sintaxis e interpolación, así que
+      # las variables vacías de `.env.example` alcanzan.
       - name: Preparar .env de validación
-        run: |
-          cp .env.example .env
-          {
-            echo "BETTER_AUTH_SECRET=$(openssl rand -base64 32)"
-            echo "ADMIN_EMAIL=ci@example.invalid"
-            echo "ADMIN_PASSWORD=ci-placeholder-password"
-          } >> .env
+        run: cp .env.example .env
 
       - name: Validar producción (solo compose.yaml)
         run: docker compose -f compose.yaml config --quiet

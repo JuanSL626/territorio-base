@@ -14,21 +14,16 @@
     "lint": "eslint .",
     "typecheck": "tsgo --noEmit",
     "test": "vitest run --passWithNoTests",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "node --env-file-if-exists=../../.env scripts/migrate.ts",
-    "db:seed": "node --env-file-if-exists=../../.env scripts/seed.ts",
-    "db:create-invite": "node --env-file-if-exists=../../.env scripts/create-invite.ts"
+    "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
-    "better-auth": "catalog:",
-    "better-sqlite3": "catalog:",
     "drizzle-orm": "catalog:",
+    "postgres": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@territorio/eslint-config": "workspace:*",
     "@territorio/tsconfig": "workspace:*",
-    "@types/better-sqlite3": "catalog:",
     "@types/node": "catalog:",
     "@typescript/native-preview": "catalog:",
     "drizzle-kit": "catalog:",

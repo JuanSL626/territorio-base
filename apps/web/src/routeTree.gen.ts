@@ -11,9 +11,10 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as RegisterRouteImport } from './routes/register'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppFuentesRouteImport } from './routes/_app/fuentes'
+import { Route as AuthConfirmRouteImport } from './routes/auth/confirm'
+import { Route as AuthSetPasswordRouteImport } from './routes/auth/set-password'
 import { Route as AppDescargasJobIdRouteImport } from './routes/_app/descargas.$jobId'
 import { Route as AppDescargasJobIdZipRouteImport } from './routes/_app/descargas.$jobId.zip'
 import { Route as AppReporteAnalysisIdIndexRouteImport } from './routes/_app/reporte.$analysisId.index'
@@ -30,11 +31,6 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RegisterRoute = RegisterRouteImport.update({
-  id: '/register',
-  path: '/register',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -44,6 +40,16 @@ const AppFuentesRoute = AppFuentesRouteImport.update({
   id: '/fuentes',
   path: '/fuentes',
   getParentRoute: () => AppRoute,
+} as any)
+const AuthConfirmRoute = AuthConfirmRouteImport.update({
+  id: '/auth/confirm',
+  path: '/auth/confirm',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthSetPasswordRoute = AuthSetPasswordRouteImport.update({
+  id: '/auth/set-password',
+  path: '/auth/set-password',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppDescargasJobIdRoute = AppDescargasJobIdRouteImport.update({
   id: '/descargas/$jobId',
@@ -83,8 +89,9 @@ const ApiRasterAnalysisRasterJobIdKindFileRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/login': typeof LoginRoute
-  '/register': typeof RegisterRoute
   '/fuentes': typeof AppFuentesRoute
+  '/auth/confirm': typeof AuthConfirmRoute
+  '/auth/set-password': typeof AuthSetPasswordRoute
   '/descargas/$jobId': typeof AppDescargasJobIdRouteWithChildren
   '/descargas/$jobId/zip': typeof AppDescargasJobIdZipRoute
   '/reporte/$analysisId/imprimir': typeof AppReporteAnalysisIdImprimirRoute
@@ -94,8 +101,9 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
-  '/register': typeof RegisterRoute
   '/fuentes': typeof AppFuentesRoute
+  '/auth/confirm': typeof AuthConfirmRoute
+  '/auth/set-password': typeof AuthSetPasswordRoute
   '/': typeof AppIndexRoute
   '/descargas/$jobId': typeof AppDescargasJobIdRouteWithChildren
   '/descargas/$jobId/zip': typeof AppDescargasJobIdZipRoute
@@ -108,8 +116,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
-  '/register': typeof RegisterRoute
   '/_app/fuentes': typeof AppFuentesRoute
+  '/auth/confirm': typeof AuthConfirmRoute
+  '/auth/set-password': typeof AuthSetPasswordRoute
   '/_app/': typeof AppIndexRoute
   '/_app/descargas/$jobId': typeof AppDescargasJobIdRouteWithChildren
   '/_app/descargas/$jobId/zip': typeof AppDescargasJobIdZipRoute
@@ -123,8 +132,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
-    | '/register'
     | '/fuentes'
+    | '/auth/confirm'
+    | '/auth/set-password'
     | '/descargas/$jobId'
     | '/descargas/$jobId/zip'
     | '/reporte/$analysisId/imprimir'
@@ -134,8 +144,9 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
-    | '/register'
     | '/fuentes'
+    | '/auth/confirm'
+    | '/auth/set-password'
     | '/'
     | '/descargas/$jobId'
     | '/descargas/$jobId/zip'
@@ -147,8 +158,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/login'
-    | '/register'
     | '/_app/fuentes'
+    | '/auth/confirm'
+    | '/auth/set-password'
     | '/_app/'
     | '/_app/descargas/$jobId'
     | '/_app/descargas/$jobId/zip'
@@ -161,7 +173,8 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
-  RegisterRoute: typeof RegisterRoute
+  AuthConfirmRoute: typeof AuthConfirmRoute
+  AuthSetPasswordRoute: typeof AuthSetPasswordRoute
   ApiRasterCoastalCacheKeyFileRoute: typeof ApiRasterCoastalCacheKeyFileRoute
   ApiRasterAnalysisRasterJobIdKindFileRoute: typeof ApiRasterAnalysisRasterJobIdKindFileRoute
 }
@@ -182,13 +195,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/register': {
-      id: '/register'
-      path: '/register'
-      fullPath: '/register'
-      preLoaderRoute: typeof RegisterRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_app/': {
       id: '/_app/'
       path: '/'
@@ -202,6 +208,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/fuentes'
       preLoaderRoute: typeof AppFuentesRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/auth/confirm': {
+      id: '/auth/confirm'
+      path: '/auth/confirm'
+      fullPath: '/auth/confirm'
+      preLoaderRoute: typeof AuthConfirmRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/set-password': {
+      id: '/auth/set-password'
+      path: '/auth/set-password'
+      fullPath: '/auth/set-password'
+      preLoaderRoute: typeof AuthSetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_app/descargas/$jobId': {
       id: '/_app/descargas/$jobId'
@@ -280,7 +300,8 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
-  RegisterRoute: RegisterRoute,
+  AuthConfirmRoute: AuthConfirmRoute,
+  AuthSetPasswordRoute: AuthSetPasswordRoute,
   ApiRasterCoastalCacheKeyFileRoute: ApiRasterCoastalCacheKeyFileRoute,
   ApiRasterAnalysisRasterJobIdKindFileRoute:
     ApiRasterAnalysisRasterJobIdKindFileRoute,

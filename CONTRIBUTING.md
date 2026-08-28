@@ -12,7 +12,9 @@ deduce mirando el código.
 | Grilla de píxeles: STAC, mosaico, reproyección, NDVI, pendiente, WorldCover, GeoTIFF, overlays PNG | `services/api` (Python) |
 | Cualquier cosa vectorial: Overpass, WDPA, MEPyD, parseo de AOI, turf, proj4, shapefile, ZIP | `packages/geo` (TypeScript) |
 | Rutas, componentes, mapa, reporte, server functions | `apps/web` |
-| Esquema, sesión, invitaciones, migraciones | `packages/db` |
+| Esquema y queries ownership-scoped (`analysis`, `rate_limit`) | `packages/db` |
+| Sesión (Supabase Auth vía `@supabase/ssr`), invitaciones (`inviteUserByEmail`) | `apps/web/src/lib` |
+| Migraciones de esquema (SQL generado, `supabase db push`) | `supabase/migrations` |
 | Contrato HTTP con el servicio raster | `packages/api-client` |
 
 La regla que resuelve las discusiones: **Python es dueño de la grilla de
@@ -55,8 +57,8 @@ pnpm --filter @territorio/geo add nombre-del-paquete@catalog:
 
 Varias entradas del catálogo tienen un comentario explicando por qué están
 clavadas en esa versión y no en la última (`typescript` por el rango de peers de
-typescript-eslint, `better-sqlite3` por el de better-auth, `proj4` porque
-`@types/proj4` es un stub deprecado). **Leelos antes de subir una versión.**
+typescript-eslint, `proj4` porque `@types/proj4` es un stub deprecado).
+**Leelos antes de subir una versión.**
 
 Un binario nativo con script de postinstall no corre solo: pnpm 11 lo exige
 declarado en `allowBuilds`, en el mismo archivo. Sumar uno es una decisión
@@ -199,18 +201,16 @@ Cinco cosas que conviene saber antes de tocarlos:
    lockfile, `pnpm-workspace.yaml` (donde viven los catálogos) y los manifiestos
    de *todos* los miembros del workspace, o `--frozen-lockfile` aborta. La
    cabecera de `apps/web/Dockerfile` lo explica entero.
-2. **`apps/web/server.mjs` es el entrypoint de producción.** Hasta hace poco
-   llevaba un parche (definir `globalThis.__filename` + copiar el `.node` de
-   better-sqlite3) porque el bundle SSR inlineaba el driver y `bindings`, que es
-   CommonJS, referencia `__filename` — inexistente en ESM. `session.ts` atrapa
-   todo, así que el síntoma era una app que arranca, sirve HTML y en la que
-   nadie puede iniciar sesión, sin un solo error en los logs.
-
-   **El parche ya no existe**: el arreglo de verdad es
-   `ssr: { external: ['better-sqlite3'] }` en `apps/web/vite.config.ts`, con lo
-   que Node resuelve el driver desde `node_modules` igual que en `dev`. Si
-   alguna vez volvés a ver `ReferenceError: __filename is not defined`, el
-   culpable es esa línea, no `server.mjs`.
+2. **`apps/web/server.mjs` es el entrypoint de producción.** Hasta la
+   migración a Supabase (Postgres vía `postgres-js`, sin driver nativo)
+   llevaba un parche por `better-sqlite3`: el bundle SSR inlineaba el driver
+   y `bindings` (CommonJS, referencia `__filename` — inexistente en ESM), y
+   el síntoma era una app que arranca, sirve HTML y en la que nadie puede
+   iniciar sesión, sin un solo error en los logs. Con `better-sqlite3` fuera
+   del workspace por completo, este problema ya no puede volver a pasar —
+   pero si ves `ssr: { external: ['better-sqlite3'] }` todavía en
+   `apps/web/vite.config.ts`, es un resto sin retirar de esa era: la
+   dependencia que externalizaba ya no existe.
 
 3. **`apps/web/vite.config.ts` carga dos arreglos que el build en verde no
    detecta**, los dos documentados en su propio comentario:

@@ -119,11 +119,14 @@ export async function awaitRun(analysisId: string): Promise<void> {
 }
 
 /**
- * Tope de tamaño del `result_json`. SQLite aguanta blobs grandes, pero una fila
- * de decenas de MB convierte cada lectura del reporte en una deserialización
- * cara. Las geometrías MEPyD son lo único que puede llegar ahí (39 capas, miles
- * de features cada una), así que son lo primero que se descarta — el `summary`,
- * que ES el contrato del §3, sobrevive siempre, y `geometries_omitted` deja
+ * Tope de tamaño del `result_json`. Postgres no tiene el techo de ~6 MB que
+ * SQLite tenía en la práctica (`jsonb` aguanta hasta ~1 GB por valor), pero una
+ * fila de decenas de MB sigue pagando compresión/descompresión TOAST en cada
+ * lectura — este tope es una constante de la app, no algo que el motor haga
+ * innecesario (ver `packages/db/README.md`). Las geometrías MEPyD son lo único
+ * que puede llegar ahí (39 capas, miles de features cada una), así que son lo
+ * primero que se descarta — el `summary`, que ES el contrato del §3, sobrevive
+ * siempre, y `geometries_omitted` deja
  * dicho que el mapa tiene que volver a pedirlas en vez de dibujar de menos.
  */
 const MAX_RESULT_BYTES = 6 * 1024 * 1024;
