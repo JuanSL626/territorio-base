@@ -174,6 +174,19 @@ export function PortadaSection({ analysis, section, inlineMap }: SectionProps) {
   const [minLon, minLat, maxLon, maxLat] = analysis.aoi.bbox;
   const center = formatLonLat((minLon + maxLon) / 2, (minLat + maxLat) / 2);
   const location = locationLabel(analysis);
+  /*
+    `locationLabel` vuelve `null` en dos casos MUY distintos: el AOI está
+    realmente fuera de RD (`!in_rd`), o está dentro pero la capa de división
+    político-administrativa no devolvió un municipio (falló o no matcheó).
+    Antes de este fix el segundo caso también mostraba "Fuera de República
+    Dominicana" — un dato inventado, no una ausencia — que es justo la
+    confusión "no se pudo consultar" vs "no hay" que el resto de este reporte
+    se cuida de no cometer (ver el resumen ejecutivo, arriba). El fallback acá
+    replica esa distinción para "Ubicación".
+  */
+  const locationText = !analysis.mepyd_rd.in_rd
+    ? 'Fuera de República Dominicana'
+    : (location ?? 'Dentro de RD — municipio no determinado');
 
   return (
     <SectionShell section={section} inlineMap={inlineMap}>
@@ -190,7 +203,7 @@ export function PortadaSection({ analysis, section, inlineMap }: SectionProps) {
         </div>
         <div>
           <dt className="text-11 text-fg-subtle">Ubicación</dt>
-          <dd className="text-13 text-fg font-medium">{location ?? 'Fuera de República Dominicana'}</dd>
+          <dd className="text-13 text-fg font-medium">{locationText}</dd>
         </div>
         <div>
           <dt className="text-11 text-fg-subtle">Zona UTM del cálculo</dt>

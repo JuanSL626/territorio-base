@@ -59,3 +59,8 @@ outputs/
 
 # --- OS / editor ---
 .DS_Store
+.env.remote
+.playwright-mcp/
+.valb-tmp/
+data-val-*/
+dist-juan/
