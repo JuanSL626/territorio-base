@@ -2,17 +2,16 @@
  * Unit coverage for the atomic upsert itself — window reset, concurrent
  * increments, per-key isolation. The end-to-end "the login endpoint actually
  * refuses attempt 6" behavior belongs to whatever wires Supabase Auth up to
- * `consumeRateLimit` (see `README.md` — that boundary left this package with
- * `web-boundary.ts`).
+ * `consumeRateLimit` (see `README.md`).
  *
  * Runs against a REAL Postgres — `rate_limit`'s CAS upsert is a property of
- * the database, not of the TypeScript, so a mock would not catch a regression
- * here. Unlike the old SQLite version, there is no `:memory:` equivalent for
- * Postgres (see `docs/supabase/03-datos-migracion.md` §4): point
- * `TEST_DATABASE_URL` (falling back to `DATABASE_URL`) at a disposable
- * Postgres — `supabase start`'s local stack, or a bare `postgres:17`
- * container — and the suite runs; otherwise it skips instead of failing the
- * whole package on machines/CI without Docker.
+ * the database, not of the TypeScript, so a mock would not catch a
+ * regression here. There is no `:memory:` equivalent for Postgres (see
+ * `docs/supabase/03-datos-migracion.md` §4): point `TEST_DATABASE_URL`
+ * (falling back to `DATABASE_URL`) at a disposable Postgres — `supabase
+ * start`'s local stack, or a bare `postgres:17` container — and the suite
+ * runs; otherwise it skips instead of failing the whole package on
+ * machines/CI without Docker.
  */
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
@@ -92,13 +91,10 @@ describe.skipIf(!reachable)('consumeRateLimit', () => {
     for (let i = 0; i < 5; i += 1) {
       await consumeRateLimit(db, { bucket: 'sign-in', identifier: 'ana@ejemplo.do', rule, now });
     }
-    // Same email, different endpoint: untouched.
     const signUp = await consumeRateLimit(db, { bucket: 'sign-up', identifier: 'ana@ejemplo.do', rule, now });
     expect(signUp.ok).toBe(true);
-    // Different email, same endpoint: untouched.
     const otherEmail = await consumeRateLimit(db, { bucket: 'sign-in', identifier: 'beto@ejemplo.do', rule, now });
     expect(otherEmail.ok).toBe(true);
-    // The original counter is still at its limit.
     const stillBlocked = await consumeRateLimit(db, { bucket: 'sign-in', identifier: 'ana@ejemplo.do', rule, now });
     expect(stillBlocked.ok).toBe(false);
   });

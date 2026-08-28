@@ -1,20 +1,14 @@
 /**
- * The Postgres connection and the typed Drizzle client.
+ * Postgres connection + typed Drizzle client. Opened lazily and memoized:
+ * importing this module must not touch the network, so lint/typecheck/tests
+ * stay side-effect free.
  *
- * Opened lazily and memoized: importing this module must not touch the
- * network, so `lint`, `typecheck` and unit tests stay side-effect free.
- *
- * `postgres-js` in **Supavisor session mode** (port 5432, `*.pooler.supabase.com`
- * host, or a direct `db.<project>.supabase.co:5432` connection) is the
- * intended target — see `docs/supabase/03-datos-migracion.md` §5 for why:
- * this process holds one long-lived connection (or a small pool) for its
- * whole lifetime, which is exactly what session mode is for, and it supports
- * prepared statements (`postgres-js`'s default), unlike transaction mode
- * (port 6543), which would need `{ prepare: false }`. Nothing here hardcodes
- * a port or host — that's `DATABASE_URL`'s job (see `.env.example`) — but
- * `prepare: true` (the default) is *only* correct for session mode/direct
- * connection; pointing `DATABASE_URL` at the transaction pooler without also
- * flipping this to `prepare: false` will fail at the first prepared query.
+ * Target is `postgres-js` in Supavisor session mode (port 5432) or a direct
+ * connection — see `docs/supabase/03-datos-migracion.md` §5. Session mode
+ * holds one long-lived connection for the process and supports prepared
+ * statements (`postgres-js`'s default, `prepare: true`). `DATABASE_URL`
+ * decides host/port; pointing it at the transaction pooler (port 6543)
+ * without also setting `prepare: false` fails at the first prepared query.
  */
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';

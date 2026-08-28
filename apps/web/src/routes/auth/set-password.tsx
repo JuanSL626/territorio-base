@@ -9,12 +9,12 @@ import { clearSessionCache, requireUser } from '~/lib/auth-server';
 
 /**
  * Where an accepted invitation lands, right after `routes/auth/confirm.ts`
- * establishes the session. Not under `/_app`: this page is the one thing a
+ * establishes the session. Not under `/_app`: this is the one thing a
  * brand-new, password-less account is allowed to see before the map shell.
  *
- * The guard is `requireUser`, the SAME one `/_app` uses — `verifyOtp` already
- * signed this visitor in, so this only rejects someone hitting this URL
- * without ever having gone through `/auth/confirm`.
+ * Guard is `requireUser`, the SAME one `/_app` uses — `verifyOtp` already
+ * signed this visitor in, so this only rejects someone hitting the URL
+ * without ever going through `/auth/confirm`.
  */
 export const Route = createFileRoute('/auth/set-password')({
   beforeLoad: async ({ context, location }) => {
@@ -46,10 +46,9 @@ function SetPasswordPage() {
       try {
         const result = await submit({ data: { password } });
         if (result.ok) {
-          // `clearSessionCache` importa: la primera lectura de sesión de esta
-          // pestaña ya está cacheada por `requireUser` de más arriba en este
-          // mismo `beforeLoad`. Sin tirarla, `invalidate()` reusaría ese valor
-          // en vez de reflejar que ya se completó el alta.
+          // La sesión de esta pestaña ya está cacheada por `requireUser` más
+          // arriba en este `beforeLoad`; sin tirar el cache, `invalidate()`
+          // reusaría ese valor en vez de reflejar que ya se completó el alta.
           clearSessionCache(queryClient);
           await router.invalidate();
           await router.navigate({ to: '/' });

@@ -4,21 +4,19 @@
 #     docker compose up -d --build
 #     supabase db push          # aplica el esquema al proyecto — ver README, "Puesta en marcha"
 #
-# Dos servicios y un volumen. NO hay un tercer servicio de base de datos acá:
-# la persistencia de usuarios/análisis es Postgres en un proyecto Supabase
+# Dos servicios y un volumen. NO hay un tercer servicio de base de datos: la
+# persistencia de usuarios/análisis es Postgres en un proyecto Supabase
 # EXTERNO (cloud, o autoalojado por separado) — `web` le habla por red con
 # `DATABASE_URL`/`VITE_SUPABASE_*`/`SUPABASE_SERVICE_ROLE_KEY` (ver
-# `.env.example`), no hay nada de eso en un volumen de este archivo. El único
-# volumen que queda, `territorio-data`, es exclusivo del servicio raster
-# (`api`): GeoTIFF de cada análisis y la caché de los COG de WRI Aqueduct.
-# `web` NO lo monta — no le queda nada propio que guardar ahí: sirve los ZIP
-# de descarga desde un directorio temporal (`/tmp`, ya cubierto por el
-# `tmpfs` de abajo), pidiéndole los bytes a `api` por HTTP en vez de leerlos
-# de un volumen compartido.
+# `.env.example`). El único volumen, `territorio-data`, es exclusivo del
+# servicio raster (`api`): GeoTIFF de cada análisis y la caché de los COG de
+# WRI Aqueduct. `web` NO lo monta: sirve los ZIP de descarga desde un
+# directorio temporal (`/tmp`, cubierto por el `tmpfs` de abajo), pidiéndole
+# los bytes a `api` por HTTP.
 #
-# No incluye proxy inverso. Para publicar esto en internet va delante un Caddy /
-# nginx / Traefik que termine TLS y apunte a `web:3000`; `server.mjs` ya lee
-# `X-Forwarded-Proto` y `X-Forwarded-Host`, así que Supabase Auth (vía
+# No incluye proxy inverso. Para publicar esto en internet va delante un
+# Caddy/nginx/Traefik que termine TLS y apunte a `web:3000`; `server.mjs` ya
+# lee `X-Forwarded-Proto`/`X-Forwarded-Host`, así que Supabase Auth (vía
 # `@supabase/ssr`) ve el origen real. Ver README, "Detrás de un proxy".
 
 name: territorio-base
@@ -30,15 +28,13 @@ services:
   # y armado del ZIP de descarga. Es el ÚNICO servicio expuesto al navegador.
   #
   # Le habla al servicio raster server-to-server (`http://api:8787`). El
-  # browser NUNCA lo llama directo — ni siquiera para los PNG de overlay: esos
-  # los pide a `web`, que los proxea (`apps/web/src/routes/api/raster.*.ts`).
-  # Por eso no hay un `VITE_API_URL` que hornear acá: nada del browser
-  # necesita saber dónde vive `api`.
+  # browser NUNCA lo llama directo — ni para los PNG de overlay: esos se
+  # piden a `web`, que los proxea (`apps/web/src/routes/api/raster.*.ts`).
+  # Por eso no hay un `VITE_API_URL` que hornear acá.
   #
   # Le habla a Postgres/Auth de Supabase por red (`DATABASE_URL`,
   # `VITE_SUPABASE_*`, `SUPABASE_SERVICE_ROLE_KEY` — del `.env`, sin pisar
-  # acá: no hay un nombre de servicio de compose que sustituir, es un host
-  # externo real tanto en desarrollo como en producción).
+  # acá: es un host externo real tanto en desarrollo como en producción).
   web:
     build:
       context: .
@@ -96,20 +92,19 @@ services:
   # AOI, NDVI, pendiente/orientación, WorldCover, WRI Aqueduct, export GeoTIFF
   # y overlays PNG (porqué en `docs/migration/01-engine-decision-memo.md`).
   #
-  # Servicio INTERNO, sin puerto publicado al host: el navegador ya no le pide
+  # Servicio INTERNO, sin puerto publicado al host: el navegador no le pide
   # nada directo. Los PNG y GeoTIFF de overlay se piden a `web`
   # (`apps/web/src/routes/api/raster.*.ts`), que exige sesión, compara dueño
   # contra `packages/db` y recién ahí le pega a `api:8787` por la red interna
   # de compose, con `TERRITORIO_API_TOKEN` si está configurado. Publicar este
   # puerto dejaba el overlay de CUALQUIER análisis a la vista de quien
-  # adivinara un id — `TERRITORIO_API_TOKEN` vacío por default en
-  # `.env.example` significa que hoy no hay NADA más protegiéndolo.
+  # adivinara un id — `TERRITORIO_API_TOKEN` vacío por default significa que
+  # hoy no hay nada más protegiéndolo.
   #
-  # Para debuggear el servicio raster solo (Swagger en `/docs`, curl directo),
-  # agregar temporalmente acá lo mismo que tenía `web`:
-  #     ports: ["${API_PORT:-8787}:8787"]
-  # o, sin tocar el archivo: `docker compose exec api sh` y curlear adentro, o
-  # `docker compose port api 8787` + un túnel puntual.
+  # Para debuggear el servicio solo (Swagger en `/docs`, curl directo),
+  # agregar temporalmente `ports: ["${API_PORT:-8787}:8787"]`, o sin tocar el
+  # archivo: `docker compose exec api sh`, o `docker compose port api 8787`
+  # + un túnel puntual.
   api:
     build:
       # Contexto acotado al servicio: no necesita nada del workspace npm, y así
@@ -148,16 +143,11 @@ services:
       retries: 3
     logging: *default-logging
 
-  # Ya NO hay un servicio `migrate` acá. Era un contenedor de un solo uso que
-  # corría `packages/db/scripts/migrate.ts` (el migrator programático de
-  # Drizzle) contra el SQLite del volumen — ese script no existe más
-  # (`packages/db/README.md`, "Changing the schema") y aplicar el esquema
-  # dejó de ser trabajo de un contenedor de ESTE archivo.
-  #
-  # El reemplazo es el CLI de Supabase, fuera de compose por completo — corre
-  # en la máquina/CI que despliega, no en un contenedor efímero acá, porque
-  # habla con el proyecto Supabase por su propia autenticación (`supabase
-  # link`), no con `DATABASE_URL`:
+  # No hay un servicio `migrate` acá: aplicar el esquema no es trabajo de un
+  # contenedor de este archivo. El CLI de Supabase lo hace, fuera de compose
+  # por completo — corre en la máquina/CI que despliega, porque habla con el
+  # proyecto Supabase por su propia autenticación (`supabase link`), no con
+  # `DATABASE_URL`:
   #
   #     supabase db push       # aplica supabase/migrations/*.sql al proyecto linkeado
   #
@@ -169,20 +159,19 @@ volumes:
   # arriba), para lo que sobrevive a un `docker compose down`:
   #   /data/analyses/<job>/ → GeoTIFF y PNG de cada análisis
   #   /data/coastal/        → caché de los COG de WRI Aqueduct
-  # Usuarios, sesiones y análisis (metadata + resultado) viven en Postgres,
-  # en el proyecto Supabase — no acá; el respaldo de eso es el propio de
-  # Supabase (backups del proyecto), no este volumen. Respaldar ESTE volumen
-  # solo importa por costo de recómputo (evitar re-descargar/re-procesar
-  # Sentinel-2 y Aqueduct), no por pérdida de datos de usuario. Ver README,
-  # "Respaldo".
+  # Usuarios, sesiones y análisis viven en Postgres, en el proyecto Supabase
+  # — no acá; el respaldo de eso es el propio de Supabase. Respaldar ESTE
+  # volumen solo importa por costo de recómputo (evitar re-descargar/
+  # re-procesar Sentinel-2 y Aqueduct), no por pérdida de datos de usuario.
+  # Ver README, "Respaldo".
   #
-  # SIN `name:` explícito a propósito: un `name:` fijo le gana al namespacing
-  # por proyecto de Compose, así que TODO despliegue de este archivo en un
-  # mismo host terminaba escribiendo el mismo volumen físico — staging y
-  # producción, o dos `-p` distintos, comparten un solo directorio de GeoTIFF
-  # sin avisar. Sin `name:`, Compose arma el volumen real como
-  # `<proyecto>_territorio-data` (proyecto = `-p`, o el `name:` de la cabecera
-  # de este archivo si no se pasa `-p`), así que cada proyecto tiene el suyo.
-  # Ver README, "Migrar el volumen de datos" si ya tenías un despliegue con el
-  # volumen viejo (`territorio-data`, sin prefijo).
+  # SIN `name:` explícito a propósito: un `name:` fijo le gana al
+  # namespacing por proyecto de Compose, así que todo despliegue de este
+  # archivo en un mismo host terminaría escribiendo el mismo volumen físico
+  # — staging y producción, o dos `-p` distintos, comparten un directorio de
+  # GeoTIFF sin avisar. Sin `name:`, Compose arma el volumen real como
+  # `<proyecto>_territorio-data` (proyecto = `-p`, o el `name:` de la
+  # cabecera de este archivo), así que cada proyecto tiene el suyo. Ver
+  # README, "Migrar el volumen de datos" si ya tenías un despliegue con el
+  # volumen viejo (sin prefijo).
   territorio-data: {}

@@ -1,12 +1,6 @@
 /**
  * Server-side environment contract for this package: `DATABASE_URL` only.
  *
- * Everything Better Auth used to need here (`BETTER_AUTH_SECRET`,
- * `BETTER_AUTH_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`) is gone along with
- * `auth.ts` — Supabase Auth owns authentication now, and whatever env
- * contract it needs lives with whichever module wires it up next, not here.
- * See `README.md` for the full list of what left this package and why.
- *
  * Validated with zod, parsed **lazily**. Importing `@territorio/db` must never
  * be enough to crash a process: `pnpm typecheck`, `pnpm lint` and unit tests all
  * import this package with an empty environment. Nothing is read until the first
@@ -27,13 +21,10 @@ const envSchema = z.object({
    * connection than failing loudly at boot.
    *
    * Three valid shapes, see `docs/supabase/03-datos-migracion.md` §5 and
-   * `.env.example`:
-   *   - Supavisor session mode (port 5432, `*.pooler.supabase.com`) — the
-   *     recommended shape for this app's long-lived Node server.
-   *   - Supavisor transaction mode (port 6543) — needs `{ prepare: false }`
-   *     in `client.ts` if ever switched to; not the current default.
-   *   - Direct connection (port 5432, `db.<project>.supabase.co`) — needs
-   *     IPv6 egress.
+   * `.env.example`: Supavisor session mode (port 5432, recommended for this
+   * app's long-lived Node server), Supavisor transaction mode (port 6543,
+   * needs `{ prepare: false }` in `client.ts`), or a direct connection
+   * (port 5432, `db.<project>.supabase.co`, needs IPv6 egress).
    */
   DATABASE_URL: z
     .string()

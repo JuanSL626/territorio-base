@@ -1,11 +1,11 @@
 /**
  * Login/sign-up rate limiting — the real enforcement.
  *
- * Supabase Auth (GoTrue) has no equivalent hook this app can lean on for
- * per-identifier throttling of sign-in/sign-up attempts, so this module keeps
- * doing the job it always did: whatever calls into Supabase Auth for
- * `/sign-in`/`/sign-up` calls `consumeRateLimit` first — that wiring is the
- * auth agent's, this table and this function are the mechanism.
+ * Supabase Auth (GoTrue) has no hook for per-identifier throttling of
+ * sign-in/sign-up attempts, so this module does that job: whatever calls
+ * into Supabase Auth for `/sign-in`/`/sign-up` calls `consumeRateLimit`
+ * first — that wiring is the auth agent's, this table and this function are
+ * the mechanism.
  *
  * Keyed by the identifier under attack (normalized email), not by IP. No
  * reverse proxy is required in front of this app, so `X-Forwarded-For` would
@@ -13,7 +13,7 @@
  * header per request and never hit the same counter twice. The email being
  * guessed can't be rotated away; it's the entire point of the attack.
  *
- * No `NODE_ENV` gate. A brute-force control that only runs in production
+ * No `NODE_ENV` gate: a brute-force control that only runs in production
  * cannot be verified outside it. This one is always active.
  *
  * Fixed window, one atomic upsert per attempt: `rate_limit.key` is unique
@@ -21,11 +21,9 @@
  * counter or advances it in a single statement — no read-then-write gap for
  * two concurrent attempts to both slip through under the limit. The window
  * starts at the first attempt in it and does not slide on later attempts, so
- * continued hammering cannot itself keep postponing the reset. Unchanged from
- * SQLite: Postgres's `ON CONFLICT ... DO UPDATE` takes the identical
- * `sql\`case when ... end\`` CAS expression on the right-hand side, and
- * `count`/`last_request` stay `bigint` (epoch ms) precisely so this integer
- * arithmetic needs no rewriting — see `schema.ts`.
+ * continued hammering cannot itself keep postponing the reset. `count` and
+ * `last_request` stay `bigint` (epoch ms) precisely so this CAS expression's
+ * integer arithmetic needs no rewriting — see `schema.ts`.
  */
 import { sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
@@ -37,9 +35,8 @@ export type RateLimitRule = { windowSeconds: number; max: number };
 export type RateLimitOutcome = { ok: true } | { ok: false; retryAfterSeconds: number };
 
 /**
- * Consume one attempt against `bucket:identifier`. Every call — successful or
- * not — counts, matching the endpoint-level semantics the dead config used to
- * declare (a rule per path, not per failure).
+ * Consume one attempt against `bucket:identifier`. Every call — successful
+ * or not — counts (a rule per path, not per failure).
  */
 export async function consumeRateLimit(
   db: TerritorioDb,

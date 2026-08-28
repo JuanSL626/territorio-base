@@ -1,51 +1,42 @@
 /**
- * SSR route guards.
- *
- * The rule this file exists to enforce: **the session is resolved before the
- * first byte of HTML is rendered.** `beforeLoad` runs on the server during SSR,
- * so a `redirect()` thrown here becomes a real HTTP redirect — the browser never
- * paints a signed-in shell that then snaps to a login form. A `useEffect` guard
- * cannot do that, and neither can a `useSession()` check inside a component.
- *
- * On client-side navigation the same `beforeLoad` runs in the browser — and
- * that is where the naive version of this file was expensive.
+ * SSR route guards. `beforeLoad` runs server-side during SSR, so a
+ * `redirect()` thrown here is a real HTTP redirect — the browser never paints
+ * a signed-in shell that then snaps to a login form, which a `useEffect`
+ * guard can't do.
  *
  * Por qué el guard NO llama a `fetchSession()` directo:
  *
- * `beforeLoad` no corre "cuando cambia la ruta": corre en CADA navegación del
- * router, incluidas las que sólo tocan search params. En esta app el mapa
- * escribe search params todo el tiempo — `?bbox=` en cada `moveend`, `?layers=`
- * en cada checkbox — así que un `await fetchSession()` acá dentro convertía
- * cada `pan` y cada toggle en un `GET /_serverFn/…fetchSession`.
+ * `beforeLoad` corre en CADA navegación del router, incluidas las que sólo
+ * tocan search params — el mapa escribe `?bbox=` en cada `moveend` y
+ * `?layers=` en cada checkbox, así que un `await fetchSession()` acá adentro
+ * convertía cada pan y cada toggle en un `GET /_serverFn/…fetchSession`.
  *
- * No era sólo chattiness. `beforeLoad` que lanza = error de navegación = el
+ * No era sólo chattiness: `beforeLoad` que lanza = error de navegación = el
  * error boundary de la raíz reemplaza la app entera. Con el servidor caído,
  * mover el mapa borraba el AOI, el análisis y el mapa mismo con un «Failed to
  * fetch».
  *
- * La sesión se resuelve entonces UNA vez y se guarda en el `QueryClient` que ya
- * vive en el contexto del router (`~/router`): uno por request en el servidor
- * —nunca un singleton de módulo, o dos usuarios compartirían sesión durante el
- * SSR— y uno por pestaña en el cliente, hidratado desde el payload del SSR.
- * `queryClient.query()` devuelve el valor cacheado sin pedir nada, así que el
- * guard sigue corriendo en cada navegación pero cuesta cero round trips.
+ * La sesión se resuelve entonces UNA vez y se guarda en el `QueryClient` del
+ * contexto del router (`~/router`): uno por request en el servidor —nunca un
+ * singleton de módulo, o dos usuarios compartirían sesión durante el SSR— y
+ * uno por pestaña en el cliente, hidratado desde el payload del SSR.
+ * `queryClient.query()` devuelve el valor cacheado sin red, así que el guard
+ * sigue corriendo en cada navegación pero cuesta cero round trips.
  *
- * El precio explícito: en el cliente la sesión no se revalida sola
- * (`staleTime: 'static'`). Es correcto porque este guard protege la NAVEGACIÓN,
- * no los datos — cada `createServerFn` valida su propia sesión, como dice
- * `routes/_app.tsx`. Lo que sí hay que hacer es TIRAR el cache cuando la sesión
- * cambia de verdad: `clearSessionCache` se llama en `signIn` y `signOut`
- * (login.tsx, _app/index.tsx) y en `setPassword`, que es lo que cierra el
- * flujo de invitación (`routes/auth/set-password.tsx`). Sin eso, entrar
- * después de salir vería el `null` viejo y rebotaría a /login en loop.
+ * El precio: en el cliente la sesión no se revalida sola (`staleTime:
+ * 'static'`) — correcto porque este guard protege la NAVEGACIÓN, no los
+ * datos (cada `createServerFn` valida su propia sesión). Lo que sí hay que
+ * hacer es TIRAR el cache cuando la sesión cambia de verdad:
+ * `clearSessionCache` se llama en `signIn` y `signOut` (login.tsx,
+ * _app/index.tsx) y en `setPassword` (`routes/auth/set-password.tsx`). Sin
+ * eso, entrar después de salir vería el `null` viejo y rebotaría a /login en
+ * loop.
  *
- * Session reading itself is `fetchSession` from `~/lib/session` — the single
- * server function for it. This module adds only the redirect policy on top, so
- * there is never a second way to ask "who is this".
+ * Session reading itself is `fetchSession` de `~/lib/session` — la única
+ * server function para eso; este módulo sólo agrega la política de redirect.
  *
- * Safe to import from route files: the server work happens inside a
- * `createServerFn` handler, which TanStack Start strips from the client bundle.
- * Do **not** import `~/lib/auth` from a route file — import this.
+ * Seguro de importar desde route files: el trabajo de servidor corre dentro
+ * de un handler `createServerFn`, que TanStack Start saca del bundle cliente.
  */
 import { queryOptions, type QueryClient } from '@tanstack/react-query';
 import { type AnyRedirect, redirect } from '@tanstack/react-router';
@@ -55,13 +46,10 @@ import { fetchSession, type SessionUser } from './session';
 export type { SessionUser };
 
 /**
- * La sesión como query cacheada.
- *
- * `staleTime: 'static'` es el modo de react-query en el que una query NUNCA se
- * considera vencida: `queryClient.query()` devuelve lo cacheado sin tocar la
- * red, y ni `invalidateQueries` ni `refetchQueries` la despiertan. Se olvida
- * SÓLO con `clearSessionCache`, que es exactamente la semántica que quiere un
- * guard de navegación.
+ * La sesión como query cacheada. `staleTime: 'static'` hace que la query
+ * NUNCA se considere vencida — ni `invalidateQueries` ni `refetchQueries` la
+ * despiertan, sólo `clearSessionCache` la olvida, que es la semántica que
+ * quiere un guard de navegación.
  *
  * `retry: false` porque un guard que reintenta retrasa la navegación; si la
  * primera lectura falla no queda nada cacheado, así que la siguiente
@@ -85,13 +73,11 @@ export function clearSessionCache(queryClient: QueryClient): void {
 }
 
 /**
- * Throw a router redirect.
- *
- * `redirect()` returns a `Response`, not an `Error` — that is how TanStack
- * Router signals navigation out of `beforeLoad`, and throwing it is the
- * documented pattern. `only-throw-error` cannot know that, so the waiver lives
- * here, once, instead of at every call site. Building the `redirect(...)` at the
- * call site keeps its `to`/`search` fully type-checked against the route tree.
+ * `redirect()` returns a `Response`, not an `Error` — the documented way
+ * TanStack Router signals navigation out of `beforeLoad`. `only-throw-error`
+ * can't know that, so the waiver lives here once instead of at every call
+ * site; building `redirect(...)` at the call site keeps `to`/`search` fully
+ * type-checked against the route tree.
  */
 function throwRedirect(target: AnyRedirect): never {
   // eslint-disable-next-line @typescript-eslint/only-throw-error -- see above
@@ -112,13 +98,11 @@ function throwRedirect(target: AnyRedirect): never {
  * });
  * ```
  *
- * El `queryClient` sale del contexto del router (ver la cabecera del módulo):
- * es lo que hace que el guard corra en cada navegación sin pedir la sesión de
- * nuevo.
+ * El `queryClient` sale del contexto del router (cabecera del módulo).
  *
- * The attempted URL rides along as `?redirect=`, so `/login` can send the user
- * back to the map with its `aoi`, `theme` and `layers` search params intact
- * instead of dumping them on the home page.
+ * The attempted URL rides along as `?redirect=`, so `/login` can send the
+ * user back to the map with its `aoi`, `theme` and `layers` search params
+ * intact instead of dumping them on the home page.
  */
 export async function requireUser(
   queryClient: QueryClient,
@@ -132,19 +116,17 @@ export async function requireUser(
 }
 
 /**
- * Guard for `/login`: a signed-in user has no business on it. (There is no
- * public `/registro` any more — see `session.ts`'s header and
- * `routes/auth/set-password.tsx` for why: registration moved to
- * `inviteUserByEmail` + a confirmation link, not a form a stranger can fill
- * in.)
+ * Guard for `/login`: a signed-in user has no business on it. (No public
+ * `/registro` any more — registration moved to `inviteUserByEmail` + a
+ * confirmation link, not a form a stranger can fill in; see `session.ts`'s
+ * header and `routes/auth/set-password.tsx`.)
  *
- * `redirectTo` is the route's validated `?redirect=` search param. It is passed
- * through `safeRedirectPath` first — see below.
+ * `redirectTo` is the route's validated `?redirect=` search param, passed
+ * through `safeRedirectPath` first.
  *
  * Éste SÍ lee del servidor cada vez, a propósito: `/login` no escribe search
  * params en bucle, se visita una vez, y la lectura fresca es la que decide si
- * la persona ya tiene sesión. Cachearla acá sólo agregaría un estado más que
- * sincronizar con `clearSessionCache`.
+ * la persona ya tiene sesión.
  */
 export async function redirectIfSignedIn(redirectTo?: string): Promise<void> {
   const user = await fetchSession();
@@ -164,11 +146,11 @@ export async function optionalUser(): Promise<SessionUser | null> {
 /**
  * Reduce a `?redirect=` value to a same-origin path, or `/`.
  *
- * An open redirect is the classic bug in exactly this pattern: `?redirect=` is
- * attacker-controlled, so anything that is not a plain absolute path — a full
- * URL, a scheme-relative `//evil.example`, or the `/\` variant browsers
- * normalize to `//` — is discarded rather than sanitized. Discarding is safe to
- * get wrong; sanitizing is not.
+ * Open redirect is the classic bug in this pattern: `?redirect=` is
+ * attacker-controlled, so anything not a plain absolute path — a full URL, a
+ * scheme-relative `//evil.example`, or the `/\` variant browsers normalize to
+ * `//` — is discarded rather than sanitized. Discarding is safe to get wrong;
+ * sanitizing is not.
  */
 export function safeRedirectPath(value: string | undefined | null): string {
   if (value === undefined || value === null || value === '') return '/';

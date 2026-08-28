@@ -2,26 +2,21 @@
  * Drizzle schema — the whole persistence surface of territorio-base, on
  * Supabase Postgres.
  *
- * Better Auth's own tables (`user`, `session`, `account`, `verification`) and
- * `invite` are GONE from this package. Supabase Auth (GoTrue) owns
- * authentication now: `auth.users` is provisioned and migrated by Supabase
- * itself, never by a migration in this repo. `authUsers` below is Drizzle's
- * read-only *reference* to that table — just enough shape to declare a
- * foreign key from `analysis.user_id`, not a table this package creates.
+ * Supabase Auth (GoTrue) owns authentication: `auth.users` is provisioned
+ * and migrated by Supabase itself, never by a migration in this repo.
+ * `authUsers` below is Drizzle's read-only *reference* to that table — just
+ * enough shape to declare a foreign key from `analysis.user_id`, not a
+ * table this package creates.
  *
- * What's left are the two tables that were never Better Auth's: `analysis`
- * and `rate_limit`. See `README.md` for what moved where.
- *
- * RLS: both tables call `.enableRLS()` with zero `pgPolicy()` calls attached.
- * That is *default-deny*, on purpose — a cheap safety net against the fact
- * that Supabase exposes every table in `public` over PostgREST by default
- * (`anon`/`authenticated` roles), not the real authorization mechanism. The
- * real mechanism is unchanged: every function in `analyses.ts` /
- * `rate-limit.ts` filters explicitly on `userId`, and the only thing that
- * ever opens a Postgres connection is this one trusted Node process (via
- * `client.ts`, using the Postgres role in `DATABASE_URL` — not the `anon` or
- * `authenticated` roles RLS is guarding against), which RLS does not
- * restrict.
+ * `analysis` and `rate_limit`, the two tables this package does own, both
+ * call `.enableRLS()` with zero `pgPolicy()` calls — default-deny, on
+ * purpose, as a cheap safety net against Supabase exposing every `public`
+ * table over PostgREST by default (`anon`/`authenticated` roles), not the
+ * real authorization mechanism. That lives in `analyses.ts` /
+ * `rate-limit.ts`, which filter explicitly on `userId`; the only thing that
+ * ever opens a Postgres connection is this one trusted Node process, via
+ * `client.ts`, using the Postgres role in `DATABASE_URL` — not the `anon`
+ * or `authenticated` roles RLS is guarding against.
  */
 import { sql } from 'drizzle-orm';
 import {
@@ -43,13 +38,12 @@ import type * as PostgresJsDriver from 'drizzle-orm/postgres-js';
 /**
  * Backing store for the login/sign-up rate limiter in `rate-limit.ts`.
  *
- * `last_request` stays `bigint` (epoch ms), NOT `timestamptz`: the CAS upsert
- * in `consumeRateLimit` does integer arithmetic directly
- * (`(now - last_request) > windowMs`, all in milliseconds). Making this a
- * `timestamptz` would force rewriting that comparison as interval arithmetic
- * for no benefit — this table is never read by date range or `ORDER BY`, it
- * is the one timestamp in the schema that participates in integer math
- * instead of date comparison. See `docs/supabase/03-datos-migracion.md`.
+ * `last_request` stays `bigint` (epoch ms), NOT `timestamptz`: the CAS
+ * upsert in `consumeRateLimit` does integer arithmetic directly
+ * (`(now - last_request) > windowMs`). This table is never read by date
+ * range or `ORDER BY` — it's the one timestamp in the schema that
+ * participates in integer math instead of date comparison.
+ * See `docs/supabase/03-datos-migracion.md`.
  */
 export const rateLimit = pgTable(
   'rate_limit',
@@ -94,10 +88,10 @@ export type AoiGeometry = {
  * `resultJson` is `jsonb`, not `json`: Postgres has no ~6 MB ceiling the way
  * SQLite effectively did, but a large value still pays TOAST
  * compression/decompression on every read — which is why `MAX_RESULT_BYTES`
- * in `apps/web/src/lib/analysis-runtime.ts` stays exactly as it was, as an
- * app-level constant, not something Postgres makes unnecessary. What `jsonb`
- * *does* buy over plain `text`+`json.parse` is the two expression indexes
- * below, replacing what used to be a `json_extract(...)` full table scan.
+ * in `apps/web/src/lib/analysis-runtime.ts` is an app-level constant, not a
+ * Postgres limit. What `jsonb` *does* buy over plain `text`+`json.parse` is
+ * the two expression indexes below, replacing what used to be a
+ * `json_extract(...)` full table scan.
  */
 export const analysis = pgTable(
   'analysis',

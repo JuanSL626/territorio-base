@@ -15,9 +15,7 @@ export const Route = createFileRoute('/login')({
     // link de invitación vencido o ya usado.
     error: z.literal('invitacion-invalida').optional(),
   }),
-  // Un usuario ya logueado no tiene nada que hacer en /login. La política de
-  // redirección (incluida la defensa de open redirect) es del workstream de
-  // auth: acá se importa.
+  // Un usuario ya logueado no tiene nada que hacer en /login.
   beforeLoad: async ({ search }) => {
     await redirectIfSignedIn(search.redirect);
   },
@@ -45,9 +43,9 @@ function LoginPage() {
       try {
         const result = await submit({ data: { email, password } });
         if (result.ok) {
-          // Recién ahora hay sesión: el `null` que pudo quedar cacheado al
-          // salir tiene que morir ANTES de que `invalidate()` recorra los
-          // guards, o `requireUser` rebota a /login para siempre.
+          // El `null` cacheado al salir tiene que morir ANTES de que
+          // `invalidate()` recorra los guards, o `requireUser` rebota a
+          // /login para siempre.
           clearSessionCache(queryClient);
           await router.invalidate();
           await router.navigate({ href: safeRedirectPath(search.redirect) });

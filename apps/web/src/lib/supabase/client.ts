@@ -3,23 +3,21 @@
  * unlike `~/lib/supabase/server`, because in the browser there is only ever
  * one visitor's cookies to worry about.
  *
- * Nothing in this auth core needs this today: `signIn`/`signOut`/`fetchSession`
- * all run server-side (see `~/lib/session`), which is what lets an httpOnly
- * cookie carry the session without ever handing the access token to
- * JavaScript. This export exists for the day something genuinely needs a
- * client-side Supabase call (e.g. Realtime) — reach for the server functions
- * first.
+ * Unused today: `signIn`/`signOut`/`fetchSession` all run server-side (see
+ * `~/lib/session`), which is what lets an httpOnly cookie carry the session
+ * without ever handing the access token to JavaScript. This export exists
+ * for the day something needs a client-side call (e.g. Realtime) — reach for
+ * the server functions first.
  */
 import { createBrowserClient } from '@supabase/ssr';
 
 /**
  * Not inlined into `getSupabaseBrowserClient`: `createBrowserClient` is
- * overloaded (a current `getAll`/`setAll` signature and a `@deprecated`
- * `get`/`set`/`remove` one), and TypeScript's `ReturnType<typeof fn>` on an
- * overloaded function always resolves to the LAST overload — the deprecated
- * one here. Wrapping the actual (unambiguous, 2-argument) call in this
- * ordinary function gives `ReturnType<typeof createClient>` below a single,
- * correct signature to read instead.
+ * overloaded (current `getAll`/`setAll` vs. `@deprecated` `get`/`set`/`remove`),
+ * and `ReturnType<typeof fn>` on an overloaded function always resolves to
+ * the LAST overload — the deprecated one. Wrapping the unambiguous
+ * 2-argument call here gives `ReturnType<typeof createClient>` a single
+ * correct signature to read.
  */
 function createClient() {
   return createBrowserClient(

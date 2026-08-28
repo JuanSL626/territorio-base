@@ -2,12 +2,6 @@
 // client live here; ownership-scoped queries for `analysis` and the
 // `rate_limit` upsert are the whole surface.
 //
-// Authentication (`auth.ts`, `invites.ts`, `web-boundary.ts`, the `user` /
-// `session` / `account` / `verification` / `invite` tables) is GONE from this
-// package — Supabase Auth (`auth.users`, managed by Supabase, not by a
-// migration in this repo) replaces it. See `README.md` for the full account
-// of what left and where its replacement is expected to land.
-//
 // SERVER ONLY. Every export in this barrel reaches `node:crypto` or the
 // Postgres connection. Import it from server functions, `beforeLoad` guards
 // and scripts — never from a component.

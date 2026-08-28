@@ -4,18 +4,17 @@
  * Everything here is a `createServerFn`: TanStack Start strips the handler
  * body from the client bundle, so a credential or the `service_role` key
  * never ships to the browser. Components import the client-safe re-export in
- * `~/lib/auth-client`; route guards import `~/lib/auth-server`. Neither of
- * those files reimplements anything — they only wrap what's here.
+ * `~/lib/auth-client`; route guards import `~/lib/auth-server` — neither
+ * reimplements anything, they only wrap what's here.
  *
- * `fetchSession` is the ONLY place that decides "who is this" and it does so
- * with `getUser()`, never `getSession()`. `getSession()` reads the access
- * token out of the cookie and trusts it as-is — a token revoked server-side
- * (global sign-out, a banned user, a rotated `service_role`) still reads as
- * "signed in" until it expires on its own. `getUser()` performs a network
- * call to the Supabase Auth server, so a revoked session shows up as `null`
- * immediately. That round-trip is the entire reason `~/lib/auth-server`
- * caches the result per tab (`staleTime: 'static'`) instead of calling this
- * on every navigation — see that file's header for the full argument.
+ * `fetchSession` decides "who is this" with `getUser()`, never `getSession()`:
+ * the latter reads the access token out of the cookie and trusts it as-is — a
+ * token revoked server-side (global sign-out, a banned user, a rotated
+ * `service_role`) still reads as "signed in" until it expires on its own.
+ * `getUser()` hits the Supabase Auth server over the network, so a revoked
+ * session shows up as `null` immediately. That round-trip is why
+ * `~/lib/auth-server` caches the result per tab (`staleTime: 'static'`)
+ * instead of calling this on every navigation — see that file's header.
  */
 import { createServerFn } from '@tanstack/react-start';
 import { z } from 'zod';
@@ -55,10 +54,7 @@ export const AUTH_ERROR_MESSAGES: Record<AuthErrorCode, string> = {
 
 type AuthActionResult = { ok: boolean; code?: AuthErrorCode; retryAfterSeconds?: number };
 
-/**
- * `user.user_metadata` is `{ [key: string]: any }` on the SDK's own types —
- * this is the one narrowing point so `any` never leaks past this function.
- */
+/** `user.user_metadata` is `{ [key: string]: any }` on the SDK's own types — the one narrowing point so `any` never leaks past this function. */
 function toSessionUser(user: User): SessionUser {
   const name: unknown = user.user_metadata.name;
   return {
@@ -102,10 +98,10 @@ export const signIn = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<AuthActionResult> => {
     const email = normalizeEmail(data.email);
 
-    // Supabase's own `/token` limit is per-IP and generic (see
-    // `docs/supabase/02-auth-invitaciones.md` §6) — it does not stop credential
-    // stuffing against one account from rotating IPs. This check is what does,
-    // and it runs BEFORE Supabase ever sees the attempt.
+    // Supabase's own `/token` limit is per-IP and generic (§6, docs/supabase/
+    // 02-auth-invitaciones.md) — it doesn't stop credential stuffing against
+    // one account from rotating IPs. This check does, and runs BEFORE
+    // Supabase ever sees the attempt.
     const limited = await consumeRateLimit(getDb(), {
       bucket: 'sign-in',
       identifier: email,
@@ -178,15 +174,13 @@ const inviteSchema = z.object({
  * AND it reaches into `~/lib/supabase/admin`, which throws if
  * `SUPABASE_SERVICE_ROLE_KEY` ever ended up in a browser bundle by mistake.
  *
- * Gate: the caller has to be signed in. That's the whole gate — this repo has
- * no roles/permissions table yet (`packages/db/README.md`: "Roles / who may
- * invite ... this package has no opinion on it any more"). Any signed-in user
- * can invite another today; tighten this the day a roles table exists.
+ * Gate is just "signed in" — this repo has no roles/permissions table yet
+ * (`packages/db/README.md`). Any signed-in user can invite another today;
+ * tighten this the day a roles table exists.
  *
  * `email_exists` is the one Supabase error worth a specific message —
- * everything else (rate-limited, malformed, transient) collapses to
- * `servicio` rather than inventing codes for cases this app can't yet act on
- * differently.
+ * everything else collapses to `servicio` rather than inventing codes for
+ * cases this app can't yet act on differently.
  */
 export const adminInviteUser = createServerFn({ method: 'POST' })
   .validator(inviteSchema)

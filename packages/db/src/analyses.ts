@@ -5,10 +5,10 @@
  * that skips the owner check, on purpose: an id-only accessor is how a report
  * route ends up serving somebody else's AOI to whoever guesses a uuid.
  *
- * The report route is described as "shareable" in the design brief. Sharing a
- * *link* with a colleague who has an account works today. Public, logged-out
- * sharing would need a `shareToken` column and a second, token-scoped read —
- * that is a deliberate product decision, not an oversight, and it is not built.
+ * The report route is "shareable" in the design brief only in the sense of
+ * sharing a *link* with a colleague who has an account. Public, logged-out
+ * sharing would need a `shareToken` column and a token-scoped read — a
+ * deliberate product decision, not an oversight, and not built.
  */
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
@@ -73,11 +73,9 @@ export async function getAnalysisForUser(
  * ITS OWN job id (`/analysis/{raster_job_id}/overlay/dem.png`), not by the
  * app's `analysis.id` — the two are different UUIDs, generated on different
  * sides. `raster_job_id` isn't its own column (it lives inside `resultJson`,
- * set once the raster pipeline starts), so this resolves it with the jsonb
- * `->>` operator, backed by `analysis_raster_job_id_idx` (`schema.ts`). The
- * SQLite predecessor of this query was a `json_extract(...)` **full table
- * scan** with a comment flagging it as worth an index "if that changes" —
- * this migration is that change: same shape, now an index scan.
+ * set once the raster pipeline starts), resolved here with the jsonb `->>`
+ * operator, backed by `analysis_raster_job_id_idx` (`schema.ts`) — replacing
+ * what was a `json_extract(...)` full table scan in the SQLite predecessor.
  */
 export async function getAnalysisByRasterJobIdForUser(
   db: TerritorioDb,
@@ -104,8 +102,7 @@ export async function getAnalysisByRasterJobIdForUser(
  * happens to match — it has no owner of its own. What's owned is the
  * ANALYSIS that attached it (`attachCoastal` writes `coastal.cache_key` into
  * `resultJson`), so that's what this checks: not "is this cache key secret"
- * (it isn't, particularly), but "did YOUR analysis actually request this
- * scenario" — same bar as every other overlay this proxy serves.
+ * but "did YOUR analysis actually request this scenario".
  *
  * Nested one level deeper than `raster_job_id`, hence `->` then `->>`,
  * matching `analysis_coastal_cache_key_idx` (`schema.ts`) exactly — a jsonb
