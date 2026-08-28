@@ -32,21 +32,17 @@ env:
   DO_NOT_TRACK: "1"
 
 jobs:
-  # ═════════════════════════════════════════════════════════════════════════
   # Node — todo el workspace TypeScript
-  # ═════════════════════════════════════════════════════════════════════════
   node:
     name: Node · lint · typecheck · test · build
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
     env:
-      # ── Caché remota de Turborepo ──────────────────────────────────────────
-      # Opt-in y sin romperse si no está configurada: si los secrets no existen,
-      # estas variables quedan vacías, turbo no encuentra servidor y cae a la
-      # caché local sin fallar. Para activarla, definir en el repo los secrets
-      # TURBO_TOKEN y la variable TURBO_TEAM (Vercel Remote Cache o un
-      # self-hosted compatible como ducktors/turborepo-remote-cache).
+      # Caché remota de Turborepo: opt-in y sin romperse si no está
+      # configurada (si los secrets no existen, turbo cae a la caché local).
+      # Para activarla, definir los secrets TURBO_TOKEN y la variable
+      # TURBO_TEAM (Vercel Remote Cache o un self-hosted compatible).
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
       TURBO_API: ${{ vars.TURBO_API }}
@@ -89,8 +85,20 @@ jobs:
       # Una sola invocación: turbo resuelve el grafo (`lint`/`typecheck`/`test`
       # dependen de `^build`) y paraleliza. Cuatro pasos separados repetirían
       # los builds de las dependencias cuatro veces.
+      #
+      # `--filter=!@territorio/api-service` es obligatorio. `services/api` tiene
+      # package.json (entra al workspace pnpm y al grafo de turbo) pero es el
+      # servicio Python: su `test` es `uv run pytest`, y en este job no hay uv.
+      # Sin el filtro, turbo lo ejecuta, falla con ELIFECYCLE y cancela las
+      # tareas hermanas en vuelo — el log queda lleno de eslint/vitest muriendo
+      # al instante, que es ruido, no la causa. Las pruebas de ese paquete las
+      # corre el job `Python · ruff · pytest`, que sí instala uv.
+      #
+      # No se reproduce en local: ahí uv está instalado, así que `pnpm test`
+      # pasa y CI falla. Si algún día se quiere correr todo junto en local,
+      # ese es el motivo de la divergencia.
       - name: lint · typecheck · test · build
-        run: pnpm exec turbo run lint typecheck test build
+        run: pnpm exec turbo run lint typecheck test build --filter='!@territorio/api-service'
 
       # Guardarraíl del despliegue, no del código: el Dockerfile de la web
       # copia `apps/web/server.mjs` y arranca `node server.mjs`. Si alguien lo
@@ -99,9 +107,7 @@ jobs:
       - name: Verificar el entrypoint de producción
         run: node --check apps/web/server.mjs
 
-  # ═════════════════════════════════════════════════════════════════════════
   # Python — services/api
-  # ═════════════════════════════════════════════════════════════════════════
   python:
     name: Python · ruff · pytest
     runs-on: ubuntu-latest
@@ -140,9 +146,7 @@ jobs:
       - name: pytest (subset offline)
         run: uv run pytest -m "not network"
 
-  # ═════════════════════════════════════════════════════════════════════════
   # Docker — build de las dos imágenes, sin push
-  # ═════════════════════════════════════════════════════════════════════════
   docker:
     name: Docker · ${{ matrix.name }}
     runs-on: ubuntu-latest
@@ -186,12 +190,9 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,scope=${{ matrix.name }},mode=max
 
-  # ═════════════════════════════════════════════════════════════════════════
-  # Compose — que el orquestador sea válido
-  # ═════════════════════════════════════════════════════════════════════════
-  # Barato (segundos) y atrapa la clase de error más molesta de compose: una
-  # variable mal escrita, un anchor YAML roto, un `depends_on` a un servicio que
-  # no existe. No levanta nada.
+  # Compose — que el orquestador sea válido. Barato (segundos) y atrapa la
+  # clase de error más molesta: una variable mal escrita, un anchor YAML roto,
+  # un `depends_on` a un servicio que no existe. No levanta nada.
   compose:
     name: Compose · config
     runs-on: ubuntu-latest
