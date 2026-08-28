@@ -89,15 +89,34 @@ const PROGRESS_POLL_MS = 1_000;
  * Este poll es el que hace que el resultado aparezca igual tras un reinicio
  * del server, en una segunda instancia, o en una pestaña abierta después.
  */
-const RESULT_POLL_MS = 1_500;
+export const RESULT_POLL_MS = 1_500;
 
 /**
  * `no-listo` es el único rechazo transitorio: significa "todavía está
  * corriendo". Todos los demás (`no-encontrado`, `no-autenticado`, `servicio`)
  * son terminales — insistir sobre ellos sólo genera tráfico.
+ *
+ * `result === undefined` cubre dos casos MUY distintos: "todavía no llegó la
+ * primera respuesta" (normal, benigno) y "la última consulta tiró" — un blip
+ * de red, el server reiniciando a mitad de un poll. Antes esta función
+ * apagaba el poll en los dos casos por igual. Para el segundo eso es un bug:
+ * `query.state.data` se queda sin definir PARA SIEMPRE (nunca hubo un fetch
+ * exitoso), así que la próxima vuelta también ve `undefined`, también apaga
+ * el poll, y esta red de seguridad — la que existe justamente para sobrevivir
+ * un reinicio del server o una segunda instancia — muere ante CUALQUIER
+ * fallo transitorio. El resultado ya está listo del lado del motor; sólo un
+ * F5 (que arranca un `QueryClient` nuevo) lo vuelve a pedir. Por eso acá
+ * también se reintenta, igual que ya hace `analysisProgressQueryOptions` para
+ * el mismo caso (ver su `refetchInterval`).
+ *
+ * Exportada (no sólo usada acá adentro) para poder probar la transición sin
+ * levantar un `QueryClient`: es la función pura que decide, y el bug vivía
+ * enteramente en su rama `undefined`.
  */
-function pollWhileNotReady(result: { ok: true } | AnalysisRefusal | undefined): number | false {
-  if (result === undefined) return false;
+export function pollWhileNotReady(
+  result: { ok: true } | AnalysisRefusal | undefined,
+): number | false {
+  if (result === undefined) return RESULT_POLL_MS;
   return !result.ok && result.reason === 'no-listo' ? RESULT_POLL_MS : false;
 }
 
