@@ -172,24 +172,19 @@ export function buildLayerRuntime(input: LayerRuntimeInput): Record<string, Laye
 
     if (source === 'raster') {
       /*
-        `slope-classes` es el caso vivo: el registro la declara (capa por
-        defecto de la vista Topografía) pero el servicio raster NO emite un
-        raster de clases de pendiente, sólo `slope` continuo. El brief §4.3
-        pide reclasificar en el cliente desde el continuo, y eso hoy no se
-        puede: el PNG ya viene con la rampa aplicada, y leer el GeoTIFF en el
-        browser está prohibido por el memo (geoblaze/georaster, §caveats).
-
-        Se dice con todas las letras en la fila en vez de "sin datos en el
-        AOI", que sería mentir: el AOI SÍ tiene datos, falta que el servicio
-        produzca esta capa.
+        Red de seguridad genérica, no un caso hardcodeado: si algún día se
+        agrega una capa raster al registro sin su traducción en
+        `RASTER_LAYER_BY_ID` (overlays.ts — el puente de nombres con el
+        servicio), se dice con todas las letras en la fila en vez de "sin
+        datos en el AOI", que sería mentir. `slope-classes` pasó por acá
+        hasta que el servicio empezó a emitirla; hoy el mapa está vacío.
       */
       runtime[layer.id] =
         RASTER_LAYER_BY_ID[layer.id] === undefined
           ? {
               status: 'skipped',
               reason: 'no la produce',
-              detail:
-                'El servicio raster no emite esta capa todavía. Sólo produce DEM, pendiente, orientación, NDVI, clases de NDVI, cobertura y la inundación costera.',
+              detail: 'El servicio raster no emite esta capa todavía.',
             }
           : rasterRuntime(layer, input, analysis);
       continue;

@@ -125,8 +125,9 @@ describe('resolveOverlayUrl', () => {
 });
 
 describe('puente registro ↔ servicio raster', () => {
-  it('traduce los dos ids que NO coinciden por nombre', () => {
+  it('traduce los ids que NO coinciden por nombre', () => {
     expect(RASTER_LAYER_BY_ID['ndvi-density']).toBe('ndvi_density');
+    expect(RASTER_LAYER_BY_ID['slope-classes']).toBe('slope_classes');
     expect(RASTER_LAYER_BY_ID.aqueduct).toBe('coastal');
   });
 });

@@ -28,6 +28,16 @@
 import { z } from 'zod';
 
 import {
+  RASTER_LAYERS,
+  type AnalysisStatus,
+  type CoastalPreset,
+  type CoastalSummary,
+  type LayerAvailability,
+  type Provenance,
+  type TopographyResult,
+  type VegetationResult,
+} from '@territorio/api-client';
+import {
   hydrologySummarySchema,
   protectedAreasSummarySchema,
   type HydrologyKind,
@@ -37,16 +47,6 @@ import {
   type Bounds2D,
   type Geometry,
 } from '@territorio/geo';
-
-import type {
-  AnalysisStatus,
-  CoastalPreset,
-  CoastalSummary,
-  LayerAvailability,
-  Provenance,
-  TopographyResult,
-  VegetationResult,
-} from '@territorio/api-client';
 
 /**
  * Las cuatro fuentes que un análisis consulta, y que fallan **por separado**.
@@ -398,7 +398,11 @@ const layerAvailabilitySchema: z.ZodType<LayerAvailability> = z.object({
   download_filename: z.string(),
   kind: z.enum(['continuous', 'categorical']),
   label: z.string(),
-  layer: z.enum(['dem', 'slope', 'aspect', 'ndvi', 'ndvi_density', 'worldcover', 'coastal']),
+  // Reusa el catálogo generado en vez de duplicarlo a mano: un layer nuevo del
+  // lado del servicio (p. ej. `slope_classes`) que no aparezca acá hace fallar
+  // TODO el parseo del análisis guardado, no sólo esa fila — es justo el bug
+  // que agregar `slope-classes` sin tocar este archivo reintrodujo.
+  layer: z.enum(RASTER_LAYERS),
   overlay_metadata_url: z.string().nullable().optional(),
   overlay_url: z.string().nullable().optional(),
   raster_url: z.string().nullable().optional(),

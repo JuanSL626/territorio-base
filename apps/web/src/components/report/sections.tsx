@@ -131,22 +131,16 @@ export function downloadForLayer(
   }
   /*
     `raster_url` viene RELATIVA al servicio raster (`/analysis/{id}/raster/dem.tif`),
-    no a la app web. Sin anteponer la base pública, el `<a download>` apunta al
-    origen del SSR, que responde el HTML de 404 — y el navegador lo guarda con
-    extensión `.tif`. Un archivo corrupto es peor que un botón deshabilitado, así
-    que sin base pública (servicio raster con token, ver `raster-base.ts`) la
-    tarjeta dice por qué no se puede bajar.
+    no a la app web. Sin anteponer la base del proxy, el `<a download>` apunta
+    al origen del SSR, que responde el HTML de 404 — y el navegador lo guarda
+    con extensión `.tif`. `publicRasterBaseUrl()` (`raster-base.ts`) siempre
+    devuelve algo: es el proxy del mismo origen, no la URL desnuda del
+    servicio, así que ya no hay un caso "sin base pública" que degradar acá.
   */
   if (/^https?:\/\//i.test(url)) {
     return { kind: 'ready', href: url, filename: entry.download_filename };
   }
   const base = publicRasterBaseUrl();
-  if (base === undefined) {
-    return {
-      kind: 'unavailable',
-      reason: 'El servicio raster no publica descargas directas en esta instalación: usá Exportar.',
-    };
-  }
   return {
     kind: 'ready',
     href: `${base}${url.startsWith('/') ? '' : '/'}${url}`,

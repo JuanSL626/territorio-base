@@ -24,7 +24,18 @@ build/
 coverage/
 
 # --- Generated ---
-**/routeTree.gen.ts
+# routeTree.gen.ts SÍ se versiona, a propósito.
+#
+# Lo genera el plugin de TanStack Router durante `dev`/`build`, pero la tarea
+# `typecheck` de turbo sólo depende de `^build` (los paquetes de arriba), nunca
+# del build propio de la app. Si el archivo no está en el repo, CI hace checkout
+# de un árbol sin él y `tsgo` falla con
+#   TS2307: Cannot find module './routeTree.gen'
+# y detrás de eso cascadean ~20 errores de `createFileRoute` que parecen reales
+# y no lo son. En local nunca se reproduce porque el archivo quedó del último
+# build. Versionarlo es además lo que recomienda TanStack Router, y hace que un
+# cambio de rutas se vea en el diff.
+# **/routeTree.gen.ts
 
 # --- Env ---
 .env

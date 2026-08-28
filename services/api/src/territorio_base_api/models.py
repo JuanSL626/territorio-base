@@ -23,7 +23,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from territorio_base_api.sources.aqueduct import PRESET_KEYS
 
 AnalysisStatus = Literal["pending", "running", "ok", "partial", "error"]
-OverlayLayer = Literal["dem", "slope", "aspect", "ndvi", "ndvi_density", "worldcover", "coastal"]
+OverlayLayer = Literal[
+    "dem", "slope", "slope_classes", "aspect", "ndvi", "ndvi_density", "worldcover", "coastal"
+]
 RasterLayer = OverlayLayer
 CoastalPreset = Literal[
     "Hoy (histórico) — 100 años de retorno",

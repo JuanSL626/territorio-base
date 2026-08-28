@@ -1,23 +1,32 @@
 /*
-  De dónde saca el BROWSER los PNG de overlay. El servicio raster devuelve
-  rutas relativas (`/analysis/{id}/overlay/dem.png`) servidas con CORS,
-  exponiendo `X-Bounds` a propósito; falta la base absoluta del lado cliente.
+  De dónde saca el BROWSER los PNG y GeoTIFF de overlay: siempre del mismo
+  origen, vía el proxy de `apps/web/src/routes/api/raster.*.ts`.
 
-  `lib/api.ts` es server-only (lee `process.env`, puede llevar `API_TOKEN`),
-  así que la base pública se publica como variable de Vite. Si el servicio
-  exige `API_TOKEN`, una URL desnuda daría 401 y hay que proxear por una ruta
-  del servidor — en ese caso NO hay base pública, esto devuelve `undefined` y
-  las capas raster reportan su estado en la fila del panel en vez de dejar
-  una imagen rota (§8, "Layer load error").
+  Antes esto leía `VITE_API_URL` (horneada en el bundle) y le daba al browser
+  la URL DESNUDA del servicio raster. Eso tenía dos problemas: con
+  `TERRITORIO_API_TOKEN` configurado, una URL desnuda daba 401 (el servicio
+  exige `Authorization`, que el browser no tiene); y sin token, cualquiera que
+  llegara al puerto del servicio (publicado en `compose.yaml` para esto mismo)
+  podía leer el overlay de CUALQUIER análisis con sólo adivinar un id — acá
+  "análisis" es un recurso de usuario en todo el resto de la app, y ese puerto
+  lo servía sin comparar dueño.
+
+  El proxy resuelve las dos cosas: agrega el token server-side (`~/lib/api.ts`,
+  `rasterAuthHeaders()`) y exige sesión + dueño antes de pedirle nada al
+  servicio (`~/lib/raster-proxy.ts`). Por eso esta función ya no depende del
+  entorno ni puede devolver "no hay base pública": SIEMPRE hay una base, es
+  del mismo origen que la app, y el servicio raster ni siquiera necesita un
+  puerto publicado al host (`compose.yaml` ya no lo publica).
+
+  Se mantiene como función (no una constante importada directo) porque los dos
+  consumidores — el mapa (`map-canvas.tsx`, vía `overlays.ts`) y la descarga de
+  GeoTIFF del reporte (`report/sections.tsx`) — llaman `publicRasterBaseUrl()`
+  exactamente como antes; ninguno de los dos necesitó cambiar de forma.
 */
 
-/** Puerto del `pnpm dev` de `services/api` y de su README. */
-const DEV_FALLBACK = 'http://localhost:8787';
+/** Prefijo servido por `apps/web/src/routes/api/raster.*.ts`. */
+const RASTER_PROXY_BASE = '/api/raster';
 
-export function publicRasterBaseUrl(): string | undefined {
-  const configured = import.meta.env.VITE_API_URL as string | undefined;
-  if (typeof configured === 'string' && configured.trim().length > 0) {
-    return configured.trim().replace(/\/+$/, '');
-  }
-  return import.meta.env.DEV ? DEV_FALLBACK : undefined;
+export function publicRasterBaseUrl(): string {
+  return RASTER_PROXY_BASE;
 }

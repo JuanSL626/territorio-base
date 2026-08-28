@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
+from territorio_base_api.analysis.topography import SLOPE_CLASSES, SLOPE_CLASS_COLORS
 from territorio_base_api.analysis.vegetation import NDVI_DENSITY_CLASSES, NDVI_DENSITY_COLORS
 from territorio_base_api.sources.stac import WORLDCOVER_CLASSES
 
@@ -33,6 +34,11 @@ NDVI_DENSITY_CODES: dict[int, str] = {
     index: label for index, (_lo, _hi, label) in enumerate(NDVI_DENSITY_CLASSES)
 }
 NDVI_DENSITY_COLORS_BY_CODE: dict[int, str] = dict(enumerate(NDVI_DENSITY_COLORS))
+
+SLOPE_CLASS_CODES: dict[int, str] = {
+    index: label for index, (_lo, _hi, label) in enumerate(SLOPE_CLASSES)
+}
+SLOPE_CLASS_COLORS_BY_CODE: dict[int, str] = dict(enumerate(SLOPE_CLASS_COLORS))
 
 AOI_BOUNDARY_COLOR = "#3388ff"
 
@@ -90,6 +96,17 @@ RASTER_SPECS: dict[str, RasterSpec] = {
         # Percentil 98: recorta outliers de borde para que la rampa siga siendo legible.
         vmax="p98",
         value_format="{:.0f}%",
+    ),
+    "slope_classes": RasterSpec(
+        layer="slope_classes",
+        download_filename="pendiente_clases.tif",
+        legend_title="Clases de pendiente",
+        kind="categorical",
+        dtype="uint8",
+        nodata=255,
+        default_opacity=0.7,
+        colors=SLOPE_CLASS_COLORS_BY_CODE,
+        labels=SLOPE_CLASS_CODES,
     ),
     "aspect": RasterSpec(
         layer="aspect",

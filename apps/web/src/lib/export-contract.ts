@@ -205,6 +205,7 @@ const M2_PER_HA = 10_000;
 const RASTER_RESOLUTION_M: Record<RasterLayer, number> = {
   dem: 30,
   slope: 30,
+  slope_classes: 30,
   aspect: 30,
   ndvi: 10,
   ndvi_density: 10,
@@ -215,6 +216,7 @@ const RASTER_RESOLUTION_M: Record<RasterLayer, number> = {
 const RASTER_BYTES_PER_PIXEL: Record<RasterLayer, number> = {
   dem: 4,
   slope: 4,
+  slope_classes: 1,
   aspect: 4,
   ndvi: 4,
   ndvi_density: 1,
@@ -268,6 +270,7 @@ function rasterReason(analysis: TerritorioAnalysis, layer: RasterLayer): string 
   switch (layer) {
     case 'dem':
     case 'slope':
+    case 'slope_classes':
     case 'aspect':
       return topography.error ?? 'El servicio no pudo generar esta capa para este AOI.';
     case 'ndvi':
@@ -294,6 +297,7 @@ function rasterReason(analysis: TerritorioAnalysis, layer: RasterLayer): string 
 const RASTER_GROUP: Record<RasterLayer, string> = {
   dem: 'Topografía',
   slope: 'Topografía',
+  slope_classes: 'Topografía',
   aspect: 'Topografía',
   ndvi: 'Vegetación',
   ndvi_density: 'Vegetación',
@@ -304,6 +308,7 @@ const RASTER_GROUP: Record<RasterLayer, string> = {
 const RASTER_DATASET: Record<RasterLayer, string> = {
   dem: 'dem',
   slope: 'dem',
+  slope_classes: 'dem',
   aspect: 'dem',
   ndvi: 'ndvi',
   ndvi_density: 'ndvi',

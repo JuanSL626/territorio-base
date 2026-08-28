@@ -38,6 +38,8 @@ export {
 export {
   createAnalysis,
   deleteAnalysisForUser,
+  getAnalysisByCoastalCacheKeyForUser,
+  getAnalysisByRasterJobIdForUser,
   getAnalysisForUser,
   listAnalysesForUser,
   updateAnalysisForUser,

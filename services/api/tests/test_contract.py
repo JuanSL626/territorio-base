@@ -158,6 +158,7 @@ def test_todas_las_capas_de_overlay_tienen_spec() -> None:
     assert set(RASTER_SPECS) == {
         "dem",
         "slope",
+        "slope_classes",
         "aspect",
         "ndvi",
         "ndvi_density",

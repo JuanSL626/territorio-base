@@ -11,6 +11,8 @@
 export {
   createAnalysis,
   deleteAnalysisForUser,
+  getAnalysisByCoastalCacheKeyForUser,
+  getAnalysisByRasterJobIdForUser,
   getAnalysisForUser,
   getDb,
   listAnalysesForUser,

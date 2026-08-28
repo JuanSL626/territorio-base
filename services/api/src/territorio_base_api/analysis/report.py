@@ -23,6 +23,7 @@ from typing import Callable
 import xarray as xr
 
 from territorio_base_api.analysis.topography import (
+    classify_slope_classes,
     compute_slope_aspect,
     sanitize_dem,
     summarize_topography,
@@ -82,6 +83,7 @@ def run_analysis(
         rasters["dem"] = dem
         rasters["slope"] = slope
         rasters["aspect"] = aspect
+        rasters["slope_classes"] = classify_slope_classes(slope)
     except Exception as exc:  # noqa: BLE001 — aislamiento por fuente, a propósito
         log.warning("Topografía no disponible: %s", exc, exc_info=True)
         topography["error"] = _reason(exc)

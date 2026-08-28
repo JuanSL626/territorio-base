@@ -17,6 +17,27 @@ SLOPE_CLASSES = [
     (30, float("inf"), "Fuerte (>30%)"),
 ]
 
+# Un color por clase, mismo orden que SLOPE_CLASSES (rampa del brief §10, y la
+# misma paleta que ya usa el registro de capas del cliente para no divergir
+# entre la leyenda y el overlay pintado).
+SLOPE_CLASS_COLORS = ["#f7f7f7", "#fdd49e", "#d9a441", "#b5502f"]
+
+
+def classify_slope_classes(slope: xr.DataArray) -> xr.DataArray:
+    """Índice de clase (0..3) de SLOPE_CLASSES por píxel, NaN si no hay dato.
+
+    Mismo criterio de corte que `summarize_topography`: `lo <= valor < hi`, así
+    que un píxel exactamente en 5/15/30 % cae en la clase de ARRIBA (Suave,
+    Moderado, Fuerte respectivamente) — `np.digitize` con `right=False` hace
+    exactamente eso.
+    """
+    values = np.asarray(slope.values, dtype="float64")
+    edges = [hi for _, hi, _ in SLOPE_CLASSES[:-1]]
+    classified = np.full(values.shape, np.nan)
+    valid = np.isfinite(values)
+    classified[valid] = np.digitize(values[valid], edges)
+    return xr.DataArray(classified, dims=slope.dims, coords=slope.coords)
+
 
 def sanitize_dem(dem: xr.DataArray) -> xr.DataArray:
     """Convierte el nodata declarado del DEM a NaN antes de derivar pendiente.

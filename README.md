@@ -159,17 +159,20 @@ docker compose logs -f web
 
 | Servicio  | Puerto host                | Qué es |
 |---|---|---|
-| `web`     | `${WEB_PORT:-3000}`        | El servidor SSR. Lo único que el navegador necesita alcanzar. |
-| `api`     | `${API_PORT:-8787}`        | El servicio raster. Interno, salvo por los PNG de overlay. |
+| `web`     | `${WEB_PORT:-3000}`        | El servidor SSR. El ÚNICO servicio que el navegador necesita alcanzar. |
+| `api`     | — (sin publicar)           | El servicio raster. Interno: `web` le habla por `api:8787` en la red de compose y proxea los PNG/GeoTIFF de overlay al navegador (`apps/web/src/routes/api/raster.*.ts`). |
 | `migrate` | —                          | Utilidad de un solo uso detrás del profile `tools`. `up` la ignora. |
 
 Compose pisa `API_URL` (a `http://api:8787`) y `DATABASE_URL` (a
 `file:/data/territorio.db`) con los valores que corresponden dentro de la red de
 contenedores: no hay que editarlos en el `.env` para desplegar.
 
-**`VITE_API_URL` es build-time.** Es la base absoluta con la que el *navegador*
-pide los PNG de overlay, así que se hornea en el bundle del cliente. Se setea
-con `PUBLIC_API_URL` en el `.env` y cambiarla exige `docker compose build web`.
+El navegador no necesita ninguna variable de build para llegar al servicio
+raster — no existe un `VITE_API_URL` que hornear. Todo el tráfico de overlay
+pasa por `web` en el mismo origen que el resto de la app, con sesión y
+verificación de dueño de por medio. Para debuggear `api` directo desde el
+host, ver el comentario del servicio en `compose.yaml` (agregar un `ports:`
+temporal).
 
 ### Detrás de un proxy inverso
 

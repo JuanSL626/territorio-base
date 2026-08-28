@@ -5,12 +5,14 @@
  * desde `createServerFn`, desde un `beforeLoad` o desde un handler de ruta —
  * nunca desde un componente, o el token termina en el bundle del browser.
  *
- * El browser no habla con el servicio raster: habla con las server functions de
- * `analysis-server.ts`. La única excepción son las URLs de overlay PNG y
- * GeoTIFF, que sí se sirven al cliente como URLs absolutas — y por eso el
- * servicio expone `X-Bounds` en CORS. Si `API_TOKEN` está configurado, esas
- * URLs tampoco funcionan desde el browser y hay que proxearlas; está anotado
- * en `publicRasterBaseUrl()`.
+ * El browser no habla con el servicio raster directo. Habla con las server
+ * functions de `analysis-server.ts` para todo lo estructurado, y con el proxy
+ * de `apps/web/src/routes/api/raster.*` (server-side, usa este módulo) para
+ * los PNG de overlay y los GeoTIFF — ver ese directorio para el porqué: con
+ * `API_TOKEN` configurado una URL directa al servicio daría 401, y sin token
+ * el puerto del servicio (si estuviera publicado) serviría el overlay de
+ * CUALQUIER análisis a quien adivinara el id, sin importar de quién es. El
+ * proxy exige sesión y compara dueño antes de pedirle nada a este cliente.
  */
 import { createRasterApiClient, type RasterApiClient } from '@territorio/api-client';
 
@@ -36,14 +38,15 @@ function rasterToken(): string | undefined {
 }
 
 /**
- * Base que se le puede dar al browser para pedir PNG y GeoTIFF directo.
- *
- * `null` cuando hay token: en ese caso el servicio exige `Authorization` y una
- * URL desnuda daría 401. El consumidor tiene que proxear por una ruta del
- * servidor en vez de mostrar una imagen rota.
+ * Cabecera `Authorization` para pedirle algo al servicio raster a mano (no vía
+ * `getRasterApi()`), como hace el proxy de overlays cuando necesita el
+ * `Response` crudo para transmitirlo en vez de un `ApiResult` ya parseado.
+ * Objeto vacío cuando no hay token — repartible directo en `fetch(..., {
+ * headers: { ...rasterAuthHeaders() } })` sin un `if` en el llamador.
  */
-export function publicRasterBaseUrl(): string | null {
-  return rasterToken() === undefined ? rasterBaseUrl() : null;
+export function rasterAuthHeaders(): Record<string, string> {
+  const token = rasterToken();
+  return token === undefined ? {} : { authorization: `Bearer ${token}` };
 }
 
 let cached: RasterApiClient | undefined;

@@ -122,6 +122,7 @@ export function resolveOverlayUrl(
 export const RASTER_LAYER_BY_ID: Record<string, RasterLayer> = {
   dem: 'dem',
   slope: 'slope',
+  'slope-classes': 'slope_classes',
   aspect: 'aspect',
   ndvi: 'ndvi',
   'ndvi-density': 'ndvi_density',

@@ -100,14 +100,12 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 # Etapa 3 — build
 FROM deps AS build
 
-# `VITE_API_URL` es la única variable horneada en el bundle del BROWSER: es la
-# base absoluta desde la que el cliente pide los PNG de overlay directamente
-# al servicio raster (ver `src/components/map/raster-base.ts`). Al ser
-# build-time, cambiarla exige reconstruir la imagen. Todo lo demás (API_URL,
-# DATABASE_URL, BETTER_AUTH_*) es de runtime y va por entorno.
-ARG VITE_API_URL
-ENV VITE_API_URL=${VITE_API_URL} \
-    NODE_ENV=production
+# El bundle del BROWSER no lleva ninguna variable horneada para el servicio
+# raster: los PNG y GeoTIFF de overlay se piden al proxy del mismo origen
+# (`src/routes/api/raster.*.ts`, ver `src/components/map/raster-base.ts`), no
+# al servicio directo. Todo lo de acá (API_URL, DATABASE_URL, BETTER_AUTH_*,
+# TERRITORIO_API_TOKEN) es de runtime y va por entorno, no por `ARG`.
+ENV NODE_ENV=production
 
 COPY packages/ packages/
 COPY apps/web/ apps/web/

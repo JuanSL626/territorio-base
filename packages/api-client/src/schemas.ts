@@ -55,6 +55,7 @@ export type AnalysisStatus = (typeof ANALYSIS_STATUSES)[number];
 export const RASTER_LAYERS = [
   'dem',
   'slope',
+  'slope_classes',
   'aspect',
   'ndvi',
   'ndvi_density',

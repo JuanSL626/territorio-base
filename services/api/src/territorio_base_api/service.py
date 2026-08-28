@@ -27,6 +27,7 @@ TOTAL_STEPS = len(STEPS) + 1
 LAYER_LABELS = {
     "dem": "Elevación (DEM)",
     "slope": "Pendiente (%)",
+    "slope_classes": "Clases de pendiente",
     "aspect": "Orientación",
     "ndvi": "NDVI (continuo)",
     "ndvi_density": "Densidad de vegetación (clasificada)",

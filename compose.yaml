@@ -23,18 +23,14 @@ services:
   # descarga. Es el ÚNICO servicio expuesto al navegador.
   #
   # Le habla al servicio raster server-to-server (`http://api:8787`). El
-  # browser no lo llama nunca, salvo las URLs absolutas de los PNG de overlay
-  # (`VITE_API_URL`).
+  # browser NUNCA lo llama directo — ni siquiera para los PNG de overlay: esos
+  # los pide a `web`, que los proxea (`apps/web/src/routes/api/raster.*.ts`).
+  # Por eso no hay un `VITE_API_URL` que hornear acá: nada del browser
+  # necesita saber dónde vive `api`.
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-      args:
-        # Build-time: se hornea en el bundle del browser. Debe ser la URL
-        # pública del servicio raster, resoluble por el navegador — no
-        # `http://api:8787`, que sólo existe adentro de compose. Cambiarla
-        # obliga a `--build`.
-        VITE_API_URL: ${PUBLIC_API_URL:-http://localhost:8787}
     image: territorio-base/web:latest
     restart: unless-stopped
     depends_on:
@@ -82,10 +78,20 @@ services:
   # AOI, NDVI, pendiente/orientación, WorldCover, WRI Aqueduct, export GeoTIFF
   # y overlays PNG (porqué en `docs/migration/01-engine-decision-memo.md`).
   #
-  # Servicio INTERNO; se publica un puerto igual porque el navegador pide los
-  # PNG de overlay directo (el servicio expone `X-Bounds` en CORS). Con
-  # `TERRITORIO_API_TOKEN` configurado, esas URLs exigen `Authorization` y hay
-  # que proxearlas desde el SSR — ver `apps/web/src/lib/api.ts`.
+  # Servicio INTERNO, sin puerto publicado al host: el navegador ya no le pide
+  # nada directo. Los PNG y GeoTIFF de overlay se piden a `web`
+  # (`apps/web/src/routes/api/raster.*.ts`), que exige sesión, compara dueño
+  # contra `packages/db` y recién ahí le pega a `api:8787` por la red interna
+  # de compose, con `TERRITORIO_API_TOKEN` si está configurado. Publicar este
+  # puerto dejaba el overlay de CUALQUIER análisis a la vista de quien
+  # adivinara un id — `TERRITORIO_API_TOKEN` vacío por default en
+  # `.env.example` significa que hoy no hay NADA más protegiéndolo.
+  #
+  # Para debuggear el servicio raster solo (Swagger en `/docs`, curl directo),
+  # agregar temporalmente acá lo mismo que tenía `web`:
+  #     ports: ["${API_PORT:-8787}:8787"]
+  # o, sin tocar el archivo: `docker compose exec api sh` y curlear adentro, o
+  # `docker compose port api 8787` + un túnel puntual.
   api:
     build:
       # Contexto acotado al servicio: no necesita nada del workspace npm, y así
@@ -103,8 +109,6 @@ services:
       TERRITORIO_MAX_CONCURRENT_JOBS: ${TERRITORIO_MAX_CONCURRENT_JOBS:-2}
       TERRITORIO_JOB_TTL_HOURS: ${TERRITORIO_JOB_TTL_HOURS:-72}
       TERRITORIO_API_TOKEN: ${TERRITORIO_API_TOKEN:-}
-    ports:
-      - "${API_PORT:-8787}:8787"
     volumes:
       - territorio-data:/data
     # uid/gid del usuario `territorio` que crea su Dockerfile.

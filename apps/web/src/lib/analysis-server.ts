@@ -335,8 +335,17 @@ export const requestCoastal = createServerFn({ method: 'POST' })
       available: body.available,
       error: body.error ?? null,
       summary: body.summary ?? null,
-      overlay_url: body.overlay_url == null ? null : api.absoluteUrl(body.overlay_url),
-      raster_url: body.raster_url == null ? null : api.absoluteUrl(body.raster_url),
+      /*
+        RELATIVAS, no `api.absoluteUrl(...)`: eso pegaba la base INTERNA del
+        servicio raster (`API_URL`, ej. `http://api:8787` en compose), que el
+        browser no puede resolver ni con token ni sin él. Igual que
+        `entry.overlay_url` de cada capa, `resolveOverlayUrl()` en
+        `~/components/map/overlays.ts` antepone la base pública (el proxy de
+        `~/routes/api/raster.coastal.*`, ver `~/components/map/raster-base.ts`)
+        recién cuando el mapa arma la URL que le da al browser.
+      */
+      overlay_url: body.overlay_url ?? null,
+      raster_url: body.raster_url ?? null,
     };
 
     await attachCoastal({

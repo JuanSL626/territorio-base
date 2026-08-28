@@ -469,7 +469,7 @@ export interface components {
              * Layer
              * @enum {string}
              */
-            layer: "dem" | "slope" | "aspect" | "ndvi" | "ndvi_density" | "worldcover" | "coastal";
+            layer: "dem" | "slope" | "slope_classes" | "aspect" | "ndvi" | "ndvi_density" | "worldcover" | "coastal";
             /** Overlay Metadata Url */
             overlay_metadata_url?: string | null;
             /** Overlay Url */
@@ -523,7 +523,7 @@ export interface components {
              * Layer
              * @enum {string}
              */
-            layer: "dem" | "slope" | "aspect" | "ndvi" | "ndvi_density" | "worldcover" | "coastal";
+            layer: "dem" | "slope" | "slope_classes" | "aspect" | "ndvi" | "ndvi_density" | "worldcover" | "coastal";
             /** Legend */
             legend: components["schemas"]["LegendEntry"][];
             /** Legend Title */

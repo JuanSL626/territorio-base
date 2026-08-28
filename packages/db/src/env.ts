@@ -19,9 +19,9 @@ import * as z from 'zod';
  * The variables the web server validates at boot.
  *
  * `.env.example` documents more than this — the ones `services/api` reads
- * (`TERRITORIO_*`), the build-time `VITE_API_URL`, and the ones only
- * `compose.yaml` interpolates. Those are deliberately outside this schema:
- * they belong to processes that never import this package.
+ * (`TERRITORIO_*`) and the ones only `compose.yaml` interpolates. Those are
+ * deliberately outside this schema: they belong to processes that never
+ * import this package.
  */
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
