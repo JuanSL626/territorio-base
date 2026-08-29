@@ -1,0 +1,240 @@
+{
+  "id": "e4562e08e60841e3",
+  "status": "ok",
+  "created_at": "2026-08-29T04:25:32+00:00",
+  "started_at": "2026-08-29T04:25:32+00:00",
+  "finished_at": "2026-08-29T04:25:38+00:00",
+  "aoi_geojson": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          -69.60902299499537,
+          18.47078882060184
+        ],
+        [
+          -69.60885133361828,
+          18.43944343702691
+        ],
+        [
+          -69.56945504760718,
+          18.43651214762481
+        ],
+        [
+          -69.56833924865737,
+          18.46997472720419
+        ],
+        [
+          -69.56833924865737,
+          18.46997472720419
+        ],
+        [
+          -69.60902299499537,
+          18.47078882060184
+        ]
+      ]
+    ]
+  },
+  "aoi_info": {
+    "area_ha": 1516.92256412745,
+    "bbox": [
+      -69.60902299499537,
+      18.43651214762481,
+      -69.56833924865737,
+      18.47078882060184
+    ],
+    "utm_epsg": 32619
+  },
+  "params": {
+    "ndvi_resolution_m": 10,
+    "lookback_days": 180,
+    "max_cloud_cover": 30,
+    "total_steps": 4,
+    "job_dir": "/Users/juanlopez/Code/territorio-base/data-dev/analyses/e4562e08e60841e3"
+  },
+  "progress": [
+    {
+      "step": 1,
+      "total": 4,
+      "message": "Descargando DEM (Copernicus GLO-30)…",
+      "at": "2026-08-29T04:25:32+00:00"
+    },
+    {
+      "step": 2,
+      "total": 4,
+      "message": "Descargando Sentinel-2 y calculando NDVI…",
+      "at": "2026-08-29T04:25:34+00:00"
+    },
+    {
+      "step": 3,
+      "total": 4,
+      "message": "Descargando ESA WorldCover…",
+      "at": "2026-08-29T04:25:37+00:00"
+    },
+    {
+      "step": 4,
+      "total": 4,
+      "message": "Análisis completo",
+      "at": "2026-08-29T04:25:38+00:00"
+    }
+  ],
+  "error": null,
+  "result": {
+    "aoi": {
+      "area_ha": 1516.92256412745,
+      "bbox": [
+        -69.60902299499537,
+        18.43651214762481,
+        -69.56833924865737,
+        18.47078882060184
+      ],
+      "utm_epsg": 32619
+    },
+    "topography": {
+      "available": true,
+      "error": null,
+      "summary": {
+        "elevation_min_m": 0.0,
+        "elevation_max_m": 36.77387619018555,
+        "elevation_mean_m": 15.86245657681431,
+        "elevation_range_m": 36.77387619018555,
+        "slope_mean_pct": 2.9082816665011326,
+        "slope_max_pct": 28.278806799677525,
+        "slope_class_pct": {
+          "Plano (0-5%)": 83.40893969636485,
+          "Suave (5-15%)": 15.726123510554649,
+          "Moderado (15-30%)": 0.8649367930805056,
+          "Fuerte (>30%)": 0.0
+        }
+      }
+    },
+    "vegetation": {
+      "available": true,
+      "ndvi_available": true,
+      "worldcover_available": true,
+      "error": null,
+      "ndvi_error": null,
+      "worldcover_error": null,
+      "summary": {
+        "ndvi_mean": 0.5408662571868992,
+        "ndvi_median": 0.716241717338562,
+        "ndvi_p90": 0.8744985461235046,
+        "ndvi_density_class_pct": {
+          "Sin vegetación / suelo desnudo o agua": 22.99469469799321,
+          "Vegetación dispersa / matorral bajo": 9.786140310409595,
+          "Vegetación densa / bosque secundario": 9.911358618644348,
+          "Vegetación muy densa / dosel maduro": 57.30780637295284
+        },
+        "worldcover_tree_cover_pct": 44.55662833228985,
+        "worldcover_landcover_pct": {
+          "Bosque / cobertura arbórea": 44.55662833228985,
+          "Matorral (shrubland)": 0.001318087455102646,
+          "Pastizal": 25.25850990213201,
+          "Cultivos": 0.24186904801133555,
+          "Área construida": 13.314001383991828,
+          "Suelo desnudo / disperso": 0.11401456486637888,
+          "Cuerpo de agua permanente": 16.503113981612678,
+          "Humedal herbáceo": 0.010544699640821168
+        }
+      }
+    },
+    "provenance": {
+      "dem_source": "Copernicus DEM GLO-30 (ESA, vía Microsoft Planetary Computer)",
+      "dem_item_count": 1,
+      "sentinel2_scene_count": 6,
+      "sentinel2_scene_ids": [
+        "S2C_MSIL2A_20260414T151721_R125_T19QDA_20260414T202859",
+        "S2A_MSIL2A_20260516T151731_R125_T19QDA_20260516T225758",
+        "S2C_MSIL2A_20260404T151721_R125_T19QDA_20260404T213414",
+        "S2C_MSIL2A_20260504T151721_R125_T19QDA_20260504T193354",
+        "S2B_MSIL2A_20260509T151719_R125_T19QDA_20260509T184839",
+        "S2A_MSIL2A_20260804T151741_R125_T19QDA_20260805T024012"
+      ],
+      "sentinel2_boa_offsets_applied": [
+        -1000.0
+      ],
+      "sentinel2_lookback_days": 180,
+      "sentinel2_max_cloud_cover": 30,
+      "worldcover_epoch_year": 2021
+    },
+    "layers": [
+      {
+        "layer": "dem",
+        "kind": "continuous",
+        "label": "Elevación (DEM)",
+        "default_opacity": 0.7,
+        "available": true,
+        "overlay_url": "/analysis/e4562e08e60841e3/overlay/dem.png",
+        "overlay_metadata_url": "/analysis/e4562e08e60841e3/overlay/dem.json",
+        "raster_url": "/analysis/e4562e08e60841e3/raster/dem.tif",
+        "download_filename": "elevacion.tif"
+      },
+      {
+        "layer": "slope",
+        "kind": "continuous",
+        "label": "Pendiente (%)",
+        "default_opacity": 0.7,
+        "available": true,
+        "overlay_url": "/analysis/e4562e08e60841e3/overlay/slope.png",
+        "overlay_metadata_url": "/analysis/e4562e08e60841e3/overlay/slope.json",
+        "raster_url": "/analysis/e4562e08e60841e3/raster/slope.tif",
+        "download_filename": "pendiente.tif"
+      },
+      {
+        "layer": "slope_classes",
+        "kind": "categorical",
+        "label": "Clases de pendiente",
+        "default_opacity": 0.7,
+        "available": true,
+        "overlay_url": "/analysis/e4562e08e60841e3/overlay/slope_classes.png",
+        "overlay_metadata_url": "/analysis/e4562e08e60841e3/overlay/slope_classes.json",
+        "raster_url": "/analysis/e4562e08e60841e3/raster/slope_classes.tif",
+        "download_filename": "pendiente_clases.tif"
+      },
+      {
+        "layer": "aspect",
+        "kind": "continuous",
+        "label": "Orientación",
+        "default_opacity": 0.7,
+        "available": true,
+        "overlay_url": "/analysis/e4562e08e60841e3/overlay/aspect.png",
+        "overlay_metadata_url": "/analysis/e4562e08e60841e3/overlay/aspect.json",
+        "raster_url": "/analysis/e4562e08e60841e3/raster/aspect.tif",
+        "download_filename": "orientacion.tif"
+      },
+      {
+        "layer": "ndvi",
+        "kind": "continuous",
+        "label": "NDVI (continuo)",
+        "default_opacity": 0.7,
+        "available": true,
+        "overlay_url": "/analysis/e4562e08e60841e3/overlay/ndvi.png",
+        "overlay_metadata_url": "/analysis/e4562e08e60841e3/overlay/ndvi.json",
+        "raster_url": "/analysis/e4562e08e60841e3/raster/ndvi.tif",
+        "download_filename": "ndvi.tif"
+      },
+      {
+        "layer": "ndvi_density",
+        "kind": "categorical",
+        "label": "Densidad de vegetación (clasificada)",
+        "default_opacity": 0.75,
+        "available": true,
+        "overlay_url": "/analysis/e4562e08e60841e3/overlay/ndvi_density.png",
+        "overlay_metadata_url": "/analysis/e4562e08e60841e3/overlay/ndvi_density.json",
+        "raster_url": "/analysis/e4562e08e60841e3/raster/ndvi_density.tif",
+        "download_filename": "ndvi_clases.tif"
+      },
+      {
+        "layer": "worldcover",
+        "kind": "categorical",
+        "label": "Cobertura de suelo (WorldCover)",
+        "default_opacity": 0.7,
+        "available": true,
+        "overlay_url": "/analysis/e4562e08e60841e3/overlay/worldcover.png",
+        "overlay_metadata_url": "/analysis/e4562e08e60841e3/overlay/worldcover.json",
+        "raster_url": "/analysis/e4562e08e60841e3/raster/worldcover.tif",
+        "download_filename": "worldcover.tif"
+      }
+    ]
+  }
+}
