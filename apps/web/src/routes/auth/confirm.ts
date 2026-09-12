@@ -12,7 +12,10 @@ import { getSupabaseServerClient } from '~/lib/supabase/server';
  * redirect semantics.
  */
 function redirectTo(path: string, origin: string): Response {
-  return new Response(null, { status: 302, headers: { Location: new URL(path, origin).toString() } });
+  return new Response(null, {
+    status: 302,
+    headers: { Location: new URL(path, origin).toString() },
+  });
 }
 
 /**
@@ -34,9 +37,9 @@ function redirectTo(path: string, origin: string): Response {
  * (a 302, below), never a 200, so the cookie always survives the trip.
  * `Response.redirect()` itself can't be used for this — see its own comment.
  *
- * Only `type=invite` is handled today — no self-serve sign-up to confirm and
- * no "forgot password" yet (`recovery`/`signup`/`magiclink` would reuse this
- * shape if one of those ships later).
+ * Invitation and password-recovery links both establish a session before
+ * redirecting to the password form. Signup and magic-link confirmations are
+ * not handled here.
  */
 export const Route = createFileRoute('/auth/confirm')({
   server: {
@@ -47,7 +50,7 @@ export const Route = createFileRoute('/auth/confirm')({
         const type = url.searchParams.get('type');
         const next = safeRedirectPath(url.searchParams.get('redirect_to'));
 
-        if (tokenHash !== null && type === 'invite') {
+        if (tokenHash !== null && (type === 'invite' || type === 'recovery')) {
           const supabase = getSupabaseServerClient();
           const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
           if (error === null) {

@@ -93,6 +93,10 @@ const signInSchema = z.object({
   password: z.string().min(1).max(256),
 });
 
+const passwordResetSchema = z.object({
+  email: z.string().trim().email().max(320),
+});
+
 export const signIn = createServerFn({ method: 'POST' })
   .validator(signInSchema)
   .handler(async ({ data }): Promise<AuthActionResult> => {
@@ -108,15 +112,36 @@ export const signIn = createServerFn({ method: 'POST' })
       rule: SIGN_IN_RATE_LIMIT,
     });
     if (!limited.ok) {
-      return { ok: false, code: 'demasiados-intentos', retryAfterSeconds: limited.retryAfterSeconds };
+      return {
+        ok: false,
+        code: 'demasiados-intentos',
+        retryAfterSeconds: limited.retryAfterSeconds,
+      };
     }
 
     try {
       const supabase = getSupabaseServerClient();
       const { error } = await supabase.auth.signInWithPassword({ email, password: data.password });
       if (error) {
-        return { ok: false, code: error.code === 'invalid_credentials' ? 'credenciales' : 'servicio' };
+        return {
+          ok: false,
+          code: error.code === 'invalid_credentials' ? 'credenciales' : 'servicio',
+        };
       }
+      return { ok: true };
+    } catch {
+      return { ok: false, code: 'servicio' };
+    }
+  });
+
+/** Send a password-reset email without revealing whether the account exists. */
+export const requestPasswordReset = createServerFn({ method: 'POST' })
+  .validator(passwordResetSchema)
+  .handler(async ({ data }): Promise<AuthActionResult> => {
+    try {
+      const supabase = getSupabaseServerClient();
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizeEmail(data.email));
+      if (error) return { ok: false, code: 'servicio' };
       return { ok: true };
     } catch {
       return { ok: false, code: 'servicio' };

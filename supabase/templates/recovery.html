@@ -1,0 +1,14 @@
+<!--
+  Link de recuperación para SSR: verifica el token en /auth/confirm y crea la
+  cookie de sesión del servidor antes de mostrar /auth/set-password.
+-->
+<h2>Recuperá tu contraseña</h2>
+<p>Recibimos una solicitud para cambiar la contraseña de Territorio Base.</p>
+<p>
+  <a
+    href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&redirect_to=/auth/set-password"
+  >
+    Elegir una contraseña nueva
+  </a>
+</p>
+<p>Si no solicitaste este cambio, podés ignorar este correo.</p>

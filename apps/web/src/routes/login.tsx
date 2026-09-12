@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from '@tanstack/react-router';
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useServerFn } from '@tanstack/react-start';
 import { useState } from 'react';
 import { z } from 'zod';
@@ -219,6 +219,15 @@ function LoginPage() {
                 </div>
               )}
             </Field>
+
+            <div className="-mt-3 flex justify-end">
+              <Link
+                to="/auth/forgot-password"
+                className="text-12 text-accent hover:text-accent-hover font-medium"
+              >
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </div>
 
             {errorMessage !== null ? (
               <div

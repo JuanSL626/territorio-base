@@ -265,6 +265,10 @@ otp_expiry = 3600
 subject = "Te invitaron a Territorio Base"
 content_path = "./supabase/templates/invite.html"
 
+[auth.email.template.recovery]
+subject = "Recuperá tu contraseña de Territorio Base"
+content_path = "./supabase/templates/recovery.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true

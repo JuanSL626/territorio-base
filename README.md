@@ -133,6 +133,13 @@ primer usuario. El registro público está cerrado (`enable_signup = false` en
   `supabase.auth.admin.inviteUserByEmail(email, { redirectTo })`, server-side,
   con `SUPABASE_SERVICE_ROLE_KEY` — ver `docs/supabase/02-auth-invitaciones.md`.
 
+En proyectos alojados, configura también **Authentication → Email Templates**:
+usa `supabase/templates/invite.html` para **Invite user** y
+`supabase/templates/recovery.html` para **Reset password**. El
+`supabase/config.toml` sólo aplica a Supabase local; el flujo SSR de la app
+necesita que ambos correos pasen por `/auth/confirm` para establecer la cookie
+antes de mostrar el formulario de contraseña.
+
 ### Los comandos que se usan todos los días
 
 ```bash
