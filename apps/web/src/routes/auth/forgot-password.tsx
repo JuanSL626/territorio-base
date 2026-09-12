@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useServerFn } from '@tanstack/react-start';
-import { useState, type FormEvent } from 'react';
+import { useState, type SyntheticEvent } from 'react';
 
 import { Button } from '~/components/ui/button';
 import { Field, Input } from '~/components/ui/input';
@@ -17,7 +17,7 @@ function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<AuthErrorCode | null>(null);
 
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const onSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
     setPending(true);
     setError(null);

@@ -94,7 +94,7 @@ const signInSchema = z.object({
 });
 
 const passwordResetSchema = z.object({
-  email: z.string().trim().email().max(320),
+  email: z.email().trim().max(320),
 });
 
 export const signIn = createServerFn({ method: 'POST' })
