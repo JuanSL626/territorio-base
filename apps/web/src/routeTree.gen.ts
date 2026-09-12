@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppFuentesRouteImport } from './routes/_app/fuentes'
 import { Route as AuthConfirmRouteImport } from './routes/auth/confirm'
+import { Route as AuthForgotPasswordRouteImport } from './routes/auth/forgot-password'
 import { Route as AuthSetPasswordRouteImport } from './routes/auth/set-password'
 import { Route as AppDescargasJobIdRouteImport } from './routes/_app/descargas.$jobId'
 import { Route as AppDescargasJobIdZipRouteImport } from './routes/_app/descargas.$jobId.zip'
@@ -44,6 +45,11 @@ const AppFuentesRoute = AppFuentesRouteImport.update({
 const AuthConfirmRoute = AuthConfirmRouteImport.update({
   id: '/auth/confirm',
   path: '/auth/confirm',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
+  id: '/auth/forgot-password',
+  path: '/auth/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthSetPasswordRoute = AuthSetPasswordRouteImport.update({
@@ -91,6 +97,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/fuentes': typeof AppFuentesRoute
   '/auth/confirm': typeof AuthConfirmRoute
+  '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/set-password': typeof AuthSetPasswordRoute
   '/descargas/$jobId': typeof AppDescargasJobIdRouteWithChildren
   '/descargas/$jobId/zip': typeof AppDescargasJobIdZipRoute
@@ -103,6 +110,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/fuentes': typeof AppFuentesRoute
   '/auth/confirm': typeof AuthConfirmRoute
+  '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/set-password': typeof AuthSetPasswordRoute
   '/': typeof AppIndexRoute
   '/descargas/$jobId': typeof AppDescargasJobIdRouteWithChildren
@@ -118,6 +126,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_app/fuentes': typeof AppFuentesRoute
   '/auth/confirm': typeof AuthConfirmRoute
+  '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/set-password': typeof AuthSetPasswordRoute
   '/_app/': typeof AppIndexRoute
   '/_app/descargas/$jobId': typeof AppDescargasJobIdRouteWithChildren
@@ -134,6 +143,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/fuentes'
     | '/auth/confirm'
+    | '/auth/forgot-password'
     | '/auth/set-password'
     | '/descargas/$jobId'
     | '/descargas/$jobId/zip'
@@ -146,6 +156,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/fuentes'
     | '/auth/confirm'
+    | '/auth/forgot-password'
     | '/auth/set-password'
     | '/'
     | '/descargas/$jobId'
@@ -160,6 +171,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/_app/fuentes'
     | '/auth/confirm'
+    | '/auth/forgot-password'
     | '/auth/set-password'
     | '/_app/'
     | '/_app/descargas/$jobId'
@@ -174,6 +186,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
   AuthConfirmRoute: typeof AuthConfirmRoute
+  AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
   AuthSetPasswordRoute: typeof AuthSetPasswordRoute
   ApiRasterCoastalCacheKeyFileRoute: typeof ApiRasterCoastalCacheKeyFileRoute
   ApiRasterAnalysisRasterJobIdKindFileRoute: typeof ApiRasterAnalysisRasterJobIdKindFileRoute
@@ -214,6 +227,13 @@ declare module '@tanstack/react-router' {
       path: '/auth/confirm'
       fullPath: '/auth/confirm'
       preLoaderRoute: typeof AuthConfirmRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/forgot-password': {
+      id: '/auth/forgot-password'
+      path: '/auth/forgot-password'
+      fullPath: '/auth/forgot-password'
+      preLoaderRoute: typeof AuthForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/set-password': {
@@ -301,6 +321,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
   AuthConfirmRoute: AuthConfirmRoute,
+  AuthForgotPasswordRoute: AuthForgotPasswordRoute,
   AuthSetPasswordRoute: AuthSetPasswordRoute,
   ApiRasterCoastalCacheKeyFileRoute: ApiRasterCoastalCacheKeyFileRoute,
   ApiRasterAnalysisRasterJobIdKindFileRoute:

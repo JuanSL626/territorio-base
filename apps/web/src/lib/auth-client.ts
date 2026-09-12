@@ -33,6 +33,7 @@
 export {
   adminInviteUser,
   AUTH_ERROR_MESSAGES,
+  requestPasswordReset,
   setPassword,
   signIn,
   signOut,

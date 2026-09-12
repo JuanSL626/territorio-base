@@ -201,6 +201,35 @@ export const UserIcon = (props: IconProps) => (
   </Icon>
 );
 
+export const MailIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="m3 7 9 6 9-6" />
+  </Icon>
+);
+
+export const LockIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <rect x="5" y="10" width="14" height="10" rx="2" />
+    <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+  </Icon>
+);
+
+export const EyeIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+    <circle cx="12" cy="12" r="2.5" />
+  </Icon>
+);
+
+export const EyeOffIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="m3 3 18 18" />
+    <path d="M10.6 6.2A10.7 10.7 0 0 1 12 6c6 0 9.5 6 9.5 6a17.5 17.5 0 0 1-3.1 3.6M6.2 6.2C3.9 8 2.5 12 2.5 12s3.5 6 9.5 6c.5 0 1-.1 1.4-.1" />
+    <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+  </Icon>
+);
+
 export const TableIcon = (props: IconProps) => (
   <Icon {...props}>
     <rect x="3" y="4" width="18" height="16" rx="1.5" />
