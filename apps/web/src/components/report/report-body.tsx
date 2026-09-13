@@ -4,7 +4,14 @@ import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { SourcesTable } from './citations';
 import { StatusBanner } from './narrative-blocks';
 import { ReportMapPanel } from './report-map';
-import { buildSections, datasetUsage, expandBbox, type ReportMapState, type ReportSection  } from './report-model';
+import {
+  buildSections,
+  capLayers,
+  datasetUsage,
+  expandBbox,
+  type ReportMapState,
+  type ReportSection,
+} from './report-model';
 import {
   AreasProtegidasSection,
   ContextoRdSection,
@@ -15,17 +22,16 @@ import {
   TopografiaSection,
   VegetacionSection,
 } from './sections';
-import { type StaticMapGeometries, geometriesOf, geometryBbox, unionBbox  } from './static-map';
+import { type StaticMapGeometries, geometriesOf, geometryBbox, unionBbox } from './static-map';
 import { useScrollSteps } from './use-scroll-steps';
 
 import type { Bbox } from '~/lib/search-params';
-
 
 import { NoDataCard } from '~/components/states/no-data';
 import { Button } from '~/components/ui/button';
 import { CompareIcon } from '~/components/ui/icons';
 import { Skeleton, SkeletonLines } from '~/components/ui/skeleton';
-import { type TerritorioAnalysisSummary, downSources  } from '~/lib/analysis-contract';
+import { type TerritorioAnalysisSummary, downSources } from '~/lib/analysis-contract';
 import { analysisQueryOptions, useAnalysisSummary } from '~/lib/analysis-queries';
 import { cn } from '~/lib/cn';
 import { useMediaQuery } from '~/lib/use-media-query';
@@ -67,11 +73,19 @@ export type ReportBodyProps = {
 
 type MapOverrideKind = 'hidrologia-cercana' | 'ap-solape';
 
+function prioritizeLayer(state: ReportMapState, layerId: string): string[] {
+  return capLayers([
+    'aoi',
+    layerId,
+    ...state.layers.filter((id) => id !== 'aoi' && id !== layerId),
+  ]);
+}
+
 /**
  * Una acción de prosa no "prende una capa": produce un ESTADO DE MAPA con
  * nombre, derivado del estado del paso actual. Segundo click, se revierte.
  */
-function applyOverride(
+export function applyOverride(
   state: ReportMapState,
   override: MapOverrideKind | null,
   geometries: StaticMapGeometries | null,
@@ -85,7 +99,7 @@ function applyOverride(
     if (bbox === null) return state;
     return {
       ...state,
-      layers: state.layers.includes('osm-hydro') ? state.layers : [...state.layers, 'osm-hydro'],
+      layers: prioritizeLayer(state, 'osm-hydro'),
       bounds: expandBbox(unionBbox(state.bounds, bbox), 80),
       highlight: [`osm-hydro:${String(nearest.osm_id)}`],
       caption: `Encuadre en el elemento de agua más cercano (${
@@ -103,7 +117,7 @@ function applyOverride(
   }
   return {
     ...state,
-    layers: state.layers.includes('wdpa') ? state.layers : [...state.layers, 'wdpa'],
+    layers: prioritizeLayer(state, 'wdpa'),
     bounds: expandBbox(bounds, 120),
     highlight: ['wdpa:*'],
     caption: 'Áreas protegidas que se solapan con el polígono, resaltadas.',
@@ -173,7 +187,9 @@ export function ReportBody({ analysisId, print = false }: ReportBodyProps) {
       return (
         <NoDataCard
           title={
-            refusal.reason === 'no-listo' ? 'El análisis todavía no terminó' : 'Reporte no disponible'
+            refusal.reason === 'no-listo'
+              ? 'El análisis todavía no terminó'
+              : 'Reporte no disponible'
           }
           reason={refusal.message}
           service={refusal.reason === 'no-encontrado' ? undefined : 'Territorio Base'}

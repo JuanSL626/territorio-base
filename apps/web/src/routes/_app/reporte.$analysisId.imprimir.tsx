@@ -11,10 +11,11 @@ import { formatHectares } from '~/lib/format';
  * Por qué esta ruta existe en vez de un `window.print()` sobre el reporte:
  * nunca se imprime la página GL viva. El propio producto de Esri sigue sacando
  * recuadros grises vacíos pasados ~16 mapas vivos en una misma pasada de
- * impresión, y un reporte de ocho secciones con un mapa cada una cae justo en
- * esa zona. Acá cada mapa es una figura SVG estática — las mismas geometrías,
- * dibujadas con `<path>`, sin WebGL, sin peticiones de red y sin depender de
- * que el compositor haya terminado antes de que el navegador tome la foto.
+ * impresión, y un reporte de 8 secciones con un mapa cada una cae justo en
+ * esa zona. Acá cada mapa es una figura SVG estática — geometrías dibujadas
+ * con `<path>` y fondo raster OSM—, sin WebGL. Las teselas se cargan por red
+ * al abrir la vista, por lo que hay que esperar el estado de carga antes de
+ * enviar la página a imprimir.
  *
  * El loader precarga el análisis COMPLETO (con geometrías): la impresión no
  * puede depender de un fetch de cliente que quizá no termine antes de que se
@@ -227,7 +228,9 @@ function PrintPage() {
 
         <tfoot className="print-running-footer hidden">
           <tr>
-            <td>Generado el {stamp} · Fuentes y licencias en la última sección · territorio-base</td>
+            <td>
+              Generado el {stamp} · Fuentes y licencias en la última sección · territorio-base
+            </td>
           </tr>
         </tfoot>
       </table>

@@ -1,3 +1,5 @@
+import { useId, useState } from 'react';
+
 import type { ReportMapState } from './report-model';
 import type { Geometry } from '@territorio/geo';
 import type { LegendClass, LayerDef } from '~/layers/types';
@@ -20,11 +22,10 @@ import { formatNumber } from '~/lib/format';
  * GL viva. Esri sigue sacando cajas grises en blanco pasados ~16 mapas vivos
  * por pasada de impresión, y un reporte de 8 secciones con un mapa cada una
  * entra justo en esa zona. Este componente dibuja las mismas geometrías que
- * el mapa interactivo con `<path>`: sale idéntico en pantalla, en PDF y en
- * papel, no pide una sola petición de red, y no depende de que el navegador
- * tenga WebGL. En pantalla ancha el mapa pegajoso puede ser el mapa GL
- * cuando exista; en móvil (§9) y en `/imprimir` este SVG es la respuesta
- * correcta, no un reemplazo pobre.
+ * el mapa interactivo con SVG: el fondo se compone con teselas raster de OSM y
+ * los datos analíticos con `<path>`. No depende de WebGL, pero sí necesita red
+ * para cargar el fondo antes de imprimir. En móvil (§9) y en `/imprimir` este
+ * SVG conserva una salida estable sin crear múltiples mapas GL vivos.
  *
  * Regresiones del inventario que este archivo tiene que respetar:
  * · #1 (rasters espejados): la proyección va de lon/lat a Mercator y invierte
@@ -49,6 +50,7 @@ type Projection = {
   project: Projector;
   /** Metros → unidades del lienzo. Es lo que hace exacta la barra de escala. */
   metersToUnits: (meters: number) => number;
+  boundsRect: { x: number; y: number; width: number; height: number };
 };
 
 const EARTH_RADIUS_M = 6_378_137;
@@ -104,7 +106,177 @@ function makeProjection(bounds: Bbox): Projection {
       return [x, y];
     },
     metersToUnits: (meters) => (meters / (EARTH_RADIUS_M * cosLat)) * scale,
+    boundsRect: { x: offsetX, y: offsetY, width: spanX * scale, height: spanY * scale },
   };
+}
+
+const OSM_TILE_SIZE = 256;
+const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const OSM_TARGET_WIDTH_PX = 768;
+const OSM_TARGET_HEIGHT_PX = 480;
+const OSM_MAX_ZOOM = 19;
+
+type RasterTile = {
+  key: string;
+  href: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+function tileXForLongitude(lon: number, zoom: number): number {
+  return ((lon + 180) / 360) * 2 ** zoom;
+}
+
+function tileYForLatitude(lat: number, zoom: number): number {
+  return ((1 - mercatorY(lat) / Math.PI) / 2) * 2 ** zoom;
+}
+
+function longitudeForTileX(x: number, zoom: number): number {
+  return (x / 2 ** zoom) * 360 - 180;
+}
+
+function latitudeForTileY(y: number, zoom: number): number {
+  return (Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / 2 ** zoom))) * 180) / Math.PI;
+}
+
+function osmZoom(bounds: Bbox): number {
+  const [minLon, minLat, maxLon, maxLat] = bounds;
+  const spanX = Math.max(tileXForLongitude(maxLon, 0) - tileXForLongitude(minLon, 0), 1e-9);
+  const spanY = Math.max(tileYForLatitude(minLat, 0) - tileYForLatitude(maxLat, 0), 1e-9);
+  const pixelsPerTile = Math.min(OSM_TARGET_WIDTH_PX / spanX, OSM_TARGET_HEIGHT_PX / spanY);
+  return Math.max(0, Math.min(OSM_MAX_ZOOM, Math.floor(Math.log2(pixelsPerTile / OSM_TILE_SIZE))));
+}
+
+function osmTiles(bounds: Bbox, project: Projector): RasterTile[] {
+  const [minLon, minLat, maxLon, maxLat] = bounds;
+  const zoom = osmZoom(bounds);
+  const worldTiles = 2 ** zoom;
+  const minX = Math.floor(tileXForLongitude(minLon, zoom));
+  const maxX = Math.floor(tileXForLongitude(maxLon, zoom));
+  const minY = Math.floor(tileYForLatitude(maxLat, zoom));
+  const maxY = Math.floor(tileYForLatitude(minLat, zoom));
+  const tiles: RasterTile[] = [];
+
+  for (let y = Math.max(0, minY); y <= Math.min(worldTiles - 1, maxY); y += 1) {
+    for (let x = minX; x <= maxX; x += 1) {
+      const wrappedX = ((x % worldTiles) + worldTiles) % worldTiles;
+      const [left, top] = project(longitudeForTileX(x, zoom), latitudeForTileY(y, zoom));
+      const [right, bottom] = project(
+        longitudeForTileX(x + 1, zoom),
+        latitudeForTileY(y + 1, zoom),
+      );
+      const key = `${String(zoom)}/${String(wrappedX)}/${String(y)}`;
+      tiles.push({
+        key,
+        href: OSM_TILE_URL.replace('{z}', String(zoom))
+          .replace('{x}', String(wrappedX))
+          .replace('{y}', String(y)),
+        x: left,
+        y: top,
+        width: right - left,
+        height: bottom - top,
+      });
+    }
+  }
+  return tiles;
+}
+
+function OSMRasterBasemap({
+  bounds,
+  projection,
+  clipId,
+}: {
+  bounds: Bbox;
+  projection: Projection;
+  clipId: string;
+}) {
+  const tiles = osmTiles(bounds, projection.project);
+  const tilesKey = tiles.map((tile) => tile.key).join(',');
+
+  return (
+    <OSMRasterTileLayer key={tilesKey} clipId={clipId} projection={projection} tiles={tiles} />
+  );
+}
+
+function OSMRasterTileLayer({
+  tiles,
+  projection,
+  clipId,
+}: {
+  tiles: readonly RasterTile[];
+  projection: Projection;
+  clipId: string;
+}) {
+  const [status, setStatus] = useState({ pending: tiles.length, failed: false });
+  const pending = status.pending;
+  const failed = status.failed;
+
+  return (
+    <>
+      <defs>
+        <clipPath id={clipId}>
+          <rect
+            x={projection.boundsRect.x}
+            y={projection.boundsRect.y}
+            width={projection.boundsRect.width}
+            height={projection.boundsRect.height}
+          />
+        </clipPath>
+      </defs>
+      <g
+        data-testid="osm-raster-basemap"
+        aria-label="Mapa base de OpenStreetMap"
+        clipPath={`url(#${clipId})`}
+      >
+        {tiles.map((tile) => (
+          <image
+            key={tile.key}
+            href={tile.href}
+            x={tile.x}
+            y={tile.y}
+            width={tile.width}
+            height={tile.height}
+            preserveAspectRatio="none"
+            onLoad={() => {
+              setStatus((current) => ({ ...current, pending: Math.max(0, current.pending - 1) }));
+            }}
+            onError={() => {
+              setStatus((current) => ({
+                ...current,
+                pending: Math.max(0, current.pending - 1),
+                failed: true,
+              }));
+            }}
+          />
+        ))}
+      </g>
+      {failed ? (
+        <text
+          data-testid="osm-raster-basemap-unavailable"
+          x={VIEW_W - PAD}
+          y={VIEW_H - 76}
+          textAnchor="end"
+          fontSize="18"
+          fill="var(--fg-muted)"
+        >
+          No se pudo cargar el mapa base de OpenStreetMap.
+        </text>
+      ) : pending > 0 ? (
+        <text
+          data-testid="osm-raster-basemap-loading"
+          x={VIEW_W - PAD}
+          y={VIEW_H - 76}
+          textAnchor="end"
+          fontSize="18"
+          fill="var(--fg-muted)"
+        >
+          Cargando mapa base de OpenStreetMap…
+        </text>
+      ) : null}
+    </>
+  );
 }
 
 function ringPath(ring: readonly (readonly number[])[], project: Projector): string {
@@ -205,8 +377,7 @@ function styleFor(layer: LayerDef, highlighted: boolean): ShapeStyle {
         ? (layer.legend.classes[0]?.color ?? AOI_OUTLINE_COLOR)
         : (layer.legend.colors.at(-1) ?? AOI_OUTLINE_COLOR);
 
-  const fillFactor =
-    layer.legend.type === 'swatch' ? (layer.legend.fillFactor ?? 0.2) : 0.2;
+  const fillFactor = layer.legend.type === 'swatch' ? (layer.legend.fillFactor ?? 0.2) : 0.2;
 
   return {
     stroke: color,
@@ -224,7 +395,9 @@ const NICE_SCALE_M = [50, 100, 200, 500, 1000, 2000, 5000, 10_000, 20_000, 50_00
  * ancho del bbox: con ajuste "contain" el bbox casi nunca ocupa todo el lienzo,
  * y una barra derivada del ancho miente por el factor del letterbox.
  */
-function scaleBar(projection: Projection): { widthUnits: number; label: string } | null {
+function scaleBar(
+  projection: Pick<Projection, 'metersToUnits'>,
+): { widthUnits: number; label: string } | null {
   const oneKm = projection.metersToUnits(1000);
   if (!Number.isFinite(oneKm) || oneKm <= 0) return null;
 
@@ -280,9 +453,11 @@ const HYDRO_COLOR: Record<string, string> = {
 };
 
 export function StaticMap({ state, geometries, title, className }: StaticMapProps) {
-  const { project, metersToUnits } = makeProjection(state.bounds);
+  const projection = makeProjection(state.bounds);
+  const { project, metersToUnits } = projection;
+  const rasterClipId = `osm-raster-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const active = new Set(state.layers);
-  const bar = scaleBar({ project, metersToUnits });
+  const bar = scaleBar({ metersToUnits });
 
   const showHydro = active.has('osm-hydro');
   const showProtected = active.has('wdpa');
@@ -302,16 +477,12 @@ export function StaticMap({ state, geometries, title, className }: StaticMapProp
       >
         <defs>
           <pattern id="grid-graticule" width="80" height="80" patternUnits="userSpaceOnUse">
-            <path
-              d="M80 0H0V80"
-              fill="none"
-              stroke="var(--border)"
-              strokeWidth="1"
-              opacity="0.7"
-            />
+            <path d="M80 0H0V80" fill="none" stroke="var(--border)" strokeWidth="1" opacity="0.7" />
           </pattern>
         </defs>
         <rect width={VIEW_W} height={VIEW_H} fill="url(#grid-graticule)" />
+
+        <OSMRasterBasemap bounds={state.bounds} projection={projection} clipId={rasterClipId} />
 
         {/* Relleno tenue del AOI: da contexto sin competir con los datos. */}
         {aoiShape === null
@@ -465,6 +636,15 @@ export function StaticMap({ state, geometries, title, className }: StaticMapProp
             </text>
           </g>
         )}
+        <text
+          x={VIEW_W - PAD}
+          y={VIEW_H - PAD}
+          textAnchor="end"
+          fontSize="18"
+          fill="var(--fg-muted)"
+        >
+          © OpenStreetMap contributors · ODbL
+        </text>
       </svg>
     </figure>
   );
@@ -577,10 +757,5 @@ export function geometryBbox(geometry: Geometry): Bbox | null {
 }
 
 export function unionBbox(a: Bbox, b: Bbox): Bbox {
-  return [
-    Math.min(a[0], b[0]),
-    Math.min(a[1], b[1]),
-    Math.max(a[2], b[2]),
-    Math.max(a[3], b[3]),
-  ];
+  return [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
 }

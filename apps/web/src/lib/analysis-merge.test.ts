@@ -214,6 +214,7 @@ const down = (reason: string): SourceOutcome<never> => ({
 function vector(overrides: Partial<VectorOutcomes> = {}): VectorOutcomes {
   return {
     hydrology: up(HYDROLOGY),
+
     protectedAreas: up(PROTECTED_AREAS),
     mepyd: up(MEPYD_OK),
     ...overrides,
@@ -292,6 +293,13 @@ describe('mergeAnalysis — el camino completo', () => {
     expect(layer?.layer_id).toMatch(/^mepyd:[a-z0-9-]+\/[a-z0-9-]+$/);
     expect(layer?.count).toBe(1);
     expect(layer?.features[0]?.properties.MUN_NOM).toBe('Santo Domingo Este');
+  });
+
+  it('no persiste contexto vial cuando el plano usa teselas raster OSM', () => {
+    const result = merge();
+
+    expect('street_context' in result).toBe(false);
+    expect(result.status).toBe('ok');
   });
 });
 
@@ -620,6 +628,16 @@ describe('contrato persistido', () => {
     expect(roundTrip).toEqual(original);
   });
 
+  it('ignora `street_context` en resultados guardados de la versión anterior', () => {
+    const legacy = JSON.parse(JSON.stringify(merge())) as Record<string, unknown>;
+    legacy.street_context = { available: true, error: null, features: [] };
+
+    const parsed = parseStoredAnalysis(legacy);
+
+    expect(parsed).not.toBeNull();
+    expect('street_context' in (parsed ?? {})).toBe(false);
+  });
+
   it('un resultado de otra versión del contrato se rechaza en vez de renderizarse a medias', () => {
     const broken = {
       ...(JSON.parse(JSON.stringify(merge())) as Record<string, unknown>),
@@ -636,6 +654,7 @@ describe('contrato persistido', () => {
     expect(summary.protected_areas.summary.areas_found).toBe(1);
     expect(summary.mepyd_rd.summary).toEqual(merge().mepyd_rd.summary);
     expect('features' in summary.hydrology).toBe(false);
+    expect('street_context' in summary).toBe(false);
     expect('aoi_geometry' in summary).toBe(false);
   });
 });

@@ -64,3 +64,7 @@ outputs/
 .valb-tmp/
 data-val-*/
 dist-juan/
+
+# Configuración operativa local de la preview, nunca publicar en Git.
+/deploy/preview/runtime/
+.worktrees/

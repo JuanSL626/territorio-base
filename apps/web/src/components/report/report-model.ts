@@ -21,7 +21,7 @@ import type { Bbox } from '~/lib/search-params';
 
 import { MEPYD_GROUP } from '~/layers/mepyd';
 import { getLayer, LAYER_REGISTRY } from '~/layers/registry';
-import { type BasemapId, MAX_VISIBLE_DATA_LAYERS  } from '~/layers/vistas';
+import { type BasemapId, MAX_VISIBLE_DATA_LAYERS } from '~/layers/vistas';
 
 export type ReportSectionId =
   | 'portada'
@@ -88,7 +88,7 @@ function framed(bbox: Bbox, extraMeters = 0): Bbox {
 }
 
 /** Tope duro del §3.1 aplicado al reporte: el AOI no consume cupo. */
-function capLayers(ids: readonly string[]): string[] {
+export function capLayers(ids: readonly string[]): string[] {
   const out: string[] = [];
   let dataLayers = 0;
   for (const id of ids) {
@@ -188,7 +188,7 @@ export function buildSections(
       map: mapState({
         layers: ['slope-classes', 'dem'],
         bounds: base,
-        basemap: 'terrain',
+        basemap: 'light',
         caption: 'Clases de pendiente sobre el modelo de elevación Copernicus GLO-30.',
         fly,
       }),
@@ -201,7 +201,7 @@ export function buildSections(
       map: mapState({
         layers: ['ndvi-density', 'worldcover'],
         bounds: base,
-        basemap: 'satellite',
+        basemap: 'light',
         caption: 'Densidad de vegetación derivada del NDVI y cobertura ESA WorldCover.',
         fly,
       }),
@@ -338,11 +338,7 @@ export function datasetUsage(analysis: TerritorioAnalysisSummary): DatasetUsage 
   const used = new Map<string, DatasetRow>();
   const unavailable: { source: SourceRef; reason: string }[] = [];
 
-  const consider = (
-    ok: boolean,
-    layerIds: string[],
-    reason: string,
-  ): void => {
+  const consider = (ok: boolean, layerIds: string[], reason: string): void => {
     if (ok) {
       for (const id of layerIds) push(used, id);
       return;

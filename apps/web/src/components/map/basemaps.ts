@@ -28,11 +28,7 @@ const OSM: BasemapDef = {
   id: 'light',
   label: 'Claro (OpenStreetMap)',
   attribution: '© OpenStreetMap contributors',
-  tiles: [
-    'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  ],
+  tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
   tileSize: 256,
   maxzoom: 19,
 };

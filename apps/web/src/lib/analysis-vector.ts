@@ -70,6 +70,7 @@ export async function runVectorSources(
         ? await fetchHydrology(aoi, { signal })
         : await overrides.hydrology(),
     ),
+
     isolate(async () =>
       overrides.protectedAreas === undefined
         ? await fetchProtectedAreas(aoi, { signal })

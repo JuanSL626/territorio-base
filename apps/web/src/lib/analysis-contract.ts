@@ -291,6 +291,7 @@ export function toSummary(analysis: TerritorioAnalysis): TerritorioAnalysisSumma
   return {
     ...rest,
     hydrology: { summary: hydrology.summary },
+
     protected_areas: { summary: protected_areas.summary },
     mepyd_rd: { in_rd: mepyd_rd.in_rd, summary: mepyd_rd.summary, failures: mepyd_rd.failures },
   };

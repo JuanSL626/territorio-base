@@ -1,0 +1,60 @@
+# Preview no productiva. Usar mediante scripts/preview.sh, nunca con .env.
+name: territorio-base-preview
+
+services:
+  web:
+    image: territorio-base-preview/web:local
+    ports: !reset []
+    # Sustituye la lista heredada: --env-file solo controla interpolación,
+    # no reemplaza por sí mismo el env_file del contenedor.
+    env_file: !override
+      - path: .env.preview
+        required: true
+  api:
+    image: territorio-base-preview/api:local
+    ports: !reset []
+    environment:
+      TERRITORIO_MAX_CONCURRENT_JOBS: "1"
+
+  tailscale:
+    image: tailscale/tailscale@sha256:8c42c4574ab066384fcb72f69e086a2ff1dd3652eb6f56856cee34bcf0d2f680
+    hostname: territorio-base-preview
+    restart: unless-stopped
+    environment:
+      # Sin auth key: autorizar esta identidad nueva mediante su enlace de login.
+      TS_USERSPACE: "true"
+      TS_AUTH_ONCE: "true"
+      # El límite de 60s no alcanza para una autorización humana por navegador.
+      TS_BOOT_TIMEOUT: "30m"
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_ACCEPT_DNS: "false"
+      TS_SERVE_CONFIG: /etc/tailscale/serve.json
+      TS_ENABLE_HEALTH_CHECK: "true"
+      TS_LOCAL_ADDR_PORT: 127.0.0.1:41112
+    volumes:
+      # Montar el directorio permite detectar reemplazos atómicos del JSON.
+      - type: bind
+        source: ./deploy/preview/runtime
+        target: /etc/tailscale
+        read_only: true
+        bind:
+          create_host_path: false
+      - tailscale-state:/var/lib/tailscale
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:41112/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  tailscale-state: {}

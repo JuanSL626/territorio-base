@@ -15,6 +15,7 @@
     "lint:fix": "turbo run lint -- --fix",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:preview": "node --test tests/compose.preview.test.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

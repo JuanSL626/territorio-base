@@ -11,7 +11,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import { buildSections, type ReportSection  } from './report-model';
+import { buildSections, type ReportSection } from './report-model';
 import {
   AreasProtegidasSection,
   ContextoRdSection,
@@ -249,6 +249,12 @@ describe('secciones del reporte', () => {
 });
 
 describe('mapa estático', () => {
+  it('usa el basemap claro de OpenStreetMap en todas las secciones', () => {
+    const sections = buildSections(base(), { fly: false });
+
+    expect(sections.every((section) => section.map.basemap === 'light')).toBe(true);
+  });
+
   it('dibuja el AOI, la escala y el norte sin depender de WebGL', () => {
     const analysis = base();
     const section = sectionOf(analysis, 'portada');
@@ -280,9 +286,8 @@ describe('mapa estático', () => {
       />,
     );
 
-    const match = /d="M([\d.]+) ([\d.]+)L([\d.]+) ([\d.]+)L([\d.]+) ([\d.]+)L([\d.]+) ([\d.]+)/.exec(
-      html,
-    );
+    const match =
+      /d="M([\d.]+) ([\d.]+)L([\d.]+) ([\d.]+)L([\d.]+) ([\d.]+)L([\d.]+) ([\d.]+)/.exec(html);
     expect(match).not.toBeNull();
     if (match === null) return;
 
@@ -291,5 +296,44 @@ describe('mapa estático', () => {
     const southY = Number(match[2]);
     const northY = Number(match[6]);
     expect(southY).toBeGreaterThan(northY);
+  });
+
+  it('compone el basemap raster canónico de OpenStreetMap debajo del AOI', () => {
+    const analysis = base();
+    const section = sectionOf(analysis, 'portada');
+    const html = renderToStaticMarkup(
+      <StaticMap
+        state={section.map}
+        geometries={{ aoi: AOI, hydrology: [], protectedAreas: [], mepyd: [] }}
+        title="Plano raster OSM"
+      />,
+    );
+
+    expect(html).toContain('<image');
+    expect(html).toMatch(/https:\/\/tile\.openstreetmap\.org\/\d+\/\d+\/\d+\.png/);
+    expect(html).not.toContain('a.tile.openstreetmap.org');
+    expect(html).toContain('© OpenStreetMap contributors');
+  });
+
+  it('usa el raster OSM sin datos viales persistidos ni aviso de reanálisis', () => {
+    const analysis = base();
+    const section = sectionOf(analysis, 'portada');
+    const html = renderToStaticMarkup(
+      <StaticMap
+        state={section.map}
+        geometries={{
+          aoi: AOI,
+          hydrology: [],
+          protectedAreas: [],
+          mepyd: [],
+        }}
+        title="Plano raster sin viales"
+      />,
+    );
+
+    expect(html).toContain('data-testid="osm-raster-basemap"');
+    expect(html).not.toContain('osm-street-basemap');
+    expect(html).not.toContain('reanalizá este análisis');
+    expect(html).toContain('© OpenStreetMap contributors');
   });
 });
