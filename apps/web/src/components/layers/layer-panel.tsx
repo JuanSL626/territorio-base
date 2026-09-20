@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 
 import { LayerRow, type LayerRuntime } from './layer-row';
 
+import type { Provenance } from '@territorio/api-client';
 import type { LayerDef, LayerRole, ThemeId } from '~/layers/types';
 
 import { AccordionSection } from '~/components/ui/accordion';
@@ -24,6 +25,7 @@ export type LayerPanelProps = {
   visible: readonly string[];
   opacity: Readonly<Record<string, number>>;
   runtime: Readonly<Record<string, LayerRuntime>>;
+  provenance?: Provenance;
   hasAoi: boolean;
   inRd: boolean;
   touch: boolean;
@@ -62,6 +64,7 @@ export function LayerPanel(props: LayerPanelProps) {
     visible,
     opacity,
     runtime,
+    provenance,
     hasAoi,
     inRd,
     touch,
@@ -114,6 +117,7 @@ export function LayerPanel(props: LayerPanelProps) {
               <LayerRow
                 key={layer.id}
                 layer={layer}
+                provenance={provenance}
                 checked={checked}
                 opacity={opacity[layer.id] ?? layer.defaultOpacity}
                 runtime={runtime[layer.id] ?? DEFAULT_RUNTIME}

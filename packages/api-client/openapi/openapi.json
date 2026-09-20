@@ -2308,6 +2308,55 @@
             ],
             "title": "Sentinel2 Scene Ids"
           },
+          "sentinel2_acquisition_datetimes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Acquisition Datetimes",
+            "description": "Fechas de adquisición STAC de las escenas usadas, reciente primero."
+          },
+          "sentinel2_latest_acquisition_datetime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Latest Acquisition Datetime"
+          },
+          "sentinel2_oldest_acquisition_datetime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Oldest Acquisition Datetime"
+          },
+          "sentinel2_observation_age_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Observation Age Days",
+            "description": "Días entre la comprobación y la adquisición más reciente usada."
+          },
           "sentinel2_boa_offsets_applied": {
             "anyOf": [
               {

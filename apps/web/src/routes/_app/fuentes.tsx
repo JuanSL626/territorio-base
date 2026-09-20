@@ -647,7 +647,11 @@ function SourceCard({ entry }: { entry: SourceEntry }) {
 
       <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
         <Field label="Resolución espacial" value={source.resolution} />
-        <Field label="Vigencia / versión" value={source.vintage} />
+        <Field
+          label="Fecha de adquisición / referencia"
+          value={source.acquisition ?? 'No publicada por el proveedor'}
+        />
+        <Field label="Edición / versión" value={source.vintage} />
         <Field label="Cobertura" value={source.coverage} />
         <Field label="Capas que la usan" value={String(entry.layers.length)} />
       </dl>

@@ -75,7 +75,9 @@ export type SourceRef = {
   name: string;
   provider: string;
   url: string;
-  /** Vigencia o versión — columna fija de la tabla de metodología (§6.5). */
+  /** Fecha o período de adquisición/referencia del dato, si el proveedor la publica. */
+  acquisition?: string;
+  /** Edición o versión del producto — no se presenta como fecha de observación. */
   vintage: string;
   /** Resolución espacial nativa, en texto ("30 m", "Vectorial"). */
   resolution: string;

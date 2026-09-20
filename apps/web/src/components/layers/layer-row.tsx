@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { LayerInfoPopover } from './layer-info-popover';
 import { LegendSwatch } from './legend-swatch';
 
+import type { Provenance } from '@territorio/api-client';
 import type { LayerDef, LayerStatus } from '~/layers/types';
 
 import { LayerStatusChip } from '~/components/states/layer-status';
@@ -28,6 +29,7 @@ export type LayerRuntime = {
 
 export type LayerRowProps = {
   layer: LayerDef;
+  provenance?: Provenance;
   checked: boolean;
   opacity: number;
   runtime: LayerRuntime;
@@ -56,6 +58,7 @@ export type LayerRowProps = {
  */
 export function LayerRow({
   layer,
+  provenance,
   checked,
   opacity,
   runtime,
@@ -128,7 +131,12 @@ export function LayerRow({
           />
         )}
 
-        <LayerInfoPopover layer={layer} canDownload={canDownload} onDownload={onDownload} />
+        <LayerInfoPopover
+          layer={layer}
+          provenance={provenance}
+          canDownload={canDownload}
+          onDownload={onDownload}
+        />
 
         <IconButton
           label={`Opacidad de ${layer.label}`}

@@ -54,6 +54,40 @@ TREE_COVER_CLASS = 10
 # máscara para NO cambiar la composición mediana sin una decisión de producto, pero
 # el comentario ahora describe lo que la clase realmente significa.
 SCL_VALID_CLASSES = (4, 5, 6, 7, 11)
+SENTINEL2_COMPOSITE_SCENE_LIMIT = 6
+
+
+def _item_acquired_at(item: Any) -> _dt.datetime | None:
+    """Fecha de adquisición normalizada desde el metadato STAC del proveedor."""
+    acquired = getattr(item, "datetime", None)
+    if isinstance(acquired, _dt.datetime):
+        return acquired
+
+    raw = (getattr(item, "properties", None) or {}).get("datetime")
+    if not isinstance(raw, str):
+        return None
+    try:
+        return _dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def select_recent_sentinel2_items(items: Sequence[Any], limit: int = 6) -> list[Any]:
+    """Prioriza adquisición reciente; la nubosidad ya fue filtrada en STAC.
+
+    El flujo anterior ordenaba únicamente por ``eo:cloud_cover`` y podía usar
+    una escena de varios meses atrás aunque hubiera observaciones válidas más
+    recientes. La fecha del proveedor es ahora el criterio principal. Los
+    ítems sin fecha quedan al final y la nubosidad sólo desempata.
+    """
+
+    def key(item: Any) -> tuple[float, float]:
+        acquired = _item_acquired_at(item)
+        timestamp = acquired.timestamp() if acquired is not None else float("-inf")
+        cloud = float((getattr(item, "properties", None) or {}).get("eo:cloud_cover", 100))
+        return (-timestamp, cloud)
+
+    return sorted(items, key=key)[:limit]
 
 
 # H1 — BOA_ADD_OFFSET de Sentinel-2 L2A. REGLA (documentada acá porque es la
@@ -312,7 +346,7 @@ def fetch_dem(aoi: AOI, resolution_m: int = 30) -> xr.DataArray:
 def fetch_sentinel2_ndvi(
     aoi: AOI, resolution_m: int = 10, max_cloud_cover: int = 30, lookback_days: int = 180
 ) -> xr.DataArray:
-    """Mediana temporal de NDVI sobre las escenas menos nubladas de `lookback_days`.
+    """Mediana de NDVI sobre las escenas recientes que cumplen el umbral de nubes.
 
     Aplica el BOA_ADD_OFFSET por escena antes de calcular el índice (H1).
     """
@@ -331,7 +365,7 @@ def fetch_sentinel2_ndvi(
             "No se encontraron escenas Sentinel-2 con poca nubosidad en el rango de fechas. "
             "Prueba subiendo max_cloud_cover o lookback_days."
         )
-    items = sorted(items, key=lambda it: it.properties.get("eo:cloud_cover", 100))[:6]
+    items = select_recent_sentinel2_items(items, SENTINEL2_COMPOSITE_SCENE_LIMIT)
 
     ds = odc.stac.load(
         items,
@@ -364,6 +398,13 @@ def fetch_sentinel2_ndvi(
     out.attrs["source"] = "Sentinel-2 L2A (ESA Copernicus, vía Microsoft Planetary Computer)"
     out.attrs["scene_count"] = len(items)
     out.attrs["scene_ids"] = [getattr(it, "id", "?") for it in items]
+    acquisitions = [acquired.isoformat() for item in items if (acquired := _item_acquired_at(item))]
+    out.attrs["scene_acquired_at"] = acquisitions
+    out.attrs["latest_acquired_at"] = acquisitions[0] if acquisitions else None
+    out.attrs["oldest_acquired_at"] = acquisitions[-1] if acquisitions else None
+    if acquisitions:
+        latest_date = _dt.datetime.fromisoformat(acquisitions[0]).date()
+        out.attrs["observation_age_days"] = max(0, (end - latest_date).days)
     out.attrs["boa_offsets_applied"] = sorted({float(v) for v in red_offsets}) if len(red_offsets) else []
     out.attrs["lookback_days"] = lookback_days
     out.attrs["max_cloud_cover"] = max_cloud_cover

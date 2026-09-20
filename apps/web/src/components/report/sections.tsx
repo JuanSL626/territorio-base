@@ -294,7 +294,7 @@ export function TopografiaSection({
           onShowOnMap(section.id);
         }}
         download={downloadForLayer(analysis, 'dem')}
-        footnote="Copernicus DEM GLO-30 (30 m) recortado al polígono y reproyectado a la zona UTM local."
+        footnote="Copernicus DEM GLO-30 (30 m), modelo de superficie estático basado principalmente en adquisiciones TanDEM-X 2011–2015; recortado al polígono y reproyectado a la zona UTM local."
       >
         <StatList
           stats={[

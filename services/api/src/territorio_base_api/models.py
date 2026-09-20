@@ -195,6 +195,14 @@ class Provenance(BaseModel):
     )
     sentinel2_scene_count: int | None = None
     sentinel2_scene_ids: list[str] | None = None
+    sentinel2_acquisition_datetimes: list[str] | None = Field(
+        default=None, description="Fechas de adquisición STAC de las escenas usadas, reciente primero."
+    )
+    sentinel2_latest_acquisition_datetime: str | None = None
+    sentinel2_oldest_acquisition_datetime: str | None = None
+    sentinel2_observation_age_days: int | None = Field(
+        default=None, description="Días entre la comprobación y la adquisición más reciente usada."
+    )
     sentinel2_boa_offsets_applied: list[float] | None = Field(
         default=None,
         description=(

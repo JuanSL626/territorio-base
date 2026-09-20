@@ -762,14 +762,28 @@ export interface components {
              */
             derived_products?: components["schemas"]["DerivedProductProvenance"][];
             /**
+             * Sentinel2 Acquisition Datetimes
+             * @description Fechas de adquisición STAC de las escenas usadas, reciente primero.
+             */
+            sentinel2_acquisition_datetimes?: string[] | null;
+            /**
              * Sentinel2 Boa Offsets Applied
              * @description Offsets BOA_ADD_OFFSET (en DN) aplicados por escena antes del NDVI. [-1000.0] es lo esperable para baseline >= 04.00. Ver corrección H1.
              */
             sentinel2_boa_offsets_applied?: number[] | null;
+            /** Sentinel2 Latest Acquisition Datetime */
+            sentinel2_latest_acquisition_datetime?: string | null;
             /** Sentinel2 Lookback Days */
             sentinel2_lookback_days?: number | null;
             /** Sentinel2 Max Cloud Cover */
             sentinel2_max_cloud_cover?: number | null;
+            /**
+             * Sentinel2 Observation Age Days
+             * @description Días entre la comprobación y la adquisición más reciente usada.
+             */
+            sentinel2_observation_age_days?: number | null;
+            /** Sentinel2 Oldest Acquisition Datetime */
+            sentinel2_oldest_acquisition_datetime?: string | null;
             /** Sentinel2 Scene Count */
             sentinel2_scene_count?: number | null;
             /** Sentinel2 Scene Ids */

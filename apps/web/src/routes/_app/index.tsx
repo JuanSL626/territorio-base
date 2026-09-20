@@ -393,6 +393,7 @@ function MapWorkspace() {
       visible={visibility.visible}
       opacity={visibility.opacity}
       runtime={layerRuntime}
+      provenance={analysis?.provenance}
       hasAoi={hasAoi}
       inRd={inRd}
       touch={breakpoint === 'mobile' || breakpoint === 'tablet'}

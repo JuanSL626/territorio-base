@@ -70,7 +70,8 @@ const COLUMNS = [
   'Dataset',
   'Cita',
   'Resolución espacial',
-  'Vigencia/versión',
+  'Fecha de adquisición/referencia',
+  'Edición/versión',
   'Cobertura',
   'Licencia',
 ] as const;
@@ -81,8 +82,8 @@ export function SourcesTable({ usage }: { usage: DatasetUsage }) {
       <div className="rounded-panel border-border-base bg-surface overflow-x-auto border">
         <table className="w-full min-w-3xl border-collapse text-left">
           <caption className="sr-only">
-            Datasets efectivamente usados en este análisis, con su cita, resolución, vigencia,
-            cobertura y licencia.
+            Datasets efectivamente usados en este análisis, con su cita, resolución, fecha de
+            adquisición o referencia, edición, cobertura y licencia.
           </caption>
           <thead>
             <tr className="border-border-base bg-surface-2 border-b">
@@ -121,6 +122,9 @@ export function SourcesTable({ usage }: { usage: DatasetUsage }) {
                 </td>
                 <td className="text-11 text-fg-muted px-3 py-2">{row.source.citation}</td>
                 <td className="text-11 text-fg-muted px-3 py-2">{row.source.resolution}</td>
+                <td className="text-11 text-fg-muted px-3 py-2">
+                  {row.source.acquisition ?? 'No publicada'}
+                </td>
                 <td className="text-11 text-fg-muted px-3 py-2">{row.source.vintage}</td>
                 <td className="text-11 text-fg-muted px-3 py-2">{row.source.coverage}</td>
                 <td className="text-11 text-fg-muted px-3 py-2">{row.source.license}</td>

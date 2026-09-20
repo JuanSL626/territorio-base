@@ -1,5 +1,6 @@
 import { LegendDetail } from './legend-swatch';
 
+import type { Provenance } from '@territorio/api-client';
 import type { LayerDef } from '~/layers/types';
 
 import { Button } from '~/components/ui/button';
@@ -8,12 +9,32 @@ import { Popover } from '~/components/ui/popover';
 
 export type LayerInfoPopoverProps = {
   layer: LayerDef;
+  provenance?: Provenance;
   canDownload: boolean;
   onDownload: () => void;
 };
 
-export function LayerInfoPopover({ layer, canDownload, onDownload }: LayerInfoPopoverProps) {
+function formatAcquisition(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('es-DO', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'UTC',
+  }).format(date);
+}
+
+export function LayerInfoPopover({
+  layer,
+  provenance,
+  canDownload,
+  onDownload,
+}: LayerInfoPopoverProps) {
   const { source } = layer;
+  const isSentinel2 = layer.id === 'ndvi' || layer.id === 'ndvi-density';
+  const latestAcquisition = isSentinel2
+    ? provenance?.sentinel2_latest_acquisition_datetime
+    : undefined;
 
   return (
     <Popover
@@ -56,7 +77,27 @@ export function LayerInfoPopover({ layer, canDownload, onDownload }: LayerInfoPo
           <dt className="text-fg-subtle">Proveedor</dt>
           <dd className="text-fg">{source.provider}</dd>
 
-          <dt className="text-fg-subtle">Vigencia</dt>
+          <dt className="text-fg-subtle">
+            {latestAcquisition == null ? 'Fecha de adquisición' : 'Última adquisición usada'}
+          </dt>
+          <dd className="text-fg">
+            {latestAcquisition == null
+              ? (source.acquisition ?? 'No publicada por el proveedor')
+              : formatAcquisition(latestAcquisition)}
+          </dd>
+
+          {latestAcquisition != null && provenance?.sentinel2_observation_age_days != null ? (
+            <>
+              <dt className="text-fg-subtle">Antigüedad</dt>
+              <dd className="text-fg">
+                {provenance.sentinel2_observation_age_days === 0
+                  ? 'Hoy'
+                  : `${String(provenance.sentinel2_observation_age_days)} días`}
+              </dd>
+            </>
+          ) : null}
+
+          <dt className="text-fg-subtle">Edición / versión</dt>
           <dd className="text-fg">{source.vintage}</dd>
 
           <dt className="text-fg-subtle">Resolución</dt>

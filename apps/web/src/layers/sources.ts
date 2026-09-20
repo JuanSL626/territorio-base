@@ -11,7 +11,8 @@ export const SRC_COPERNICUS_DEM: SourceRef = {
   name: 'Copernicus DEM GLO-30',
   provider: 'ESA, vía Microsoft Planetary Computer',
   url: 'https://planetarycomputer.microsoft.com/dataset/cop-dem-glo-30',
-  vintage: '2021 (GLO-30, release 2021_1)',
+  acquisition: 'TanDEM-X / WorldDEM, principalmente 2011–2015',
+  vintage: 'GLO-30, release 2021_1 servida por Planetary Computer',
   resolution: '30 m',
   coverage: 'Global',
   license:
@@ -20,6 +21,8 @@ export const SRC_COPERNICUS_DEM: SourceRef = {
     'ESA / Airbus Defence and Space. Copernicus DEM GLO-30. Vía Microsoft Planetary Computer, colección `cop-dem-glo-30`.',
   method:
     'Modelo digital de elevación remuestreado al AOI y recortado a su geometría, reproyectado a la zona UTM local.',
+  caveat:
+    'Es un modelo de superficie estático, no una imagen adquirida en 2021. No representa obras, rellenos o cambios del relieve posteriores a las adquisiciones base.',
 };
 
 export const SRC_SLOPE: SourceRef = {
@@ -33,14 +36,15 @@ export const SRC_SENTINEL2: SourceRef = {
   name: 'Sentinel-2 L2A',
   provider: 'ESA Copernicus, vía Microsoft Planetary Computer',
   url: 'https://planetarycomputer.microsoft.com/dataset/sentinel-2-l2a',
-  vintage: 'Ventana móvil de 180 días',
+  acquisition: 'Fecha real de cada escena STAC; se muestra la última usada en la corrida',
+  vintage: 'Sentinel-2 L2A, ventana máxima de búsqueda de 180 días',
   resolution: '10 m',
   coverage: 'Global',
   license: 'Copernicus Sentinel data — libre, con atribución',
   citation:
     'Copernicus Sentinel-2 L2A. Vía Microsoft Planetary Computer, colección `sentinel-2-l2a`.',
   method:
-    'Mediana temporal de las 6 escenas menos nubladas de los últimos 180 días (filtro eo:cloud_cover < 30, máscara SCL {4,5,6,7,11}); NDVI = (NIR - Rojo) / (NIR + Rojo).',
+    'Mediana temporal de hasta 6 escenas, priorizadas por fecha de adquisición entre las que cumplen eo:cloud_cover < 30; máscara SCL {4,5,6,7,11}. NDVI = (NIR - Rojo) / (NIR + Rojo).',
   caveat:
     'Puede no haber escenas utilizables en zonas persistentemente nubladas. Que no haya dato no significa que no haya vegetación.',
 };
@@ -49,6 +53,7 @@ export const SRC_WORLDCOVER: SourceRef = {
   name: 'ESA WorldCover 2021',
   provider: 'ESA, vía Microsoft Planetary Computer',
   url: 'https://planetarycomputer.microsoft.com/dataset/esa-worldcover',
+  acquisition: 'Año de referencia 2021',
   vintage: '2021 (v200)',
   resolution: '10 m',
   coverage: 'Global',
@@ -57,6 +62,8 @@ export const SRC_WORLDCOVER: SourceRef = {
     'Zanaga, D. et al. (2022). ESA WorldCover 10 m 2021 v200. Vía Microsoft Planetary Computer.',
   method:
     'Clasificación de cobertura de suelo en 11 clases; el porcentaje se calcula sobre los píxeles dentro del AOI. La cobertura arbórea usa sólo el código 10.',
+  caveat:
+    'Producto histórico de referencia: no debe interpretarse como cobertura actual ni detectar cambios posteriores a 2021.',
 };
 
 export const SRC_OSM_HYDRO: SourceRef = {

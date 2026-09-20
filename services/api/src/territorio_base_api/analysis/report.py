@@ -181,6 +181,18 @@ def build_provenance(rasters: dict[str, xr.DataArray]) -> dict:
         "dem_item_count": (dem.attrs.get("stac_item_count") if dem is not None else None),
         "sentinel2_scene_count": (ndvi.attrs.get("scene_count") if ndvi is not None else None),
         "sentinel2_scene_ids": (ndvi.attrs.get("scene_ids") if ndvi is not None else None),
+        "sentinel2_acquisition_datetimes": (
+            ndvi.attrs.get("scene_acquired_at") if ndvi is not None else None
+        ),
+        "sentinel2_latest_acquisition_datetime": (
+            ndvi.attrs.get("latest_acquired_at") if ndvi is not None else None
+        ),
+        "sentinel2_oldest_acquisition_datetime": (
+            ndvi.attrs.get("oldest_acquired_at") if ndvi is not None else None
+        ),
+        "sentinel2_observation_age_days": (
+            ndvi.attrs.get("observation_age_days") if ndvi is not None else None
+        ),
         "sentinel2_boa_offsets_applied": (
             ndvi.attrs.get("boa_offsets_applied") if ndvi is not None else None
         ),

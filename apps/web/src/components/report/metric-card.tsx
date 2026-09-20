@@ -86,7 +86,9 @@ function CardInfoPopover({ layer }: { layer: LayerDef }) {
           </dd>
           <dt className="text-fg-subtle">Proveedor</dt>
           <dd className="text-fg">{source.provider}</dd>
-          <dt className="text-fg-subtle">Vigencia</dt>
+          <dt className="text-fg-subtle">Fecha de adquisición / referencia</dt>
+          <dd className="text-fg">{source.acquisition ?? 'No publicada por el proveedor'}</dd>
+          <dt className="text-fg-subtle">Edición / versión</dt>
           <dd className="text-fg">{source.vintage}</dd>
           <dt className="text-fg-subtle">Resolución</dt>
           <dd className="text-fg">{source.resolution}</dd>

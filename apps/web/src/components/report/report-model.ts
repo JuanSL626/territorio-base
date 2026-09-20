@@ -360,6 +360,16 @@ export function datasetUsage(analysis: TerritorioAnalysisSummary): DatasetUsage 
     analysis.vegetation.ndvi_error ??
       'No hubo escenas Sentinel-2 con menos de 30 % de nubes en la ventana consultada.',
   );
+  const sentinel = sourceOf('ndvi-density');
+  const sentinelRow = sentinel === undefined ? undefined : used.get(sentinel.source.name);
+  const latestSentinel = analysis.provenance.sentinel2_latest_acquisition_datetime;
+  if (sentinelRow !== undefined && latestSentinel != null) {
+    const age = analysis.provenance.sentinel2_observation_age_days;
+    sentinelRow.source = {
+      ...sentinelRow.source,
+      acquisition: `${latestSentinel} (última escena usada${age == null ? '' : `; ${String(age)} días de antigüedad`})`,
+    };
+  }
   consider(
     analysis.vegetation.worldcover_available,
     ['worldcover'],
