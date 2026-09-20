@@ -114,6 +114,17 @@ describe('WDPA', () => {
     await expect(fetchProtectedAreas(AOI, { fetchImpl })).resolves.toEqual([]);
   });
 
+  it('si falla el buffer consulta el AOI original en vez de declarar WDPA caído', async () => {
+    let calls = 0;
+    const fetchImpl: FetchLike = async () => {
+      calls += 1;
+      return await Promise.resolve(new Response(JSON.stringify(RESPONSE), { status: 200 }));
+    };
+
+    await expect(fetchProtectedAreas(AOI, { bufferM: 0, fetchImpl })).resolves.toHaveLength(1);
+    expect(calls).toBe(1);
+  });
+
   it('un HTTP 5xx sale como WdpaUnavailableError (UC-10)', async () => {
     const fetchImpl: FetchLike = async () =>
       await Promise.resolve(new Response('', { status: 503 }));

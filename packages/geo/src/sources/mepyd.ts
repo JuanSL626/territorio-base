@@ -19,7 +19,7 @@
 
 import { z } from 'zod';
 
-import { bufferAoi, type Aoi } from '../aoi';
+import { bufferAoiOrOriginal, type Aoi } from '../aoi';
 import { mapSettled } from '../concurrency';
 import { isGeometry, type Bounds2D, type Geometry } from '../geojson';
 import { arcgisRings } from '../geometry';
@@ -380,7 +380,7 @@ export async function fetchAllMepyd(
   if (!isInRd(aoi.bbox)) return { inRd: false, layers: [], failures: [] };
 
   const definitions = options.layers ?? MEPYD_LAYERS_FLAT;
-  const searchArea = bufferAoi(aoi, options.bufferM ?? MEPYD_BUFFER_M);
+  const searchArea = bufferAoiOrOriginal(aoi, options.bufferM ?? MEPYD_BUFFER_M);
   const rings = arcgisRings(searchArea);
 
   const settled = await mapSettled(

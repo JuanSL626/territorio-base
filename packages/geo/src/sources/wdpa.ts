@@ -9,7 +9,7 @@
 
 import { z } from 'zod';
 
-import { bufferAoi, type Aoi } from '../aoi';
+import { bufferAoiOrOriginal, type Aoi } from '../aoi';
 import { isGeometry, type AreaGeometry, type Geometry } from '../geojson';
 import { arcgisRings } from '../geometry';
 import { postFormJson, type RequestOptions } from '../http';
@@ -77,7 +77,7 @@ export async function fetchProtectedAreas(
   aoi: Aoi,
   options: RequestOptions & { bufferM?: number; url?: string } = {},
 ): Promise<ProtectedAreaFeature[]> {
-  const searchArea: AreaGeometry = bufferAoi(aoi, options.bufferM ?? WDPA_BUFFER_M);
+  const searchArea: AreaGeometry = bufferAoiOrOriginal(aoi, options.bufferM ?? WDPA_BUFFER_M);
 
   let payload: unknown;
   try {

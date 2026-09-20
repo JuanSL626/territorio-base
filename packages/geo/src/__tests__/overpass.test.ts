@@ -92,6 +92,18 @@ describe('fallback entre mirrors', () => {
     ]);
   });
 
+  it('si falla el buffer consulta el AOI original en vez de declarar Overpass caído', async () => {
+    const { fetchImpl, calls } = jsonFetch(() => ({ status: 200, body: OK_BODY }));
+    await expect(
+      fetchHydrology(AOI, {
+        bufferM: 0,
+        fetchImpl,
+        mirrors: [OVERPASS_MIRRORS[0] ?? ''],
+      }),
+    ).resolves.toHaveLength(1);
+    expect(calls).toHaveLength(1);
+  });
+
   it('un HTTP 200 con `remark` NO cuenta como éxito: los datos vienen truncados', async () => {
     const { fetchImpl, calls } = jsonFetch((url) =>
       url.includes('kumi')

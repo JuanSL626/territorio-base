@@ -214,3 +214,24 @@ export async function parseAoiFile(input: { data: Uint8Array; filename: string }
 export function bufferAoi(aoi: Aoi, meters: number): AreaGeometry {
   return bufferMeters(aoi.geometry, meters, aoi.utmEpsg);
 }
+
+/**
+ * Área de búsqueda tolerante a fallos topológicos del motor de buffer.
+ *
+ * Un AOI válido puede ser multiparte o tener un contorno muy fragmentado. En
+ * esos casos `polyclip-ts` — usado al disolver el buffer — puede lanzar
+ * `Unable to complete output ring`. Eso es un fallo local de la expansión,
+ * no una caída de Overpass, WDPA o MEPyD. Para las consultas de contexto es
+ * preferible perder únicamente el margen adicional y consultar el AOI
+ * original antes que atribuir el error al proveedor y omitir toda la fuente.
+ *
+ * `bufferAoi` se conserva estricto para cálculos que sí requieran garantizar
+ * el margen. Las fuentes remotas deben usar esta variante *best effort*.
+ */
+export function bufferAoiOrOriginal(aoi: Aoi, meters: number): AreaGeometry {
+  try {
+    return bufferAoi(aoi, meters);
+  } catch {
+    return aoi.geometry;
+  }
+}

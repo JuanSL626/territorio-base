@@ -185,6 +185,25 @@ describe('aislamiento de fallas y concurrencia (regresión #3, UC-12)', () => {
     expect(result.layers.some((l) => l.layer.id === broken.id)).toBe(false);
   });
 
+  it('si falla el buffer consulta el AOI original en vez de declarar MEPyD caído', async () => {
+    let calls = 0;
+    const fetchImpl: FetchLike = async () => {
+      calls += 1;
+      return await Promise.resolve(
+        new Response(JSON.stringify({ features: [feature(1)], properties: {} }), { status: 200 }),
+      );
+    };
+
+    const result = await fetchAllMepyd(RD_AOI, {
+      bufferM: 0,
+      fetchImpl,
+      layers: [MEPYD_LAYERS_FLAT[0]!],
+    });
+    expect(calls).toBe(1);
+    expect(result.layers).toHaveLength(1);
+    expect(result.failures).toEqual([]);
+  });
+
   it('las capas vacías se descartan: toda capa presente tiene count >= 1', async () => {
     const fetchImpl: FetchLike = async (url) =>
       await Promise.resolve(

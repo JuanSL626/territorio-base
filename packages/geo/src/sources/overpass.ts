@@ -31,7 +31,7 @@
 
 import { z } from 'zod';
 
-import { bufferAoi, type Aoi } from '../aoi';
+import { bufferAoiOrOriginal, type Aoi } from '../aoi';
 import {
   geometryBounds,
   type Geometry,
@@ -228,7 +228,7 @@ export async function fetchHydrology(
   aoi: Aoi,
   options: RequestOptions & { bufferM?: number; mirrors?: readonly string[] } = {},
 ): Promise<HydrologyFeature[]> {
-  const searchArea = bufferAoi(aoi, options.bufferM ?? HYDROLOGY_BUFFER_M);
+  const searchArea = bufferAoiOrOriginal(aoi, options.bufferM ?? HYDROLOGY_BUFFER_M);
   const data = await queryOverpass(buildQuery(geometryBounds(searchArea)), options);
 
   const features: HydrologyFeature[] = [];

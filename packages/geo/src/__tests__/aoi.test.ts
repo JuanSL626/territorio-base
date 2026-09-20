@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   AoiParseError,
+  bufferAoi,
+  bufferAoiOrOriginal,
   createAoi,
   formatFromFilename,
   loadAoiFromGeoJson,
@@ -226,5 +228,27 @@ describe('AOI — elección de zona UTM (H16)', () => {
     expect(aoi.bbox).toEqual([-69.6, 18.45, -69.59, 18.46]);
     expect(aoi.vertexCount).toBe(5);
     expect(aoi.areaHa).toBeGreaterThan(0);
+  });
+});
+
+describe('AOI — fallback del buffer para consultas remotas', () => {
+  it('conserva el AOI original si el motor topológico no puede construir el buffer', () => {
+    const aoi = createAoi({
+      type: 'Polygon',
+      coordinates: [
+        [
+          [-69.6, 18.45],
+          [-69.59, 18.45],
+          [-69.59, 18.46],
+          [-69.6, 18.46],
+          [-69.6, 18.45],
+        ],
+      ],
+    });
+
+    // Radio cero fuerza el mismo camino de excepción que un fallo topológico
+    // de polyclip, sin depender de detalles internos/versiones del motor.
+    expect(() => bufferAoi(aoi, 0)).toThrow(/radio/);
+    expect(bufferAoiOrOriginal(aoi, 0)).toEqual(aoi.geometry);
   });
 });
