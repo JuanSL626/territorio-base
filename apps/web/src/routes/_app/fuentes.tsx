@@ -1,5 +1,13 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
+import { useState } from 'react';
 
+import {
+  REMOTE_SENSING_SOURCES,
+  type LandsatPilotResult,
+  type RemoteSensingPilotResult,
+  type RemoteSensingScene,
+  type RemoteSensingSource,
+} from '@territorio/api-client';
 import { DATASET_CITATIONS } from '@territorio/geo/export/sources';
 
 import type { SourceRef } from '~/layers/types';
@@ -7,6 +15,7 @@ import type { SourceRef } from '~/layers/types';
 import { Badge, type BadgeTone } from '~/components/ui/badge';
 import { AlertIcon, ExternalIcon, InfoIcon } from '~/components/ui/icons';
 import { LAYER_REGISTRY } from '~/layers/registry';
+import { inspectPilotSource, runLandsatPilot } from '~/lib/remote-sensing-server';
 
 /**
  * `/fuentes` — el catálogo de fuentes de la plataforma.
@@ -201,6 +210,8 @@ function FuentesPage() {
         ))}
       </section>
 
+      <RemoteSensingPilot />
+
       <section className="mt-8">
         <h2 className="text-15 text-fg font-semibold">Límites y decisiones de exclusión</h2>
         <p className="text-12 text-fg-muted mt-1 max-w-2xl">
@@ -241,6 +252,366 @@ function FuentesPage() {
         </p>
       </section>
     </main>
+  );
+}
+
+const PILOT_LABELS: Record<RemoteSensingSource, string> = {
+  'planetary-computer-sentinel-2-l2a': 'Planetary Computer · Sentinel-2 L2A',
+  'cdse-sentinel-2-l2a': 'CDSE · Sentinel-2 L2A',
+  'cdse-sentinel-1-grd': 'CDSE · Sentinel-1 GRD SAR',
+  'usgs-m2m-landsat-9-c2-l2': 'USGS M2M · Landsat 9 C2 L2',
+  'nasa-earthdata-viirs-nrt': 'NASA Earthdata · VIIRS NRT',
+  'nasa-gibs-wmts': 'NASA GIBS · WMTS temporal',
+};
+
+const STATUS_LABELS: Record<RemoteSensingPilotResult['temporal']['status'], string> = {
+  updated: 'Actualizada',
+  delayed: 'Retrasada',
+  cloudy: 'Nublada',
+  no_valid_data: 'Sin dato válido',
+  provider_error: 'Error de proveedor',
+  credentials_required: 'Requiere credencial gratuita',
+};
+
+function pilotStatusTone(status: RemoteSensingPilotResult['temporal']['status']): BadgeTone {
+  if (status === 'updated') return 'success';
+  if (status === 'delayed' || status === 'cloudy' || status === 'credentials_required') {
+    return 'warning';
+  }
+  return 'neutral';
+}
+
+function displayDate(value: string | null | undefined): string {
+  if (value == null) return 'No publicada';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString('es-DO');
+}
+
+function RemoteSensingPilot() {
+  const [results, setResults] = useState<
+    Partial<Record<RemoteSensingSource, RemoteSensingPilotResult>>
+  >({});
+  const [errors, setErrors] = useState<Partial<Record<RemoteSensingSource, string>>>({});
+  const [loading, setLoading] = useState<RemoteSensingSource | null>(null);
+  const [landsat, setLandsat] = useState<LandsatPilotResult | null>(null);
+  const [landsatError, setLandsatError] = useState<string | null>(null);
+  const [landsatLoading, setLandsatLoading] = useState(false);
+
+  async function inspect(source: RemoteSensingSource): Promise<void> {
+    setLoading(source);
+    setErrors((current) => ({ ...current, [source]: undefined }));
+    try {
+      const response = await inspectPilotSource({ data: { source } });
+      if (!response.ok) {
+        setErrors((current) => ({ ...current, [source]: response.message }));
+        return;
+      }
+      setResults((current) => ({ ...current, [source]: response.data }));
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function generateLandsatNdvi(): Promise<void> {
+    setLandsatLoading(true);
+    setLandsatError(null);
+    try {
+      const response = await runLandsatPilot();
+      if (!response.ok) {
+        setLandsatError(response.message);
+        return;
+      }
+      setLandsat(response.data);
+    } finally {
+      setLandsatLoading(false);
+    }
+  }
+
+  return (
+    <section className="mt-8" aria-labelledby="remote-sensing-pilot-title">
+      <h2 id="remote-sensing-pilot-title" className="text-15 text-fg font-semibold">
+        Piloto de teledetección reciente
+      </h2>
+      <p className="text-12 text-fg-muted mt-1 max-w-2xl">
+        Consulta una única observación sobre el AOI piloto de Santo Domingo. La adquisición es la
+        fecha principal; una escena nublada nunca hace pasar una observación anterior por actual.
+      </p>
+      <ul className="mt-3 flex flex-col gap-3">
+        {REMOTE_SENSING_SOURCES.map((source) => {
+          const result = results[source];
+          const temporal = result?.temporal;
+          const latest = temporal?.last_scene_available;
+          const valid = temporal?.last_valid_cloud_free_scene;
+          const used = temporal?.last_scene_used;
+          const technicalScene = used ?? latest;
+          return (
+            <li key={source} className="rounded-panel border-border-base bg-surface border p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-13 text-fg font-semibold">{PILOT_LABELS[source]}</h3>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={loading !== null || landsatLoading}
+                    onClick={() => void inspect(source)}
+                    className="rounded-chip border-border-strong text-11 text-fg border px-2.5 py-1 disabled:opacity-50"
+                  >
+                    {loading === source ? 'Consultando…' : 'Consultar dato reciente'}
+                  </button>
+                  {source === 'usgs-m2m-landsat-9-c2-l2' ? (
+                    <button
+                      type="button"
+                      disabled={loading !== null || landsatLoading}
+                      onClick={() => void generateLandsatNdvi()}
+                      className="rounded-chip bg-accent text-accent-fg text-11 px-2.5 py-1 disabled:opacity-50"
+                    >
+                      {landsatLoading ? 'Generando…' : 'Generar NDVI Landsat'}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+              {errors[source] != null ? (
+                <p className="text-12 text-danger mt-2">{errors[source]}</p>
+              ) : null}
+              {result != null && temporal != null ? (
+                <div className="mt-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone={pilotStatusTone(temporal.status)}>
+                      {STATUS_LABELS[temporal.status]}
+                    </Badge>
+                    <span className="text-11 text-fg-muted">
+                      Comprobada {displayDate(result.checked_at)}{' '}
+                      {result.cached ? '· caché' : '· proveedor'}
+                    </span>
+                  </div>
+                  <p className="text-12 text-fg-muted mt-2">{temporal.message}</p>
+                  <dl className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+                    <Field
+                      label="Última escena disponible"
+                      value={displayDate(latest?.acquisition_datetime)}
+                    />
+                    <Field
+                      label="Última válida sin nubes"
+                      value={displayDate(valid?.acquisition_datetime)}
+                    />
+                    <Field
+                      label="Última imagen usada"
+                      value={displayDate(used?.acquisition_datetime)}
+                    />
+                    <Field
+                      label="Antigüedad de observación válida"
+                      value={
+                        temporal.observation_age_hours == null
+                          ? 'No calculable'
+                          : `${temporal.observation_age_hours} h`
+                      }
+                    />
+                    <Field label="Escena" value={latest?.scene_id ?? 'Sin escena'} />
+                    <Field
+                      label="Nubosidad"
+                      value={
+                        latest?.cloud_cover_pct == null
+                          ? 'No publicada / no aplica'
+                          : `${latest.cloud_cover_pct}%`
+                      }
+                    />
+                    <Field
+                      label="Colección / nivel"
+                      value={`${latest?.collection ?? '—'} · ${latest?.product_level ?? '—'}`}
+                    />
+                    <Field
+                      label="Bandas declaradas"
+                      value={
+                        latest?.total_band_count == null
+                          ? 'No publicado'
+                          : String(latest.total_band_count)
+                      }
+                    />
+                  </dl>
+                  {latest?.attribution != null ? (
+                    <p className="text-11 text-fg-muted mt-2">Atribución: {latest.attribution}</p>
+                  ) : null}
+                  {(result.credentials_required?.length ?? 0) > 0 ? (
+                    <p className="text-11 text-warning mt-2">
+                      Falta en backend: {(result.credentials_required ?? []).join(', ')}
+                    </p>
+                  ) : null}
+                  {technicalScene == null ? null : <SceneTechnicalSheet scene={technicalScene} />}
+                </div>
+              ) : null}
+              {source === 'usgs-m2m-landsat-9-c2-l2' && landsatError != null ? (
+                <p className="text-12 text-danger mt-2">{landsatError}</p>
+              ) : null}
+              {source === 'usgs-m2m-landsat-9-c2-l2' && landsat != null ? (
+                <LandsatResult result={landsat} />
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function formatBytes(value: number | null | undefined): string {
+  if (value == null) return 'No publicado';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let amount = value;
+  let index = 0;
+  while (amount >= 1000 && index < units.length - 1) {
+    amount /= 1000;
+    index += 1;
+  }
+  const unit = units[index] ?? 'B';
+  return `${value.toLocaleString('es-DO')} bytes (${amount.toFixed(index === 0 ? 0 : 2)} ${unit})`;
+}
+
+function SceneTechnicalSheet({ scene }: { scene: RemoteSensingScene }) {
+  const spectral = scene.spectral_range_um;
+  const origins = Object.entries(scene.metadata_origin ?? {})
+    .map(([field, origin]) => `${field}: ${origin}`)
+    .join(' · ');
+  return (
+    <div className="border-border-base mt-3 border-t pt-3">
+      <p className="text-11 text-fg-subtle font-semibold tracking-wide uppercase">
+        Ficha técnica de la escena usada
+      </p>
+      <dl className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+        <Field label="Fuente" value={scene.source} />
+        <Field
+          label="Misión / sensor"
+          value={`${scene.mission} · ${scene.sensor ?? 'No publicado'}`}
+        />
+        <Field
+          label="Colección / nivel"
+          value={`${scene.collection} · ${scene.product_level ?? 'No publicado'}`}
+        />
+        <Field label="ID de escena" value={scene.scene_id} />
+        <Field label="Fecha de adquisición" value={displayDate(scene.acquisition_datetime)} />
+        <Field label="Publicación / proceso" value={displayDate(scene.published_or_processed_at)} />
+        <Field label="Última comprobación" value={displayDate(scene.last_checked_at)} />
+        <Field
+          label="Nubosidad / validez"
+          value={`${scene.cloud_cover_pct == null ? 'No publicada' : `${scene.cloud_cover_pct}%`} · ${scene.cloud_validity}`}
+        />
+        <Field
+          label="Bandas totales"
+          value={scene.total_band_count == null ? 'No publicado' : String(scene.total_band_count)}
+        />
+        <Field
+          label="Rango espectral"
+          value={spectral == null ? 'No publicado' : `${spectral[0]}–${spectral[1]} µm`}
+        />
+        <Field label="Licencia" value={scene.license ?? 'No publicada'} />
+        <Field label="Atribución" value={scene.attribution ?? 'No publicada'} />
+      </dl>
+      {(scene.assets?.length ?? 0) === 0 ? (
+        <p className="text-11 text-fg-muted mt-2">
+          El proveedor no publicó metadatos técnicos de assets en esta respuesta.
+        </p>
+      ) : (
+        <ul className="mt-3 flex flex-col gap-2">
+          {(scene.assets ?? []).map((asset) => (
+            <li key={asset.key} className="rounded-panel bg-surface-2 p-3">
+              <p className="text-12 text-fg font-semibold">
+                {asset.key} {asset.title == null ? '' : `· ${asset.title}`}
+              </p>
+              <dl className="mt-2 grid grid-cols-1 gap-x-5 gap-y-1 sm:grid-cols-2">
+                <Field label="Formato" value={asset.format ?? 'No publicado'} />
+                <Field label="Tamaño" value={formatBytes(asset.file_size_bytes)} />
+                <Field
+                  label="Dimensiones"
+                  value={
+                    asset.raster_dimensions_px == null
+                      ? 'No publicadas'
+                      : `${asset.raster_dimensions_px[0]} × ${asset.raster_dimensions_px[1]} px`
+                  }
+                />
+                <Field
+                  label="Proyección"
+                  value={`${asset.projection ?? 'No publicada'}${asset.epsg == null ? '' : ` · EPSG:${asset.epsg}`}`}
+                />
+                <Field label="Datum" value={asset.datum ?? 'No publicado'} />
+                <Field label="Tipo de dato" value={asset.data_type ?? 'No publicado'} />
+                <Field
+                  label="Resolución radiométrica efectiva"
+                  value={
+                    asset.effective_radiometric_resolution_bits == null
+                      ? 'No publicada (no inferida del dtype)'
+                      : `${asset.effective_radiometric_resolution_bits} bits`
+                  }
+                />
+                <Field
+                  label="Bandas del asset"
+                  value={
+                    (asset.bands?.length ?? 0) === 0
+                      ? 'No publicadas'
+                      : (asset.bands ?? [])
+                          .map((band) => {
+                            const resolution =
+                              band.resolution_m == null ? '' : ` · ${band.resolution_m} m`;
+                            const wavelength =
+                              band.wavelength_min_um == null || band.wavelength_max_um == null
+                                ? ''
+                                : ` · ${band.wavelength_min_um}–${band.wavelength_max_um} µm`;
+                            return `${band.id}${resolution}${wavelength}`;
+                          })
+                          .join('; ')
+                  }
+                />
+              </dl>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="text-11 text-fg-muted mt-2">
+        Origen de metadatos: {origins === '' ? 'No declarado' : origins}
+      </p>
+    </div>
+  );
+}
+
+function LandsatResult({ result }: { result: LandsatPilotResult }) {
+  const ready = result.status === 'ready';
+  const preview = `/api/raster/landsat/${encodeURIComponent(result.cache_key)}/preview.png`;
+  const raster = `/api/raster/landsat/${encodeURIComponent(result.cache_key)}/ndvi.tif`;
+  return (
+    <div className="border-border-base mt-3 border-t pt-3">
+      <p className={`text-12 ${ready ? 'text-success' : 'text-warning'}`}>{result.message}</p>
+      {result.scene != null ? (
+        <dl className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+          <Field label="Escena usada" value={result.scene.scene_id} />
+          <Field
+            label="Fecha de adquisición"
+            value={displayDate(result.scene.acquisition_datetime)}
+          />
+          <Field
+            label="Bandas usadas"
+            value={result.derived_product?.bands_used.join(', ') ?? '—'}
+          />
+          <Field label="Fórmula" value={result.derived_product?.formula ?? '—'} />
+          <Field
+            label="NDVI medio"
+            value={result.summary == null ? '—' : result.summary.mean.toFixed(4)}
+          />
+          <Field
+            label="Píxeles válidos"
+            value={result.summary == null ? '—' : `${result.summary.valid_pixel_pct}%`}
+          />
+        </dl>
+      ) : null}
+      {ready ? (
+        <div className="mt-3">
+          <img
+            src={preview}
+            alt="Previsualización NDVI Landsat 9 del AOI piloto"
+            className="border-border-base max-h-72 w-full rounded border object-contain"
+          />
+          <a className="text-11 text-accent mt-2 inline-block underline" href={raster}>
+            Descargar GeoTIFF NDVI trazable
+          </a>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

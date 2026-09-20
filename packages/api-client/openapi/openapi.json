@@ -930,6 +930,278 @@
           }
         }
       }
+    },
+    "/remote-sensing/pilot/sources": {
+      "get": {
+        "tags": [
+          "teledetección"
+        ],
+        "summary": "List Remote Sensing Sources",
+        "description": "Lista las seis pruebas y declara de antemano sus credenciales gratuitas.",
+        "operationId": "listRemoteSensingPilotSources",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteSensingSourcesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/remote-sensing/pilot/inspect": {
+      "post": {
+        "tags": [
+          "teledetección"
+        ],
+        "summary": "Inspect Remote Sensing Source",
+        "description": "Consulta un dato reciente, normaliza su ficha y la guarda en caché saneada.",
+        "operationId": "inspectRemoteSensingPilotSource",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoteSensingPilotRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteSensingPilotResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/remote-sensing/pilot/landsat": {
+      "post": {
+        "tags": [
+          "teledetección"
+        ],
+        "summary": "Run Landsat Pilot",
+        "description": "Genera un NDVI mínimo con B4/B5/QA de una escena real de Landsat 9.",
+        "operationId": "runLandsatPilot",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LandsatPilotRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LandsatPilotResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/remote-sensing/pilot/landsat/{cache_key}/preview.png": {
+      "get": {
+        "tags": [
+          "teledetección"
+        ],
+        "summary": "Get Landsat Pilot Preview",
+        "operationId": "getLandsatPilotPreview",
+        "parameters": [
+          {
+            "name": "cache_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cache Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/remote-sensing/pilot/landsat/{cache_key}/ndvi.tif": {
+      "get": {
+        "tags": [
+          "teledetección"
+        ],
+        "summary": "Get Landsat Pilot Raster",
+        "operationId": "getLandsatPilotRaster",
+        "parameters": [
+          {
+            "name": "cache_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cache Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1401,6 +1673,81 @@
         "title": "CoastalSummary",
         "description": "Idéntico a `summarize_coastal_flood` del legacy."
       },
+      "DerivedProductProvenance": {
+        "properties": {
+          "product": {
+            "type": "string",
+            "title": "Product"
+          },
+          "formula": {
+            "type": "string",
+            "title": "Formula"
+          },
+          "parameters": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "items": {
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
+                {
+                  "items": {
+                    "type": "integer"
+                  },
+                  "type": "array"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Parameters"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "scene_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Scene Ids"
+          },
+          "bands_used": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Bands Used"
+          },
+          "metadata_origin": {
+            "type": "string",
+            "const": "derived",
+            "title": "Metadata Origin",
+            "default": "derived"
+          }
+        },
+        "type": "object",
+        "required": [
+          "product",
+          "formula",
+          "source",
+          "scene_ids",
+          "bands_used"
+        ],
+        "title": "DerivedProductProvenance",
+        "description": "Traza reproducible desde un resultado derivado hasta escenas y bandas."
+      },
       "ErrorResponse": {
         "properties": {
           "detail": {
@@ -1453,6 +1800,167 @@
           "jobs_in_flight"
         ],
         "title": "HealthResponse"
+      },
+      "LandsatNdviSummary": {
+        "properties": {
+          "mean": {
+            "type": "number",
+            "title": "Mean"
+          },
+          "median": {
+            "type": "number",
+            "title": "Median"
+          },
+          "p90": {
+            "type": "number",
+            "title": "P90"
+          },
+          "valid_pixel_pct": {
+            "type": "number",
+            "title": "Valid Pixel Pct"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mean",
+          "median",
+          "p90",
+          "valid_pixel_pct"
+        ],
+        "title": "LandsatNdviSummary"
+      },
+      "LandsatPilotRequest": {
+        "properties": {
+          "aoi": {
+            "$ref": "#/components/schemas/AoiGeometry"
+          },
+          "lookback_days": {
+            "type": "integer",
+            "maximum": 365,
+            "minimum": 1,
+            "title": "Lookback Days",
+            "default": 90
+          },
+          "max_cloud_cover": {
+            "type": "integer",
+            "maximum": 100,
+            "minimum": 0,
+            "title": "Max Cloud Cover",
+            "default": 30
+          }
+        },
+        "type": "object",
+        "required": [
+          "aoi"
+        ],
+        "title": "LandsatPilotRequest"
+      },
+      "LandsatPilotResult": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "preparing",
+              "no_valid_data",
+              "provider_error",
+              "credentials_required",
+              "access_required"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached"
+          },
+          "cache_key": {
+            "type": "string",
+            "title": "Cache Key"
+          },
+          "checked_at": {
+            "type": "string",
+            "title": "Checked At"
+          },
+          "scene": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RemoteSensingScene"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_assets": {
+            "items": {
+              "$ref": "#/components/schemas/RemoteSensingAsset"
+            },
+            "type": "array",
+            "title": "Source Assets"
+          },
+          "derived_product": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DerivedProductProvenance"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LandsatNdviSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "preview_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview Url"
+          },
+          "raster_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raster Url"
+          },
+          "credentials_required": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Credentials Required"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "message",
+          "cached",
+          "cache_key",
+          "checked_at"
+        ],
+        "title": "LandsatPilotResult"
       },
       "LayerAvailability": {
         "properties": {
@@ -1848,11 +2356,661 @@
             ],
             "title": "Worldcover Epoch Year",
             "description": "Época única seleccionada (corrección H2). Nunca es una mezcla."
+          },
+          "derived_products": {
+            "items": {
+              "$ref": "#/components/schemas/DerivedProductProvenance"
+            },
+            "type": "array",
+            "title": "Derived Products",
+            "description": "Fórmula, parámetros, escenas y bandas de cada resultado calculado."
           }
         },
         "type": "object",
         "title": "Provenance",
         "description": "Qué se usó realmente en esta corrida (alimenta la tabla 'Fuentes y metodología')."
+      },
+      "RemoteSensingAsset": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Format",
+            "description": "MIME/rol declarado por el proveedor."
+          },
+          "file_size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Size Bytes"
+          },
+          "raster_dimensions_px": {
+            "anyOf": [
+              {
+                "prefixItems": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ],
+                "type": "array",
+                "maxItems": 2,
+                "minItems": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raster Dimensions Px",
+            "description": "(ancho, alto); solo si lo declara STAC/COG."
+          },
+          "epsg": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Epsg"
+          },
+          "projection": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Projection"
+          },
+          "datum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Datum"
+          },
+          "data_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Type"
+          },
+          "effective_radiometric_resolution_bits": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Radiometric Resolution Bits",
+            "description": "Resolución radiométrica efectiva; nunca se infiere del dtype almacenado."
+          },
+          "bands": {
+            "items": {
+              "$ref": "#/components/schemas/RemoteSensingBand"
+            },
+            "type": "array",
+            "title": "Bands"
+          },
+          "href": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Href",
+            "description": "Referencia sin query string: nunca URL firmada, token ni credencial."
+          }
+        },
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "title": "RemoteSensingAsset"
+      },
+      "RemoteSensingBand": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Common Name"
+          },
+          "resolution_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution M"
+          },
+          "center_wavelength_um": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Center Wavelength Um"
+          },
+          "full_width_half_max_um": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Width Half Max Um"
+          },
+          "wavelength_min_um": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wavelength Min Um"
+          },
+          "wavelength_max_um": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wavelength Max Um"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "RemoteSensingBand"
+      },
+      "RemoteSensingPilotRequest": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "planetary-computer-sentinel-2-l2a",
+              "cdse-sentinel-2-l2a",
+              "cdse-sentinel-1-grd",
+              "usgs-m2m-landsat-9-c2-l2",
+              "nasa-earthdata-viirs-nrt",
+              "nasa-gibs-wmts"
+            ],
+            "title": "Source"
+          },
+          "aoi": {
+            "$ref": "#/components/schemas/AoiGeometry"
+          },
+          "lookback_days": {
+            "type": "integer",
+            "maximum": 365,
+            "minimum": 1,
+            "title": "Lookback Days",
+            "default": 21
+          },
+          "max_cloud_cover": {
+            "type": "integer",
+            "maximum": 100,
+            "minimum": 0,
+            "title": "Max Cloud Cover",
+            "default": 30
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "aoi"
+        ],
+        "title": "RemoteSensingPilotRequest"
+      },
+      "RemoteSensingPilotResult": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "planetary-computer-sentinel-2-l2a",
+              "cdse-sentinel-2-l2a",
+              "cdse-sentinel-1-grd",
+              "usgs-m2m-landsat-9-c2-l2",
+              "nasa-earthdata-viirs-nrt",
+              "nasa-gibs-wmts"
+            ],
+            "title": "Source"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached"
+          },
+          "cache_key": {
+            "type": "string",
+            "title": "Cache Key"
+          },
+          "checked_at": {
+            "type": "string",
+            "title": "Checked At"
+          },
+          "temporal": {
+            "$ref": "#/components/schemas/RemoteSensingTemporalState"
+          },
+          "preview_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview Url",
+            "description": "Thumbnail/WMTS público sin firma; una referencia verificable, no un resultado analítico."
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Limitations"
+          },
+          "credentials_required": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Credentials Required"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "cached",
+          "cache_key",
+          "checked_at",
+          "temporal"
+        ],
+        "title": "RemoteSensingPilotResult"
+      },
+      "RemoteSensingScene": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "mission": {
+            "type": "string",
+            "title": "Mission"
+          },
+          "sensor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sensor"
+          },
+          "collection": {
+            "type": "string",
+            "title": "Collection"
+          },
+          "product_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Level"
+          },
+          "scene_id": {
+            "type": "string",
+            "title": "Scene Id"
+          },
+          "acquisition_datetime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acquisition Datetime"
+          },
+          "published_or_processed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Or Processed At"
+          },
+          "last_checked_at": {
+            "type": "string",
+            "title": "Last Checked At"
+          },
+          "cloud_cover_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloud Cover Pct"
+          },
+          "cloud_validity": {
+            "type": "string",
+            "enum": [
+              "valid",
+              "cloudy",
+              "unknown"
+            ],
+            "title": "Cloud Validity",
+            "default": "unknown"
+          },
+          "license": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License"
+          },
+          "attribution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attribution"
+          },
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/RemoteSensingAsset"
+            },
+            "type": "array",
+            "title": "Assets"
+          },
+          "total_band_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Band Count"
+          },
+          "spectral_range_um": {
+            "anyOf": [
+              {
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array",
+                "maxItems": 2,
+                "minItems": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spectral Range Um"
+          },
+          "metadata_origin": {
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "provider",
+                "derived",
+                "unavailable"
+              ]
+            },
+            "type": "object",
+            "title": "Metadata Origin"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "mission",
+          "collection",
+          "scene_id",
+          "last_checked_at"
+        ],
+        "title": "RemoteSensingScene"
+      },
+      "RemoteSensingSourceInfo": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "planetary-computer-sentinel-2-l2a",
+              "cdse-sentinel-2-l2a",
+              "cdse-sentinel-1-grd",
+              "usgs-m2m-landsat-9-c2-l2",
+              "nasa-earthdata-viirs-nrt",
+              "nasa-gibs-wmts"
+            ],
+            "title": "Source"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "collection": {
+            "type": "string",
+            "title": "Collection"
+          },
+          "free_to_use": {
+            "type": "boolean",
+            "title": "Free To Use",
+            "default": true
+          },
+          "credentials_required": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Credentials Required"
+          },
+          "purpose": {
+            "type": "string",
+            "title": "Purpose"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "provider",
+          "collection",
+          "purpose"
+        ],
+        "title": "RemoteSensingSourceInfo"
+      },
+      "RemoteSensingSourcesResponse": {
+        "properties": {
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/RemoteSensingSourceInfo"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sources"
+        ],
+        "title": "RemoteSensingSourcesResponse"
+      },
+      "RemoteSensingTemporalState": {
+        "properties": {
+          "last_scene_available": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RemoteSensingScene"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_valid_cloud_free_scene": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RemoteSensingScene"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_scene_used": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RemoteSensingScene"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "observation_age_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Age Hours",
+            "description": "Antigüedad derivada desde la adquisición de la última escena válida."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "updated",
+              "delayed",
+              "cloudy",
+              "no_valid_data",
+              "provider_error",
+              "credentials_required"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "RemoteSensingTemporalState"
       },
       "TopographyResult": {
         "properties": {
@@ -2173,6 +3331,10 @@
     {
       "name": "costera",
       "description": "Inundación costera WRI Aqueduct, on-demand."
+    },
+    {
+      "name": "teledetección",
+      "description": "Piloto aislado de catálogos gratuitos y metadatos trazables."
     }
   ]
 }

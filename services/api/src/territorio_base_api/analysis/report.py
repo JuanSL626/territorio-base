@@ -155,6 +155,27 @@ def build_provenance(rasters: dict[str, xr.DataArray]) -> dict:
     ndvi = rasters.get("ndvi")
     worldcover = rasters.get("worldcover")
     dem = rasters.get("dem")
+    scene_ids = ndvi.attrs.get("scene_ids") if ndvi is not None else None
+    offsets = ndvi.attrs.get("boa_offsets_applied") if ndvi is not None else None
+    derived_products = []
+    if ndvi is not None and scene_ids:
+        derived_products.append(
+            {
+                "product": "NDVI",
+                "formula": "(NIR + nir_offset - RED - red_offset) / "
+                "(NIR + nir_offset + RED + red_offset)",
+                "parameters": {
+                    "composite": "median",
+                    "red_offset_dn": list(offsets or []),
+                    "nir_offset_dn": list(offsets or []),
+                    "valid_scl_classes": list(stac.SCL_VALID_CLASSES),
+                },
+                "source": "Sentinel-2 L2A via Microsoft Planetary Computer",
+                "scene_ids": list(scene_ids),
+                "bands_used": ["B04 (red)", "B08 (nir)", "SCL (quality mask)"],
+                "metadata_origin": "derived",
+            }
+        )
     return {
         "dem_source": (dem.attrs.get("source") if dem is not None else None),
         "dem_item_count": (dem.attrs.get("stac_item_count") if dem is not None else None),
@@ -170,4 +191,5 @@ def build_provenance(rasters: dict[str, xr.DataArray]) -> dict:
         "worldcover_epoch_year": (
             worldcover.attrs.get("epoch_year") if worldcover is not None else None
         ),
+        "derived_products": derived_products,
     }

@@ -21,6 +21,7 @@ import { Route as AppDescargasJobIdZipRouteImport } from './routes/_app/descarga
 import { Route as AppReporteAnalysisIdIndexRouteImport } from './routes/_app/reporte.$analysisId.index'
 import { Route as AppReporteAnalysisIdImprimirRouteImport } from './routes/_app/reporte.$analysisId.imprimir'
 import { Route as ApiRasterCoastalCacheKeyFileRouteImport } from './routes/api/raster.coastal.$cacheKey.$file'
+import { Route as ApiRasterLandsatCacheKeyFileRouteImport } from './routes/api/raster.landsat.$cacheKey.$file'
 import { Route as ApiRasterAnalysisRasterJobIdKindFileRouteImport } from './routes/api/raster.analysis.$rasterJobId.$kind.$file'
 
 const AppRoute = AppRouteImport.update({
@@ -85,6 +86,12 @@ const ApiRasterCoastalCacheKeyFileRoute =
     path: '/api/raster/coastal/$cacheKey/$file',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiRasterLandsatCacheKeyFileRoute =
+  ApiRasterLandsatCacheKeyFileRouteImport.update({
+    id: '/api/raster/landsat/$cacheKey/$file',
+    path: '/api/raster/landsat/$cacheKey/$file',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiRasterAnalysisRasterJobIdKindFileRoute =
   ApiRasterAnalysisRasterJobIdKindFileRouteImport.update({
     id: '/api/raster/analysis/$rasterJobId/$kind/$file',
@@ -104,6 +111,7 @@ export interface FileRoutesByFullPath {
   '/reporte/$analysisId/imprimir': typeof AppReporteAnalysisIdImprimirRoute
   '/reporte/$analysisId/': typeof AppReporteAnalysisIdIndexRoute
   '/api/raster/coastal/$cacheKey/$file': typeof ApiRasterCoastalCacheKeyFileRoute
+  '/api/raster/landsat/$cacheKey/$file': typeof ApiRasterLandsatCacheKeyFileRoute
   '/api/raster/analysis/$rasterJobId/$kind/$file': typeof ApiRasterAnalysisRasterJobIdKindFileRoute
 }
 export interface FileRoutesByTo {
@@ -118,6 +126,7 @@ export interface FileRoutesByTo {
   '/reporte/$analysisId/imprimir': typeof AppReporteAnalysisIdImprimirRoute
   '/reporte/$analysisId': typeof AppReporteAnalysisIdIndexRoute
   '/api/raster/coastal/$cacheKey/$file': typeof ApiRasterCoastalCacheKeyFileRoute
+  '/api/raster/landsat/$cacheKey/$file': typeof ApiRasterLandsatCacheKeyFileRoute
   '/api/raster/analysis/$rasterJobId/$kind/$file': typeof ApiRasterAnalysisRasterJobIdKindFileRoute
 }
 export interface FileRoutesById {
@@ -134,6 +143,7 @@ export interface FileRoutesById {
   '/_app/reporte/$analysisId/imprimir': typeof AppReporteAnalysisIdImprimirRoute
   '/_app/reporte/$analysisId/': typeof AppReporteAnalysisIdIndexRoute
   '/api/raster/coastal/$cacheKey/$file': typeof ApiRasterCoastalCacheKeyFileRoute
+  '/api/raster/landsat/$cacheKey/$file': typeof ApiRasterLandsatCacheKeyFileRoute
   '/api/raster/analysis/$rasterJobId/$kind/$file': typeof ApiRasterAnalysisRasterJobIdKindFileRoute
 }
 export interface FileRouteTypes {
@@ -150,6 +160,7 @@ export interface FileRouteTypes {
     | '/reporte/$analysisId/imprimir'
     | '/reporte/$analysisId/'
     | '/api/raster/coastal/$cacheKey/$file'
+    | '/api/raster/landsat/$cacheKey/$file'
     | '/api/raster/analysis/$rasterJobId/$kind/$file'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -164,6 +175,7 @@ export interface FileRouteTypes {
     | '/reporte/$analysisId/imprimir'
     | '/reporte/$analysisId'
     | '/api/raster/coastal/$cacheKey/$file'
+    | '/api/raster/landsat/$cacheKey/$file'
     | '/api/raster/analysis/$rasterJobId/$kind/$file'
   id:
     | '__root__'
@@ -179,6 +191,7 @@ export interface FileRouteTypes {
     | '/_app/reporte/$analysisId/imprimir'
     | '/_app/reporte/$analysisId/'
     | '/api/raster/coastal/$cacheKey/$file'
+    | '/api/raster/landsat/$cacheKey/$file'
     | '/api/raster/analysis/$rasterJobId/$kind/$file'
   fileRoutesById: FileRoutesById
 }
@@ -189,6 +202,7 @@ export interface RootRouteChildren {
   AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
   AuthSetPasswordRoute: typeof AuthSetPasswordRoute
   ApiRasterCoastalCacheKeyFileRoute: typeof ApiRasterCoastalCacheKeyFileRoute
+  ApiRasterLandsatCacheKeyFileRoute: typeof ApiRasterLandsatCacheKeyFileRoute
   ApiRasterAnalysisRasterJobIdKindFileRoute: typeof ApiRasterAnalysisRasterJobIdKindFileRoute
 }
 
@@ -278,6 +292,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRasterCoastalCacheKeyFileRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/raster/landsat/$cacheKey/$file': {
+      id: '/api/raster/landsat/$cacheKey/$file'
+      path: '/api/raster/landsat/$cacheKey/$file'
+      fullPath: '/api/raster/landsat/$cacheKey/$file'
+      preLoaderRoute: typeof ApiRasterLandsatCacheKeyFileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/raster/analysis/$rasterJobId/$kind/$file': {
       id: '/api/raster/analysis/$rasterJobId/$kind/$file'
       path: '/api/raster/analysis/$rasterJobId/$kind/$file'
@@ -324,6 +345,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthForgotPasswordRoute: AuthForgotPasswordRoute,
   AuthSetPasswordRoute: AuthSetPasswordRoute,
   ApiRasterCoastalCacheKeyFileRoute: ApiRasterCoastalCacheKeyFileRoute,
+  ApiRasterLandsatCacheKeyFileRoute: ApiRasterLandsatCacheKeyFileRoute,
   ApiRasterAnalysisRasterJobIdKindFileRoute:
     ApiRasterAnalysisRasterJobIdKindFileRoute,
 }

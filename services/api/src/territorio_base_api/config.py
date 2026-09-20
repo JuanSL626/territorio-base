@@ -34,6 +34,7 @@ class Settings:
     #  SSR de TanStack Start), no público.
     api_token: str | None = None
     debug: bool = False
+    remote_sensing_cache_hours: int = 6
 
     @property
     def analyses_dir(self) -> Path:
@@ -42,6 +43,10 @@ class Settings:
     @property
     def coastal_dir(self) -> Path:
         return self.data_dir / "coastal"
+
+    @property
+    def remote_sensing_dir(self) -> Path:
+        return self.data_dir / "remote-sensing-pilot"
 
 
 @lru_cache(maxsize=1)
@@ -55,4 +60,5 @@ def get_settings() -> Settings:
         job_ttl_hours=_int("TERRITORIO_JOB_TTL_HOURS", 72),
         api_token=os.environ.get("TERRITORIO_API_TOKEN") or None,
         debug=_bool("TERRITORIO_DEBUG", False),
+        remote_sensing_cache_hours=_int("TERRITORIO_REMOTE_SENSING_CACHE_HOURS", 6),
     )

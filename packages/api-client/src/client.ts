@@ -21,15 +21,22 @@ import {
   analysisJobSchema,
   coastalResponseSchema,
   healthResponseSchema,
+  landsatPilotResultSchema,
   overlayMetadataSchema,
   presetsResponseSchema,
+  remoteSensingPilotResultSchema,
+  remoteSensingSourcesResponseSchema,
   type AnalysisJob,
   type CoastalPreset,
   type CoastalResponse,
   type HealthResponse,
+  type LandsatPilotResult,
   type OverlayMetadata,
   type PresetsResponse,
   type RasterLayer,
+  type RemoteSensingPilotResult,
+  type RemoteSensingSource,
+  type RemoteSensingSourcesResponse,
 } from './schemas.ts';
 import {
   streamAnalysisEvents,
@@ -58,6 +65,19 @@ export type CoastalInput = {
   analysis_id?: string;
   /** Requerido si no hay `analysis_id`. */
   aoi?: AoiGeometryInput;
+};
+
+export type RemoteSensingPilotInput = {
+  source: RemoteSensingSource;
+  aoi: AoiGeometryInput;
+  lookback_days?: number;
+  max_cloud_cover?: number;
+};
+
+export type LandsatPilotInput = {
+  aoi: AoiGeometryInput;
+  lookback_days?: number;
+  max_cloud_cover?: number;
 };
 
 /** Overrides de la rampa de color. Los defaults por capa los pone el servicio. */
@@ -428,6 +448,50 @@ export function createRasterApiClient(options: RasterApiClientOptions) {
     async getCoastalPresets(signal?: AbortSignal): Promise<ApiResult<PresetsResponse>> {
       return await requestJson('/coastal/presets', presetsResponseSchema, {
         method: 'GET',
+        signal,
+      });
+    },
+
+    async getRemoteSensingPilotSources(
+      signal?: AbortSignal,
+    ): Promise<ApiResult<RemoteSensingSourcesResponse>> {
+      return await requestJson(
+        '/remote-sensing/pilot/sources',
+        remoteSensingSourcesResponseSchema,
+        {
+          method: 'GET',
+          signal,
+        },
+      );
+    },
+
+    async inspectRemoteSensingPilotSource(
+      input: RemoteSensingPilotInput,
+      signal?: AbortSignal,
+    ): Promise<ApiResult<RemoteSensingPilotResult>> {
+      return await requestJson('/remote-sensing/pilot/inspect', remoteSensingPilotResultSchema, {
+        method: 'POST',
+        body: {
+          source: input.source,
+          aoi: input.aoi,
+          lookback_days: input.lookback_days ?? 21,
+          max_cloud_cover: input.max_cloud_cover ?? 30,
+        },
+        signal,
+      });
+    },
+
+    async runLandsatPilot(
+      input: LandsatPilotInput,
+      signal?: AbortSignal,
+    ): Promise<ApiResult<LandsatPilotResult>> {
+      return await requestJson('/remote-sensing/pilot/landsat', landsatPilotResultSchema, {
+        method: 'POST',
+        body: {
+          aoi: input.aoi,
+          lookback_days: input.lookback_days ?? 90,
+          max_cloud_cover: input.max_cloud_cover ?? 30,
+        },
         signal,
       });
     },

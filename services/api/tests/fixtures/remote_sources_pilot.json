@@ -1,0 +1,60 @@
+{
+  "fixture_version": "1",
+  "aoi_bbox": [-69.95, 18.45, -69.9, 18.5],
+  "checked_at": "2026-09-19T12:00:00Z",
+  "notice": "Snapshot saneado de catálogos públicos: no contiene credenciales, tokens, query strings ni URLs firmadas.",
+  "sources": [
+    {
+      "source": "planetary-computer-sentinel-2-l2a",
+      "endpoint": "https://planetarycomputer.microsoft.com/api/stac/v1",
+      "scene_id": "S2B_MSIL2A_20260916T151719_R125_T19QDA_20260916T202410",
+      "acquisition_datetime": "2026-09-16T15:17:19.024000Z",
+      "cloud_cover_pct": 65.01956,
+      "result": "real_catalogue_item"
+    },
+    {
+      "source": "cdse-sentinel-2-l2a",
+      "endpoint": "https://stac.dataspace.copernicus.eu/v1",
+      "scene_id": "S2B_MSIL2A_20260916T151719_N0512_R125_T19QDA_20260916T202410",
+      "acquisition_datetime": "2026-09-16T15:17:19.024000Z",
+      "published_or_processed_at": "2026-09-16T21:04:51.000000Z",
+      "cloud_cover_pct": 65.02,
+      "result": "real_catalogue_item"
+    },
+    {
+      "source": "cdse-sentinel-1-grd",
+      "endpoint": "https://stac.dataspace.copernicus.eu/v1",
+      "scene_id": "S1D_IW_GRDH_1SDV_20260917T224422_20260917T224447_004624_0089F3_28BB_COG",
+      "acquisition_datetime": "2026-09-17T22:44:22.396986Z",
+      "published_or_processed_at": "2026-09-17T23:24:26.306419Z",
+      "instrument_mode": "IW",
+      "result": "real_catalogue_item"
+    },
+    {
+      "source": "usgs-m2m-landsat-9-c2-l2",
+      "endpoint": "https://m2m.cr.usgs.gov/api/api/json/stable/scene-search",
+      "scene_id": "LC09_L2SP_007047_20260916_20260917_02_T1",
+      "acquisition_datetime": "2026-09-16 00:00:00",
+      "cloud_cover_pct": 51.0,
+      "result": "real_authenticated_catalogue_item"
+    },
+    {
+      "source": "nasa-earthdata-viirs-nrt",
+      "endpoint": "https://cmr.earthdata.nasa.gov/search/granules.umm_json",
+      "scene_id": "LANCEMODIS:3039774998",
+      "concept_id": "G4316384438-LANCEMODIS",
+      "acquisition_datetime": "2026-09-19T06:12:00.000Z",
+      "published_or_processed_at": "2026-09-19T08:35:21.904Z",
+      "result": "real_catalogue_item"
+    },
+    {
+      "source": "nasa-gibs-wmts",
+      "endpoint": "https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/1.0.0/WMTSCapabilities.xml",
+      "scene_id": "MODIS_Terra_CorrectedReflectance_TrueColor:2026-09-19",
+      "acquisition_datetime": "2026-09-19T00:00:00Z",
+      "tile_matrix_set": "250m",
+      "format": "image/jpeg",
+      "result": "real_capabilities_layer"
+    }
+  ]
+}

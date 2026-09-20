@@ -222,6 +222,100 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/remote-sensing/pilot/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inspect Remote Sensing Source
+         * @description Consulta un dato reciente, normaliza su ficha y la guarda en caché saneada.
+         */
+        post: operations["inspectRemoteSensingPilotSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/remote-sensing/pilot/landsat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Landsat Pilot
+         * @description Genera un NDVI mínimo con B4/B5/QA de una escena real de Landsat 9.
+         */
+        post: operations["runLandsatPilot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/remote-sensing/pilot/landsat/{cache_key}/ndvi.tif": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Landsat Pilot Raster */
+        get: operations["getLandsatPilotRaster"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/remote-sensing/pilot/landsat/{cache_key}/preview.png": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Landsat Pilot Preview */
+        get: operations["getLandsatPilotPreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/remote-sensing/pilot/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Remote Sensing Sources
+         * @description Lista las seis pruebas y declara de antemano sus credenciales gratuitas.
+         */
+        get: operations["listRemoteSensingPilotSources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -419,6 +513,32 @@ export interface components {
             resolution_m_approx?: number | null;
         };
         /**
+         * DerivedProductProvenance
+         * @description Traza reproducible desde un resultado derivado hasta escenas y bandas.
+         */
+        DerivedProductProvenance: {
+            /** Bands Used */
+            bands_used: string[];
+            /** Formula */
+            formula: string;
+            /**
+             * Metadata Origin
+             * @default derived
+             * @constant
+             */
+            metadata_origin: "derived";
+            /** Parameters */
+            parameters?: {
+                [key: string]: string | number | number[] | number[];
+            };
+            /** Product */
+            product: string;
+            /** Scene Ids */
+            scene_ids: string[];
+            /** Source */
+            source: string;
+        };
+        /**
          * ErrorResponse
          * @description Cuerpo de error uniforme.
          */
@@ -449,6 +569,58 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** LandsatNdviSummary */
+        LandsatNdviSummary: {
+            /** Mean */
+            mean: number;
+            /** Median */
+            median: number;
+            /** P90 */
+            p90: number;
+            /** Valid Pixel Pct */
+            valid_pixel_pct: number;
+        };
+        /** LandsatPilotRequest */
+        LandsatPilotRequest: {
+            aoi: components["schemas"]["AoiGeometry"];
+            /**
+             * Lookback Days
+             * @default 90
+             */
+            lookback_days: number;
+            /**
+             * Max Cloud Cover
+             * @default 30
+             */
+            max_cloud_cover: number;
+        };
+        /** LandsatPilotResult */
+        LandsatPilotResult: {
+            /** Cache Key */
+            cache_key: string;
+            /** Cached */
+            cached: boolean;
+            /** Checked At */
+            checked_at: string;
+            /** Credentials Required */
+            credentials_required?: string[];
+            derived_product?: components["schemas"]["DerivedProductProvenance"] | null;
+            /** Message */
+            message: string;
+            /** Preview Url */
+            preview_url?: string | null;
+            /** Raster Url */
+            raster_url?: string | null;
+            scene?: components["schemas"]["RemoteSensingScene"] | null;
+            /** Source Assets */
+            source_assets?: components["schemas"]["RemoteSensingAsset"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ready" | "preparing" | "no_valid_data" | "provider_error" | "credentials_required" | "access_required";
+            summary?: components["schemas"]["LandsatNdviSummary"] | null;
         };
         /** LayerAvailability */
         LayerAvailability: {
@@ -585,6 +757,11 @@ export interface components {
             /** Dem Source */
             dem_source?: string | null;
             /**
+             * Derived Products
+             * @description Fórmula, parámetros, escenas y bandas de cada resultado calculado.
+             */
+            derived_products?: components["schemas"]["DerivedProductProvenance"][];
+            /**
              * Sentinel2 Boa Offsets Applied
              * @description Offsets BOA_ADD_OFFSET (en DN) aplicados por escena antes del NDVI. [-1000.0] es lo esperable para baseline >= 04.00. Ver corrección H1.
              */
@@ -602,6 +779,200 @@ export interface components {
              * @description Época única seleccionada (corrección H2). Nunca es una mezcla.
              */
             worldcover_epoch_year?: number | null;
+        };
+        /** RemoteSensingAsset */
+        RemoteSensingAsset: {
+            /** Bands */
+            bands?: components["schemas"]["RemoteSensingBand"][];
+            /** Data Type */
+            data_type?: string | null;
+            /** Datum */
+            datum?: string | null;
+            /**
+             * Effective Radiometric Resolution Bits
+             * @description Resolución radiométrica efectiva; nunca se infiere del dtype almacenado.
+             */
+            effective_radiometric_resolution_bits?: number | null;
+            /** Epsg */
+            epsg?: number | null;
+            /** File Size Bytes */
+            file_size_bytes?: number | null;
+            /**
+             * Format
+             * @description MIME/rol declarado por el proveedor.
+             */
+            format?: string | null;
+            /**
+             * Href
+             * @description Referencia sin query string: nunca URL firmada, token ni credencial.
+             */
+            href?: string | null;
+            /** Key */
+            key: string;
+            /** Projection */
+            projection?: string | null;
+            /**
+             * Raster Dimensions Px
+             * @description (ancho, alto); solo si lo declara STAC/COG.
+             */
+            raster_dimensions_px?: [
+                number,
+                number
+            ] | null;
+            /** Title */
+            title?: string | null;
+        };
+        /** RemoteSensingBand */
+        RemoteSensingBand: {
+            /** Center Wavelength Um */
+            center_wavelength_um?: number | null;
+            /** Common Name */
+            common_name?: string | null;
+            /** Full Width Half Max Um */
+            full_width_half_max_um?: number | null;
+            /** Id */
+            id: string;
+            /** Name */
+            name?: string | null;
+            /** Resolution M */
+            resolution_m?: number | null;
+            /** Wavelength Max Um */
+            wavelength_max_um?: number | null;
+            /** Wavelength Min Um */
+            wavelength_min_um?: number | null;
+        };
+        /** RemoteSensingPilotRequest */
+        RemoteSensingPilotRequest: {
+            aoi: components["schemas"]["AoiGeometry"];
+            /**
+             * Lookback Days
+             * @default 21
+             */
+            lookback_days: number;
+            /**
+             * Max Cloud Cover
+             * @default 30
+             */
+            max_cloud_cover: number;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "planetary-computer-sentinel-2-l2a" | "cdse-sentinel-2-l2a" | "cdse-sentinel-1-grd" | "usgs-m2m-landsat-9-c2-l2" | "nasa-earthdata-viirs-nrt" | "nasa-gibs-wmts";
+        };
+        /** RemoteSensingPilotResult */
+        RemoteSensingPilotResult: {
+            /** Cache Key */
+            cache_key: string;
+            /** Cached */
+            cached: boolean;
+            /** Checked At */
+            checked_at: string;
+            /** Credentials Required */
+            credentials_required?: string[];
+            /** Limitations */
+            limitations?: string[];
+            /**
+             * Preview Url
+             * @description Thumbnail/WMTS público sin firma; una referencia verificable, no un resultado analítico.
+             */
+            preview_url?: string | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "planetary-computer-sentinel-2-l2a" | "cdse-sentinel-2-l2a" | "cdse-sentinel-1-grd" | "usgs-m2m-landsat-9-c2-l2" | "nasa-earthdata-viirs-nrt" | "nasa-gibs-wmts";
+            temporal: components["schemas"]["RemoteSensingTemporalState"];
+        };
+        /** RemoteSensingScene */
+        RemoteSensingScene: {
+            /** Acquisition Datetime */
+            acquisition_datetime?: string | null;
+            /** Assets */
+            assets?: components["schemas"]["RemoteSensingAsset"][];
+            /** Attribution */
+            attribution?: string | null;
+            /** Cloud Cover Pct */
+            cloud_cover_pct?: number | null;
+            /**
+             * Cloud Validity
+             * @default unknown
+             * @enum {string}
+             */
+            cloud_validity: "valid" | "cloudy" | "unknown";
+            /** Collection */
+            collection: string;
+            /** Last Checked At */
+            last_checked_at: string;
+            /** License */
+            license?: string | null;
+            /** Metadata Origin */
+            metadata_origin?: {
+                [key: string]: "provider" | "derived" | "unavailable";
+            };
+            /** Mission */
+            mission: string;
+            /** Product Level */
+            product_level?: string | null;
+            /** Published Or Processed At */
+            published_or_processed_at?: string | null;
+            /** Scene Id */
+            scene_id: string;
+            /** Sensor */
+            sensor?: string | null;
+            /** Source */
+            source: string;
+            /** Spectral Range Um */
+            spectral_range_um?: [
+                number,
+                number
+            ] | null;
+            /** Total Band Count */
+            total_band_count?: number | null;
+        };
+        /** RemoteSensingSourceInfo */
+        RemoteSensingSourceInfo: {
+            /** Collection */
+            collection: string;
+            /** Credentials Required */
+            credentials_required?: string[];
+            /**
+             * Free To Use
+             * @default true
+             */
+            free_to_use: boolean;
+            /** Provider */
+            provider: string;
+            /** Purpose */
+            purpose: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "planetary-computer-sentinel-2-l2a" | "cdse-sentinel-2-l2a" | "cdse-sentinel-1-grd" | "usgs-m2m-landsat-9-c2-l2" | "nasa-earthdata-viirs-nrt" | "nasa-gibs-wmts";
+        };
+        /** RemoteSensingSourcesResponse */
+        RemoteSensingSourcesResponse: {
+            /** Sources */
+            sources: components["schemas"]["RemoteSensingSourceInfo"][];
+        };
+        /** RemoteSensingTemporalState */
+        RemoteSensingTemporalState: {
+            last_scene_available?: components["schemas"]["RemoteSensingScene"] | null;
+            last_scene_used?: components["schemas"]["RemoteSensingScene"] | null;
+            last_valid_cloud_free_scene?: components["schemas"]["RemoteSensingScene"] | null;
+            /** Message */
+            message: string;
+            /**
+             * Observation Age Hours
+             * @description Antigüedad derivada desde la adquisición de la última escena válida.
+             */
+            observation_age_hours?: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "updated" | "delayed" | "cloudy" | "no_valid_data" | "provider_error" | "credentials_required";
         };
         /** TopographyResult */
         TopographyResult: {
@@ -756,15 +1127,27 @@ export type SchemaAoiInfo = components['schemas']['AoiInfo'];
 export type SchemaCoastalRequest = components['schemas']['CoastalRequest'];
 export type SchemaCoastalResponse = components['schemas']['CoastalResponse'];
 export type SchemaCoastalSummary = components['schemas']['CoastalSummary'];
+export type SchemaDerivedProductProvenance = components['schemas']['DerivedProductProvenance'];
 export type SchemaErrorResponse = components['schemas']['ErrorResponse'];
 export type SchemaHealthResponse = components['schemas']['HealthResponse'];
 export type SchemaHttpValidationError = components['schemas']['HTTPValidationError'];
+export type SchemaLandsatNdviSummary = components['schemas']['LandsatNdviSummary'];
+export type SchemaLandsatPilotRequest = components['schemas']['LandsatPilotRequest'];
+export type SchemaLandsatPilotResult = components['schemas']['LandsatPilotResult'];
 export type SchemaLayerAvailability = components['schemas']['LayerAvailability'];
 export type SchemaLegendEntry = components['schemas']['LegendEntry'];
 export type SchemaOverlayMetadata = components['schemas']['OverlayMetadata'];
 export type SchemaPresetsResponse = components['schemas']['PresetsResponse'];
 export type SchemaProgressEvent = components['schemas']['ProgressEvent'];
 export type SchemaProvenance = components['schemas']['Provenance'];
+export type SchemaRemoteSensingAsset = components['schemas']['RemoteSensingAsset'];
+export type SchemaRemoteSensingBand = components['schemas']['RemoteSensingBand'];
+export type SchemaRemoteSensingPilotRequest = components['schemas']['RemoteSensingPilotRequest'];
+export type SchemaRemoteSensingPilotResult = components['schemas']['RemoteSensingPilotResult'];
+export type SchemaRemoteSensingScene = components['schemas']['RemoteSensingScene'];
+export type SchemaRemoteSensingSourceInfo = components['schemas']['RemoteSensingSourceInfo'];
+export type SchemaRemoteSensingSourcesResponse = components['schemas']['RemoteSensingSourcesResponse'];
+export type SchemaRemoteSensingTemporalState = components['schemas']['RemoteSensingTemporalState'];
 export type SchemaTopographyResult = components['schemas']['TopographyResult'];
 export type SchemaTopographySummary = components['schemas']['TopographySummary'];
 export type SchemaValidationError = components['schemas']['ValidationError'];
@@ -1254,6 +1637,169 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+        };
+    };
+    inspectRemoteSensingPilotSource: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RemoteSensingPilotRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemoteSensingPilotResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    runLandsatPilot: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LandsatPilotRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LandsatPilotResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getLandsatPilotRaster: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cache_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getLandsatPilotPreview: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cache_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listRemoteSensingPilotSources: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemoteSensingSourcesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

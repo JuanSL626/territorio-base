@@ -30,14 +30,24 @@ import type {
   SchemaAoiInfo,
   SchemaCoastalResponse,
   SchemaCoastalSummary,
+  SchemaDerivedProductProvenance,
   SchemaErrorResponse,
   SchemaHealthResponse,
   SchemaLayerAvailability,
   SchemaLegendEntry,
+  SchemaLandsatNdviSummary,
+  SchemaLandsatPilotResult,
   SchemaOverlayMetadata,
   SchemaPresetsResponse,
   SchemaProgressEvent,
   SchemaProvenance,
+  SchemaRemoteSensingAsset,
+  SchemaRemoteSensingBand,
+  SchemaRemoteSensingPilotResult,
+  SchemaRemoteSensingScene,
+  SchemaRemoteSensingSourceInfo,
+  SchemaRemoteSensingSourcesResponse,
+  SchemaRemoteSensingTemporalState,
   SchemaTopographyResult,
   SchemaTopographySummary,
   SchemaVegetationResult,
@@ -133,9 +143,22 @@ export const vegetationResultSchema = z.object({
   worldcover_error: nullish(z.string()),
 });
 
+export const derivedProductProvenanceSchema = z.object({
+  bands_used: z.array(z.string()),
+  formula: z.string(),
+  metadata_origin: z.literal('derived'),
+  parameters: z
+    .record(z.string(), z.union([z.string(), z.number(), z.array(z.number())]))
+    .optional(),
+  product: z.string(),
+  scene_ids: z.array(z.string()),
+  source: z.string(),
+});
+
 export const provenanceSchema = z.object({
   dem_item_count: nullish(z.number()),
   dem_source: nullish(z.string()),
+  derived_products: z.array(derivedProductProvenanceSchema).optional(),
   sentinel2_boa_offsets_applied: nullish(z.array(z.number())),
   sentinel2_lookback_days: nullish(z.number()),
   sentinel2_max_cloud_cover: nullish(z.number()),
@@ -231,6 +254,130 @@ export const presetsResponseSchema = z.object({
   presets: z.array(z.string()),
 });
 
+export const REMOTE_SENSING_SOURCES = [
+  'planetary-computer-sentinel-2-l2a',
+  'cdse-sentinel-2-l2a',
+  'cdse-sentinel-1-grd',
+  'usgs-m2m-landsat-9-c2-l2',
+  'nasa-earthdata-viirs-nrt',
+  'nasa-gibs-wmts',
+] as const;
+
+export const remoteSensingBandSchema = z.object({
+  center_wavelength_um: nullish(z.number()),
+  common_name: nullish(z.string()),
+  full_width_half_max_um: nullish(z.number()),
+  id: z.string(),
+  name: nullish(z.string()),
+  resolution_m: nullish(z.number()),
+  wavelength_max_um: nullish(z.number()),
+  wavelength_min_um: nullish(z.number()),
+});
+
+export const remoteSensingAssetSchema = z.object({
+  bands: z.array(remoteSensingBandSchema).optional(),
+  data_type: nullish(z.string()),
+  datum: nullish(z.string()),
+  effective_radiometric_resolution_bits: nullish(z.number()),
+  epsg: nullish(z.number()),
+  file_size_bytes: nullish(z.number()),
+  format: nullish(z.string()),
+  href: nullish(z.string()),
+  key: z.string(),
+  projection: nullish(z.string()),
+  raster_dimensions_px: nullish(z.tuple([z.number(), z.number()])),
+  title: nullish(z.string()),
+});
+
+export const remoteSensingSceneSchema: z.ZodType<SchemaRemoteSensingScene> = z.object({
+  acquisition_datetime: nullish(z.string()),
+  assets: z.array(remoteSensingAssetSchema).optional(),
+  attribution: nullish(z.string()),
+  cloud_cover_pct: nullish(z.number()),
+  cloud_validity: z.enum(['valid', 'cloudy', 'unknown']),
+  collection: z.string(),
+  last_checked_at: z.string(),
+  license: nullish(z.string()),
+  metadata_origin: z.record(z.string(), z.enum(['provider', 'derived', 'unavailable'])).optional(),
+  mission: z.string(),
+  product_level: nullish(z.string()),
+  published_or_processed_at: nullish(z.string()),
+  scene_id: z.string(),
+  sensor: nullish(z.string()),
+  source: z.string(),
+  spectral_range_um: nullish(z.tuple([z.number(), z.number()])),
+  total_band_count: nullish(z.number()),
+});
+
+export const remoteSensingTemporalStateSchema = z.object({
+  last_scene_available: nullish(remoteSensingSceneSchema),
+  last_scene_used: nullish(remoteSensingSceneSchema),
+  last_valid_cloud_free_scene: nullish(remoteSensingSceneSchema),
+  message: z.string(),
+  observation_age_hours: nullish(z.number()),
+  status: z.enum([
+    'updated',
+    'delayed',
+    'cloudy',
+    'no_valid_data',
+    'provider_error',
+    'credentials_required',
+  ]),
+});
+
+export const remoteSensingPilotResultSchema = z.object({
+  cache_key: z.string(),
+  cached: z.boolean(),
+  checked_at: z.string(),
+  credentials_required: z.array(z.string()).optional(),
+  limitations: z.array(z.string()).optional(),
+  preview_url: nullish(z.string()),
+  source: z.enum(REMOTE_SENSING_SOURCES),
+  temporal: remoteSensingTemporalStateSchema,
+});
+
+export const remoteSensingSourceInfoSchema = z.object({
+  collection: z.string(),
+  credentials_required: z.array(z.string()).optional(),
+  free_to_use: z.boolean(),
+  provider: z.string(),
+  purpose: z.string(),
+  source: z.enum(REMOTE_SENSING_SOURCES),
+});
+
+export const remoteSensingSourcesResponseSchema = z.object({
+  sources: z.array(remoteSensingSourceInfoSchema),
+});
+
+export const landsatNdviSummarySchema = z.object({
+  mean: z.number(),
+  median: z.number(),
+  p90: z.number(),
+  valid_pixel_pct: z.number(),
+});
+
+export const landsatPilotResultSchema = z.object({
+  cache_key: z.string(),
+  cached: z.boolean(),
+  checked_at: z.string(),
+  credentials_required: z.array(z.string()).optional(),
+  derived_product: nullish(derivedProductProvenanceSchema),
+  message: z.string(),
+  preview_url: nullish(z.string()),
+  raster_url: nullish(z.string()),
+  scene: nullish(remoteSensingSceneSchema),
+  source_assets: z.array(remoteSensingAssetSchema).optional(),
+  status: z.enum([
+    'ready',
+    'preparing',
+    'no_valid_data',
+    'provider_error',
+    'credentials_required',
+    'access_required',
+  ]),
+  summary: nullish(landsatNdviSummarySchema),
+});
+
 export type ErrorResponse = SchemaErrorResponse;
 export type HealthResponse = SchemaHealthResponse;
 export type AoiInfo = SchemaAoiInfo;
@@ -239,6 +386,7 @@ export type TopographyResult = SchemaTopographyResult;
 export type VegetationSummary = SchemaVegetationSummary;
 export type VegetationResult = SchemaVegetationResult;
 export type Provenance = SchemaProvenance;
+export type DerivedProductProvenance = SchemaDerivedProductProvenance;
 export type LayerAvailability = SchemaLayerAvailability;
 export type AnalysisResult = SchemaAnalysisResult;
 export type ProgressEvent = SchemaProgressEvent;
@@ -248,6 +396,16 @@ export type OverlayMetadata = SchemaOverlayMetadata;
 export type CoastalSummary = SchemaCoastalSummary;
 export type CoastalResponse = SchemaCoastalResponse;
 export type PresetsResponse = SchemaPresetsResponse;
+export type RemoteSensingBand = SchemaRemoteSensingBand;
+export type RemoteSensingAsset = SchemaRemoteSensingAsset;
+export type RemoteSensingScene = SchemaRemoteSensingScene;
+export type RemoteSensingTemporalState = SchemaRemoteSensingTemporalState;
+export type RemoteSensingPilotResult = SchemaRemoteSensingPilotResult;
+export type RemoteSensingSourceInfo = SchemaRemoteSensingSourceInfo;
+export type RemoteSensingSourcesResponse = SchemaRemoteSensingSourcesResponse;
+export type LandsatNdviSummary = SchemaLandsatNdviSummary;
+export type LandsatPilotResult = SchemaLandsatPilotResult;
+export type RemoteSensingSource = (typeof REMOTE_SENSING_SOURCES)[number];
 
 /**
  * Igualdad de tipos estricta (no bidireccional-por-asignabilidad: eso dejaría
@@ -277,6 +435,10 @@ export type ContractParity = {
   vegetationSummary: Exact<z.infer<typeof vegetationSummarySchema>, VegetationSummary>;
   vegetationResult: Exact<z.infer<typeof vegetationResultSchema>, VegetationResult>;
   provenance: Exact<z.infer<typeof provenanceSchema>, Provenance>;
+  derivedProductProvenance: Exact<
+    z.infer<typeof derivedProductProvenanceSchema>,
+    DerivedProductProvenance
+  >;
   layerAvailability: Exact<z.infer<typeof layerAvailabilitySchema>, LayerAvailability>;
   analysisResult: Exact<z.infer<typeof analysisResultSchema>, AnalysisResult>;
   progressEvent: Exact<z.infer<typeof progressEventSchema>, ProgressEvent>;
@@ -286,6 +448,26 @@ export type ContractParity = {
   coastalSummary: Exact<z.infer<typeof coastalSummarySchema>, CoastalSummary>;
   coastalResponse: Exact<z.infer<typeof coastalResponseSchema>, CoastalResponse>;
   presetsResponse: Exact<z.infer<typeof presetsResponseSchema>, PresetsResponse>;
+  remoteSensingBand: Exact<z.infer<typeof remoteSensingBandSchema>, RemoteSensingBand>;
+  remoteSensingAsset: Exact<z.infer<typeof remoteSensingAssetSchema>, RemoteSensingAsset>;
+  remoteSensingTemporal: Exact<
+    z.infer<typeof remoteSensingTemporalStateSchema>,
+    RemoteSensingTemporalState
+  >;
+  remoteSensingPilot: Exact<
+    z.infer<typeof remoteSensingPilotResultSchema>,
+    RemoteSensingPilotResult
+  >;
+  remoteSensingSourceInfo: Exact<
+    z.infer<typeof remoteSensingSourceInfoSchema>,
+    RemoteSensingSourceInfo
+  >;
+  remoteSensingSources: Exact<
+    z.infer<typeof remoteSensingSourcesResponseSchema>,
+    RemoteSensingSourcesResponse
+  >;
+  landsatNdviSummary: Exact<z.infer<typeof landsatNdviSummarySchema>, LandsatNdviSummary>;
+  landsatPilot: Exact<z.infer<typeof landsatPilotResultSchema>, LandsatPilotResult>;
 };
 
 export const CONTRACT_PARITY: ContractParity = {
@@ -297,6 +479,7 @@ export const CONTRACT_PARITY: ContractParity = {
   vegetationSummary: true,
   vegetationResult: true,
   provenance: true,
+  derivedProductProvenance: true,
   layerAvailability: true,
   analysisResult: true,
   progressEvent: true,
@@ -306,4 +489,12 @@ export const CONTRACT_PARITY: ContractParity = {
   coastalSummary: true,
   coastalResponse: true,
   presetsResponse: true,
+  remoteSensingBand: true,
+  remoteSensingAsset: true,
+  remoteSensingTemporal: true,
+  remoteSensingPilot: true,
+  remoteSensingSourceInfo: true,
+  remoteSensingSources: true,
+  landsatNdviSummary: true,
+  landsatPilot: true,
 };

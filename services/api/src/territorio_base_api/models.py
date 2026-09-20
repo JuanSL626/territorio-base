@@ -84,7 +84,8 @@ class AoiInfo(BaseModel):
         description="(lon_min, lat_min, lon_max, lat_max) en WGS84."
     )
     utm_epsg: int = Field(
-        description="EPSG de la zona UTM usada para áreas y distancias (ej. 32619).", examples=[32619]
+        description="EPSG de la zona UTM usada para áreas y distancias (ej. 32619).",
+        examples=[32619],
     )
 
 
@@ -169,6 +170,18 @@ class VegetationResult(BaseModel):
     summary: VegetationSummary | None = None
 
 
+class DerivedProductProvenance(BaseModel):
+    """Traza reproducible desde un resultado derivado hasta escenas y bandas."""
+
+    product: str
+    formula: str
+    parameters: dict[str, str | int | float | list[float] | list[int]] = Field(default_factory=dict)
+    source: str
+    scene_ids: list[str]
+    bands_used: list[str]
+    metadata_origin: Literal["derived"] = "derived"
+
+
 class Provenance(BaseModel):
     """Qué se usó realmente en esta corrida (alimenta la tabla 'Fuentes y metodología')."""
 
@@ -193,6 +206,10 @@ class Provenance(BaseModel):
     sentinel2_max_cloud_cover: int | None = None
     worldcover_epoch_year: int | None = Field(
         default=None, description="Época única seleccionada (corrección H2). Nunca es una mezcla."
+    )
+    derived_products: list[DerivedProductProvenance] = Field(
+        default_factory=list,
+        description="Fórmula, parámetros, escenas y bandas de cada resultado calculado.",
     )
 
 
@@ -301,7 +318,8 @@ class CoastalSummary(BaseModel):
 class CoastalRequest(BaseModel):
     preset: CoastalPreset = Field(description="Una de las 5 claves exactas del selectbox.")
     analysis_id: str | None = Field(
-        default=None, description="Si se pasa, el AOI se toma del análisis y el resultado se adjunta a él."
+        default=None,
+        description="Si se pasa, el AOI se toma del análisis y el resultado se adjunta a él.",
     )
     aoi: AoiGeometry | None = Field(
         default=None, description="Requerido si no se pasa analysis_id."
@@ -309,7 +327,9 @@ class CoastalRequest(BaseModel):
 
 
 class CoastalResponse(BaseModel):
-    cache_key: str = Field(description="Clave de caché (aoi, preset). Repetir la consulta no recomputa.")
+    cache_key: str = Field(
+        description="Clave de caché (aoi, preset). Repetir la consulta no recomputa."
+    )
     preset: CoastalPreset
     analysis_id: str | None = None
     cached: bool = Field(description="True si se sirvió desde caché.")
@@ -322,4 +342,171 @@ class CoastalResponse(BaseModel):
 
 
 class PresetsResponse(BaseModel):
-    presets: list[str] = Field(description="Las 5 claves exactas, en el orden del selectbox legacy.")
+    presets: list[str] = Field(
+        description="Las 5 claves exactas, en el orden del selectbox legacy."
+    )
+
+
+# --- Piloto de teledetección -------------------------------------------------
+#
+# Estos modelos no forman parte todavía de `AnalysisResult`: el piloto se expone
+# en endpoints propios para validar cada proveedor sin cambiar el compuesto NDVI
+# actual de Planetary Computer. Los campos opcionales NO significan que el dato
+# sea cero: `metadata_origin` indica si vino del proveedor, se derivó, o no fue
+# publicado por la fuente.
+
+RemoteSensingSourceKey = Literal[
+    "planetary-computer-sentinel-2-l2a",
+    "cdse-sentinel-2-l2a",
+    "cdse-sentinel-1-grd",
+    "usgs-m2m-landsat-9-c2-l2",
+    "nasa-earthdata-viirs-nrt",
+    "nasa-gibs-wmts",
+]
+TemporalAvailabilityStatus = Literal[
+    "updated",
+    "delayed",
+    "cloudy",
+    "no_valid_data",
+    "provider_error",
+    "credentials_required",
+]
+MetadataOrigin = Literal["provider", "derived", "unavailable"]
+
+
+class RemoteSensingBand(BaseModel):
+    id: str
+    name: str | None = None
+    common_name: str | None = None
+    resolution_m: float | None = None
+    center_wavelength_um: float | None = None
+    full_width_half_max_um: float | None = None
+    wavelength_min_um: float | None = None
+    wavelength_max_um: float | None = None
+
+
+class RemoteSensingAsset(BaseModel):
+    key: str
+    title: str | None = None
+    format: str | None = Field(default=None, description="MIME/rol declarado por el proveedor.")
+    file_size_bytes: int | None = None
+    raster_dimensions_px: tuple[int, int] | None = Field(
+        default=None, description="(ancho, alto); solo si lo declara STAC/COG."
+    )
+    epsg: int | None = None
+    projection: str | None = None
+    datum: str | None = None
+    data_type: str | None = None
+    effective_radiometric_resolution_bits: float | None = Field(
+        default=None,
+        description="Resolución radiométrica efectiva; nunca se infiere del dtype almacenado.",
+    )
+    bands: list[RemoteSensingBand] = Field(default_factory=list)
+    href: str | None = Field(
+        default=None,
+        description="Referencia sin query string: nunca URL firmada, token ni credencial.",
+    )
+
+
+class RemoteSensingScene(BaseModel):
+    source: str
+    mission: str
+    sensor: str | None = None
+    collection: str
+    product_level: str | None = None
+    scene_id: str
+    acquisition_datetime: str | None = None
+    published_or_processed_at: str | None = None
+    last_checked_at: str
+    cloud_cover_pct: float | None = None
+    cloud_validity: Literal["valid", "cloudy", "unknown"] = "unknown"
+    license: str | None = None
+    attribution: str | None = None
+    assets: list[RemoteSensingAsset] = Field(default_factory=list)
+    total_band_count: int | None = None
+    spectral_range_um: tuple[float, float] | None = None
+    metadata_origin: dict[str, MetadataOrigin] = Field(default_factory=dict)
+
+
+class RemoteSensingTemporalState(BaseModel):
+    last_scene_available: RemoteSensingScene | None = None
+    last_valid_cloud_free_scene: RemoteSensingScene | None = None
+    last_scene_used: RemoteSensingScene | None = None
+    observation_age_hours: float | None = Field(
+        default=None,
+        description="Antigüedad derivada desde la adquisición de la última escena válida.",
+    )
+    status: TemporalAvailabilityStatus
+    message: str
+
+
+class RemoteSensingPilotRequest(BaseModel):
+    source: RemoteSensingSourceKey
+    aoi: AoiGeometry
+    lookback_days: int = Field(default=21, ge=1, le=365)
+    max_cloud_cover: int = Field(default=30, ge=0, le=100)
+
+
+class RemoteSensingPilotResult(BaseModel):
+    source: RemoteSensingSourceKey
+    cached: bool
+    cache_key: str
+    checked_at: str
+    temporal: RemoteSensingTemporalState
+    preview_url: str | None = Field(
+        default=None,
+        description="Thumbnail/WMTS público sin firma; una referencia verificable, no un resultado analítico.",
+    )
+    limitations: list[str] = Field(default_factory=list)
+    credentials_required: list[str] = Field(default_factory=list)
+
+
+class RemoteSensingSourceInfo(BaseModel):
+    source: RemoteSensingSourceKey
+    provider: str
+    collection: str
+    free_to_use: bool = True
+    credentials_required: list[str] = Field(default_factory=list)
+    purpose: str
+
+
+class RemoteSensingSourcesResponse(BaseModel):
+    sources: list[RemoteSensingSourceInfo]
+
+
+LandsatPilotStatus = Literal[
+    "ready",
+    "preparing",
+    "no_valid_data",
+    "provider_error",
+    "credentials_required",
+    "access_required",
+]
+
+
+class LandsatPilotRequest(BaseModel):
+    aoi: AoiGeometry
+    lookback_days: int = Field(default=90, ge=1, le=365)
+    max_cloud_cover: int = Field(default=30, ge=0, le=100)
+
+
+class LandsatNdviSummary(BaseModel):
+    mean: float
+    median: float
+    p90: float
+    valid_pixel_pct: float
+
+
+class LandsatPilotResult(BaseModel):
+    status: LandsatPilotStatus
+    message: str
+    cached: bool
+    cache_key: str
+    checked_at: str
+    scene: RemoteSensingScene | None = None
+    source_assets: list[RemoteSensingAsset] = Field(default_factory=list)
+    derived_product: DerivedProductProvenance | None = None
+    summary: LandsatNdviSummary | None = None
+    preview_url: str | None = None
+    raster_url: str | None = None
+    credentials_required: list[str] = Field(default_factory=list)

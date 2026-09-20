@@ -168,6 +168,31 @@ describe('createRasterApiClient', () => {
     });
   });
 
+  it('runLandsatPilot envía el AOI y defaults sin exponer credenciales', async () => {
+    let body: unknown;
+    const client = clientWith(async (_url, init) => {
+      body = JSON.parse(init.body as string) as unknown;
+      return await Promise.resolve(
+        jsonResponse({
+          status: 'access_required',
+          message: 'Pendiente de aprobación M2M.',
+          cached: false,
+          cache_key: 'a'.repeat(32),
+          checked_at: '2026-09-19T12:00:00Z',
+        }),
+      );
+    });
+
+    const result = await client.runLandsatPilot({ aoi: { type: 'Polygon' } });
+    expect(result.ok).toBe(true);
+    expect(body).toEqual({
+      aoi: { type: 'Polygon' },
+      lookback_days: 90,
+      max_cloud_cover: 30,
+    });
+    expect(JSON.stringify(body)).not.toContain('token');
+  });
+
   it('arma las URLs de overlay y GeoTIFF con sus parámetros de rampa', () => {
     const client = clientWith(async () => await Promise.resolve(jsonResponse({})));
     expect(client.overlayUrl('a b', 'dem', { opacity: 0.7 })).toBe(

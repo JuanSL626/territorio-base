@@ -63,6 +63,13 @@ services:
       API_URL: http://api:8787
       NODE_ENV: production
       PORT: "3000"
+      # `.env` también alimenta interpolación de Compose, pero estos secretos
+      # pertenecen exclusivamente al backend raster. Los valores vacíos pisan
+      # cualquier entrada homónima heredada por `env_file` y evitan que llegue
+      # una credencial de proveedor al proceso web.
+      TERRITORIO_USGS_M2M_USERNAME: ""
+      TERRITORIO_USGS_M2M_TOKEN: ""
+      TERRITORIO_EARTHDATA_TOKEN: ""
     ports:
       - "${WEB_PORT:-3000}:3000"
     # SIN `volumes:` — a diferencia de `api`, este servicio no tiene nada
@@ -122,6 +129,15 @@ services:
       TERRITORIO_MAX_CONCURRENT_JOBS: ${TERRITORIO_MAX_CONCURRENT_JOBS:-2}
       TERRITORIO_JOB_TTL_HOURS: ${TERRITORIO_JOB_TTL_HOURS:-72}
       TERRITORIO_API_TOKEN: ${TERRITORIO_API_TOKEN:-}
+      # Piloto de teledetección: secretos solo en el backend. Compose toma los
+      # valores del `.env` local, pero nunca los hornea en la imagen ni los
+      # expone al bundle/web del navegador.
+      TERRITORIO_REMOTE_SENSING_CACHE_HOURS: ${TERRITORIO_REMOTE_SENSING_CACHE_HOURS:-6}
+      TERRITORIO_USGS_M2M_USERNAME: ${TERRITORIO_USGS_M2M_USERNAME:-}
+      TERRITORIO_USGS_M2M_TOKEN: ${TERRITORIO_USGS_M2M_TOKEN:-}
+      TERRITORIO_EARTHDATA_TOKEN: ${TERRITORIO_EARTHDATA_TOKEN:-}
+      TERRITORIO_EARTHDATA_SHORT_NAME: ${TERRITORIO_EARTHDATA_SHORT_NAME:-VNP02IMG_NRT}
+      TERRITORIO_GIBS_LAYER: ${TERRITORIO_GIBS_LAYER:-MODIS_Terra_CorrectedReflectance_TrueColor}
     volumes:
       - territorio-data:/data
     # uid/gid del usuario `territorio` que crea su Dockerfile.

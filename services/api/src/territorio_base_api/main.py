@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, AsyncIterator
@@ -32,8 +33,13 @@ from territorio_base_api.models import (
     CoastalResponse,
     ErrorResponse,
     HealthResponse,
+    LandsatPilotRequest,
+    LandsatPilotResult,
     OverlayMetadata,
     PresetsResponse,
+    RemoteSensingPilotRequest,
+    RemoteSensingPilotResult,
+    RemoteSensingSourcesResponse,
 )
 from territorio_base_api.render.overlay import render_overlay
 from territorio_base_api.render.palettes import RASTER_SPECS
@@ -45,7 +51,7 @@ from territorio_base_api.service import (
     coastal_cache_key,
     resolve_status,
 )
-from territorio_base_api.sources import aqueduct
+from territorio_base_api.sources import aqueduct, remote_sensing
 
 log = logging.getLogger(__name__)
 
@@ -72,7 +78,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     store = JobStore(settings)
     loaded = store.load_from_disk()
     purged = store.purge_expired()
-    log.info("Store listo: %d job(s) recuperados, %d purgados, data_dir=%s", loaded, purged, settings.data_dir)
+    log.info(
+        "Store listo: %d job(s) recuperados, %d purgados, data_dir=%s",
+        loaded,
+        purged,
+        settings.data_dir,
+    )
     app.state.settings = settings
     app.state.store = store
     yield
@@ -107,6 +118,10 @@ app = FastAPI(
         {"name": "análisis", "description": "Pipeline raster asíncrono sobre un AOI."},
         {"name": "capas", "description": "Overlays PNG y GeoTIFF de cada capa."},
         {"name": "costera", "description": "Inundación costera WRI Aqueduct, on-demand."},
+        {
+            "name": "teledetección",
+            "description": "Piloto aislado de catálogos gratuitos y metadatos trazables.",
+        },
     ],
 )
 
@@ -321,7 +336,9 @@ VmaxQuery = Annotated[
 ]
 
 
-def _overlay_response(base: Path, analysis_id: str, layer: str, opacity: float, vmin, vmax) -> Response:
+def _overlay_response(
+    base: Path, analysis_id: str, layer: str, opacity: float, vmin, vmax
+) -> Response:
     _spec, overlay = _build_overlay(base, layer, opacity, vmin, vmax)
     return Response(
         content=overlay.png,
@@ -511,9 +528,7 @@ async def compute_coastal_flood(
         target.mkdir(parents=True, exist_ok=True)
         if summary.get("has_data"):
             write_geotiff(da, target / "coastal.tif", RASTER_SPECS["coastal"])
-        summary_path.write_text(
-            json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
         return summary
 
     try:
@@ -636,6 +651,99 @@ async def get_coastal_raster(cache_key: str, request: Request) -> FileResponse:
     return FileResponse(
         path, media_type="image/tiff", filename=RASTER_SPECS["coastal"].download_filename
     )
+
+
+@app.get(
+    "/remote-sensing/pilot/sources",
+    tags=["teledetección"],
+    operation_id="listRemoteSensingPilotSources",
+    response_model=RemoteSensingSourcesResponse,
+    dependencies=[Depends(require_token)],
+)
+async def list_remote_sensing_sources() -> RemoteSensingSourcesResponse:
+    """Lista las seis pruebas y declara de antemano sus credenciales gratuitas."""
+    return RemoteSensingSourcesResponse(sources=remote_sensing.list_sources())
+
+
+@app.post(
+    "/remote-sensing/pilot/inspect",
+    tags=["teledetección"],
+    operation_id="inspectRemoteSensingPilotSource",
+    response_model=RemoteSensingPilotResult,
+    dependencies=[Depends(require_token)],
+)
+async def inspect_remote_sensing_source(
+    payload: RemoteSensingPilotRequest, request: Request
+) -> RemoteSensingPilotResult:
+    """Consulta un dato reciente, normaliza su ficha y la guarda en caché saneada."""
+    aoi = load_aoi_from_geojson_dict(payload.aoi.model_dump(mode="json"))
+    settings: Settings = request.app.state.settings
+    return await asyncio.to_thread(
+        remote_sensing.inspect_source,
+        source=payload.source,
+        bbox=aoi.bbox,
+        lookback_days=payload.lookback_days,
+        max_cloud_cover=payload.max_cloud_cover,
+        cache_dir=settings.remote_sensing_dir,
+        cache_hours=settings.remote_sensing_cache_hours,
+    )
+
+
+@app.post(
+    "/remote-sensing/pilot/landsat",
+    tags=["teledetección"],
+    operation_id="runLandsatPilot",
+    response_model=LandsatPilotResult,
+    dependencies=[Depends(require_token)],
+)
+async def run_landsat_pilot(payload: LandsatPilotRequest, request: Request) -> LandsatPilotResult:
+    """Genera un NDVI mínimo con B4/B5/QA de una escena real de Landsat 9."""
+    aoi = load_aoi_from_geojson_dict(payload.aoi.model_dump(mode="json"))
+    settings: Settings = request.app.state.settings
+    return await asyncio.to_thread(
+        remote_sensing.run_usgs_landsat_pilot,
+        aoi=aoi,
+        lookback_days=payload.lookback_days,
+        max_cloud_cover=payload.max_cloud_cover,
+        cache_dir=settings.remote_sensing_dir,
+        cache_hours=settings.remote_sensing_cache_hours,
+    )
+
+
+def _landsat_artifact_path(settings: Settings, cache_key: str, filename: str) -> Path:
+    if re.fullmatch(r"[0-9a-f]{32}", cache_key) is None:
+        raise HTTPException(status_code=404, detail="Clave de caché Landsat inválida.")
+    return settings.remote_sensing_dir / "landsat" / cache_key / filename
+
+
+@app.get(
+    "/remote-sensing/pilot/landsat/{cache_key}/preview.png",
+    tags=["teledetección"],
+    operation_id="getLandsatPilotPreview",
+    response_class=FileResponse,
+    dependencies=[Depends(require_token)],
+)
+async def get_landsat_pilot_preview(cache_key: str, request: Request) -> FileResponse:
+    path = _landsat_artifact_path(request.app.state.settings, cache_key, "landsat-ndvi.png")
+    if not path.exists():
+        raise HTTPException(
+            status_code=404, detail="No hay previsualización Landsat para esa clave."
+        )
+    return FileResponse(path, media_type="image/png", filename="landsat-ndvi.png")
+
+
+@app.get(
+    "/remote-sensing/pilot/landsat/{cache_key}/ndvi.tif",
+    tags=["teledetección"],
+    operation_id="getLandsatPilotRaster",
+    response_class=FileResponse,
+    dependencies=[Depends(require_token)],
+)
+async def get_landsat_pilot_raster(cache_key: str, request: Request) -> FileResponse:
+    path = _landsat_artifact_path(request.app.state.settings, cache_key, "landsat-ndvi.tif")
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="No hay GeoTIFF Landsat para esa clave.")
+    return FileResponse(path, media_type="image/tiff", filename="landsat-ndvi.tif")
 
 
 @app.exception_handler(ValueError)
