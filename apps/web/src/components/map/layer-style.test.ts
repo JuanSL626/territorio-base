@@ -90,6 +90,32 @@ describe('regresión #5 — puntos como círculos, nunca pines', () => {
   });
 });
 
+describe('regresión — las redes lineales no se cierran como polígonos', () => {
+  const drenaje = layer('mepyd:agua/drenaje-red');
+
+  it('el relleno auxiliar acepta sólo Polygon y descarta cada LineString', () => {
+    const specs = vectorLayerSpecs(drenaje, 0.85);
+    const fill = pick(specs, 'fill');
+    const line = pick(specs, 'line');
+
+    expect(fill?.spec.filter).toEqual(['==', ['geometry-type'], 'Polygon']);
+    expect(line?.spec.filter).toBeUndefined();
+  });
+
+  it('el resaltado tampoco triangula una línea seleccionada', () => {
+    const specs = highlightSpecs(drenaje, 'drenaje-1');
+    const fill = pick(specs, 'fill');
+    const outline = pick(specs, 'outline');
+
+    expect(fill?.spec.filter).toEqual([
+      'all',
+      ['==', ['get', '__tbid'], 'drenaje-1'],
+      ['==', ['geometry-type'], 'Polygon'],
+    ]);
+    expect(outline?.spec.filter).toEqual(['==', ['get', '__tbid'], 'drenaje-1']);
+  });
+});
+
 describe('regresión #7 — color por capa, no por grupo', () => {
   it('ninguna capa MEPyD comparte color con otra de su MISMO subgrupo', () => {
     const bySubgroup = new Map<string, string[]>();

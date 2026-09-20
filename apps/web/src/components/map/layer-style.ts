@@ -179,9 +179,12 @@ export function vectorLayerSpecs(layer: LayerDef, opacity: number): StyledLayer[
       /*
         Hidrología OSM trae líneas Y polígonos en la misma fuente (`waterway`
         es línea; `natural=water` / `wetland` son polígonos). Por eso una capa
-        declarada como línea igual emite su relleno: el filtro por tipo de
-        geometría lo hace MapLibre solo — una capa `fill` ignora las líneas y
-        una `line` dibuja también el contorno de los polígonos.
+        declarada como línea igual emite su relleno, pero con un filtro
+        EXPLÍCITO de Polygon. No se puede confiar en que `fill` descarte las
+        LineString: algunas versiones de MapLibre cierran visualmente sus
+        extremos y triangulan la red, produciendo falsos polígonos. La capa
+        `line` queda sin filtro para dibujar tanto líneas como el contorno de
+        los polígonos de la fuente mixta.
       */
       const fillOpacity = clamped * fillFactorOf(layer.legend);
       return [
@@ -192,6 +195,7 @@ export function vectorLayerSpecs(layer: LayerDef, opacity: number): StyledLayer[
             id: mapLayerId(layer.id, 'fill'),
             type: 'fill',
             source,
+            filter: ['==', ['geometry-type'], 'Polygon'],
             paint: { 'fill-color': color, 'fill-opacity': fillOpacity },
           },
         },
@@ -282,6 +286,11 @@ export const HIGHLIGHT_COLOR = '#1f6feb';
 export function highlightSpecs(layer: LayerDef, featureId: string): StyledLayer[] {
   const source = sourceIdFor(layer.id);
   const filter: ExpressionSpecification = ['==', ['get', FEATURE_ID_KEY], featureId];
+  const polygonFilter: ExpressionSpecification = [
+    'all',
+    filter,
+    ['==', ['geometry-type'], 'Polygon'],
+  ];
 
   switch (layer.kind) {
     case 'vector-point':
@@ -306,7 +315,6 @@ export function highlightSpecs(layer: LayerDef, featureId: string): StyledLayer[
       ];
 
     case 'vector-polygon':
-    case 'vector-line':
       return [
         {
           id: highlightLayerId(layer.id, 'fill'),
@@ -316,6 +324,33 @@ export function highlightSpecs(layer: LayerDef, featureId: string): StyledLayer[
             type: 'fill',
             source,
             filter,
+            paint: { 'fill-color': HIGHLIGHT_COLOR, 'fill-opacity': 0.3 },
+          },
+        },
+        {
+          id: highlightLayerId(layer.id, 'outline'),
+          role: 'outline',
+          spec: {
+            id: highlightLayerId(layer.id, 'outline'),
+            type: 'line',
+            source,
+            filter,
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: { 'line-color': HIGHLIGHT_COLOR, 'line-width': 3 },
+          },
+        },
+      ];
+
+    case 'vector-line':
+      return [
+        {
+          id: highlightLayerId(layer.id, 'fill'),
+          role: 'fill',
+          spec: {
+            id: highlightLayerId(layer.id, 'fill'),
+            type: 'fill',
+            source,
+            filter: polygonFilter,
             paint: { 'fill-color': HIGHLIGHT_COLOR, 'fill-opacity': 0.3 },
           },
         },
