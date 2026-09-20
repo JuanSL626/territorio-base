@@ -10,6 +10,13 @@ services:
     env_file: !override
       - path: .env.preview
         required: true
+    # Defensa explícita también en el overlay: aunque `.env.preview` contenga
+    # credenciales de proveedores para interpolar/configurar `api`, el proceso
+    # web nunca las recibe. `environment` prevalece sobre `env_file`.
+    environment:
+      TERRITORIO_USGS_M2M_USERNAME: ""
+      TERRITORIO_USGS_M2M_TOKEN: ""
+      TERRITORIO_EARTHDATA_TOKEN: ""
   api:
     image: territorio-base-preview/api:local
     ports: !reset []
