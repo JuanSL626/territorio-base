@@ -352,7 +352,7 @@ export function VegetacionSection({
 
   return (
     <SectionShell section={section} inlineMap={inlineMap}>
-      <Conclusions items={vegetationConclusions(vegetation)} />
+      <Conclusions items={vegetationConclusions(vegetation, analysis.provenance)} />
 
       {vegetation.ndvi_available ? (
         <MetricCard

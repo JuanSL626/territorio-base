@@ -37,14 +37,14 @@ export const SRC_SENTINEL2: SourceRef = {
   provider: 'ESA Copernicus, vía Microsoft Planetary Computer',
   url: 'https://planetarycomputer.microsoft.com/dataset/sentinel-2-l2a',
   acquisition: 'Fecha real de cada escena STAC; se muestra la última usada en la corrida',
-  vintage: 'Sentinel-2 L2A, ventana máxima de búsqueda de 180 días',
+  vintage: 'Sentinel-2 L2A, ventana primaria de 30 días y respaldo hasta 180 días',
   resolution: '10 m',
   coverage: 'Global',
   license: 'Copernicus Sentinel data — libre, con atribución',
   citation:
     'Copernicus Sentinel-2 L2A. Vía Microsoft Planetary Computer, colección `sentinel-2-l2a`.',
   method:
-    'Mediana temporal de hasta 6 escenas, priorizadas por fecha de adquisición entre las que cumplen eo:cloud_cover < 30; máscara SCL {4,5,6,7,11}. NDVI = (NIR - Rojo) / (NIR + Rojo).',
+    'Mediana temporal de hasta 6 escenas válidas de los últimos 30 días. Si no existen, usa un respaldo de hasta 180 días y lo marca como retrasado o nublado; máscara SCL {4,5,6,7,11}. NDVI = (NIR - Rojo) / (NIR + Rojo).',
   caveat:
     'Puede no haber escenas utilizables en zonas persistentemente nubladas. Que no haya dato no significa que no haya vegetación.',
 };

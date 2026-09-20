@@ -2357,6 +2357,183 @@
             "title": "Sentinel2 Observation Age Days",
             "description": "Días entre la comprobación y la adquisición más reciente usada."
           },
+          "sentinel2_temporal_status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "updated",
+                  "delayed",
+                  "cloudy",
+                  "no_valid_data"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Temporal Status"
+          },
+          "sentinel2_temporal_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Temporal Message"
+          },
+          "sentinel2_last_checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Last Checked At"
+          },
+          "sentinel2_latest_available_scene_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Latest Available Scene Id"
+          },
+          "sentinel2_latest_available_acquisition_datetime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Latest Available Acquisition Datetime"
+          },
+          "sentinel2_latest_available_cloud_cover_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Latest Available Cloud Cover Pct"
+          },
+          "sentinel2_latest_valid_scene_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Latest Valid Scene Id"
+          },
+          "sentinel2_latest_valid_acquisition_datetime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Latest Valid Acquisition Datetime"
+          },
+          "sentinel2_latest_valid_cloud_cover_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Latest Valid Cloud Cover Pct"
+          },
+          "sentinel2_last_used_scene_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Last Used Scene Ids"
+          },
+          "sentinel2_last_used_acquisition_datetimes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Last Used Acquisition Datetimes"
+          },
+          "sentinel2_primary_window_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Primary Window Days"
+          },
+          "sentinel2_fallback_window_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Fallback Window Days"
+          },
+          "sentinel2_selection_window_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Selection Window Days"
+          },
+          "sentinel2_fallback_used": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentinel2 Fallback Used"
+          },
           "sentinel2_boa_offsets_applied": {
             "anyOf": [
               {

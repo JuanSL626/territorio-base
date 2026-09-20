@@ -284,6 +284,19 @@ describe('conclusiones de vegetación', () => {
     });
     expect(conclusions.map((item) => item.text).join(' ')).toContain('no se pudo medir');
   });
+
+  it('escena reciente nublada: muestra la fecha antigua usada como advertencia', () => {
+    const current = analysis();
+    const conclusions = vegetationConclusions(current.vegetation, {
+      sentinel2_temporal_status: 'cloudy',
+      sentinel2_temporal_message: 'La última escena disponible está nublada.',
+      sentinel2_latest_acquisition_datetime: '2026-08-04T15:17:41+00:00',
+    });
+
+    expect(conclusions[0]?.tone).toBe('warning');
+    expect(conclusions[0]?.text).toContain('2026-08-04');
+    expect(conclusions[0]?.text).toContain('nublada');
+  });
 });
 
 describe('riesgo costero — la sección que el legacy no incluía', () => {

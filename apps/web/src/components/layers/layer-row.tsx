@@ -7,6 +7,7 @@ import type { Provenance } from '@territorio/api-client';
 import type { LayerDef, LayerStatus } from '~/layers/types';
 
 import { LayerStatusChip } from '~/components/states/layer-status';
+import { Badge, type BadgeTone } from '~/components/ui/badge';
 import { IconButton } from '~/components/ui/button';
 import { Checkbox } from '~/components/ui/checkbox';
 import { ChartIcon, CloseIcon, OpacityIcon, PinIcon } from '~/components/ui/icons';
@@ -43,6 +44,13 @@ export type LayerRowProps = {
   onRetry: () => void;
 };
 
+const TEMPORAL_BADGE = {
+  updated: { label: 'actualizada', tone: 'success' },
+  delayed: { label: 'retrasada', tone: 'warning' },
+  cloudy: { label: 'nublada', tone: 'warning' },
+  no_valid_data: { label: 'sin dato válido', tone: 'neutral' },
+} satisfies Record<string, { label: string; tone: BadgeTone }>;
+
 /**
  * Fila de capa de 48px con el orden de controles FIJO (§4.3): muestra ·
  * checkbox+etiqueta · (espaciador) · ⓘ · ◐ · ✕. El slider de opacidad es una
@@ -75,6 +83,10 @@ export function LayerRow({
 
   const unavailable = runtime.status === 'error' || runtime.status === 'skipped';
   const locked = layer.alwaysOn === true;
+  const temporalStatus =
+    layer.id === 'ndvi' || layer.id === 'ndvi-density'
+      ? provenance?.sentinel2_temporal_status
+      : undefined;
 
   return (
     <div
@@ -94,6 +106,11 @@ export function LayerRow({
             label={
               <span className="flex items-center gap-1.5" title={layer.label}>
                 <span className="truncate">{layer.label}</span>
+                {temporalStatus == null ? null : (
+                  <Badge tone={TEMPORAL_BADGE[temporalStatus].tone}>
+                    {TEMPORAL_BADGE[temporalStatus].label}
+                  </Badge>
+                )}
                 {layer.role === 'medicion' ? (
                   <span
                     className="text-fg-subtle shrink-0"

@@ -38,8 +38,8 @@ export const DATASET_CITATIONS: readonly DatasetCitation[] = [
     resolution: '10 m',
     license: 'Abierto, sin registro',
     caveats:
-      'Mediana de las escenas menos nubladas de los últimos 180 días; filtro eo:cloud_cover < 30; ' +
-      'top 6 escenas; máscara SCL {4,5,6,7,11}. Puede fallar en zonas persistentemente nubladas.',
+      'Mediana de hasta 6 escenas válidas recientes: ventana primaria de 30 días y respaldo explícito ' +
+      'hasta 180 días; filtro eo:cloud_cover < 30; máscara SCL {4,5,6,7,11}. Puede fallar en zonas persistentemente nubladas.',
   },
   {
     id: 'worldcover',

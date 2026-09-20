@@ -678,7 +678,7 @@ export function buildReportMarkdown(options: ReportOptions): string {
       `- **Zona UTM:** EPSG:${String(analysis.aoi.utm_epsg)}`,
       `- **Generado:** ${isoDay(options.generatedAt)}`,
       `- **Análisis:** \`${analysis.id}\``,
-      `- **Parámetros:** NDVI a ${String(analysis.params.ndvi_resolution_m)} m · ventana ${String(analysis.params.lookback_days)} días · nubosidad < ${String(analysis.params.max_cloud_cover)} %`,
+      `- **Parámetros:** NDVI a ${String(analysis.params.ndvi_resolution_m)} m · ventana primaria 30 días · respaldo máximo ${String(analysis.params.lookback_days)} días · nubosidad < ${String(analysis.params.max_cloud_cover)} %`,
       '',
     );
 

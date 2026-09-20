@@ -771,8 +771,30 @@ export interface components {
              * @description Offsets BOA_ADD_OFFSET (en DN) aplicados por escena antes del NDVI. [-1000.0] es lo esperable para baseline >= 04.00. Ver corrección H1.
              */
             sentinel2_boa_offsets_applied?: number[] | null;
+            /** Sentinel2 Fallback Used */
+            sentinel2_fallback_used?: boolean | null;
+            /** Sentinel2 Fallback Window Days */
+            sentinel2_fallback_window_days?: number | null;
+            /** Sentinel2 Last Checked At */
+            sentinel2_last_checked_at?: string | null;
+            /** Sentinel2 Last Used Acquisition Datetimes */
+            sentinel2_last_used_acquisition_datetimes?: string[] | null;
+            /** Sentinel2 Last Used Scene Ids */
+            sentinel2_last_used_scene_ids?: string[] | null;
             /** Sentinel2 Latest Acquisition Datetime */
             sentinel2_latest_acquisition_datetime?: string | null;
+            /** Sentinel2 Latest Available Acquisition Datetime */
+            sentinel2_latest_available_acquisition_datetime?: string | null;
+            /** Sentinel2 Latest Available Cloud Cover Pct */
+            sentinel2_latest_available_cloud_cover_pct?: number | null;
+            /** Sentinel2 Latest Available Scene Id */
+            sentinel2_latest_available_scene_id?: string | null;
+            /** Sentinel2 Latest Valid Acquisition Datetime */
+            sentinel2_latest_valid_acquisition_datetime?: string | null;
+            /** Sentinel2 Latest Valid Cloud Cover Pct */
+            sentinel2_latest_valid_cloud_cover_pct?: number | null;
+            /** Sentinel2 Latest Valid Scene Id */
+            sentinel2_latest_valid_scene_id?: string | null;
             /** Sentinel2 Lookback Days */
             sentinel2_lookback_days?: number | null;
             /** Sentinel2 Max Cloud Cover */
@@ -784,10 +806,18 @@ export interface components {
             sentinel2_observation_age_days?: number | null;
             /** Sentinel2 Oldest Acquisition Datetime */
             sentinel2_oldest_acquisition_datetime?: string | null;
+            /** Sentinel2 Primary Window Days */
+            sentinel2_primary_window_days?: number | null;
             /** Sentinel2 Scene Count */
             sentinel2_scene_count?: number | null;
             /** Sentinel2 Scene Ids */
             sentinel2_scene_ids?: string[] | null;
+            /** Sentinel2 Selection Window Days */
+            sentinel2_selection_window_days?: number | null;
+            /** Sentinel2 Temporal Message */
+            sentinel2_temporal_message?: string | null;
+            /** Sentinel2 Temporal Status */
+            sentinel2_temporal_status?: ("updated" | "delayed" | "cloudy" | "no_valid_data") | null;
             /**
              * Worldcover Epoch Year
              * @description Época única seleccionada (corrección H2). Nunca es una mezcla.

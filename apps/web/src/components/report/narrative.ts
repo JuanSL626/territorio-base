@@ -19,7 +19,12 @@
  * El registro de la audiencia es el de alguien que sabe leer un plano pero no
  * necesariamente un SIG: nada de "NDVI p90" sin decir qué significa.
  */
-import type { CoastalPreset, TopographyResult, VegetationResult } from '@territorio/api-client';
+import type {
+  CoastalPreset,
+  Provenance,
+  TopographyResult,
+  VegetationResult,
+} from '@territorio/api-client';
 import type { HydrologySummary, ProtectedAreasSummary } from '@territorio/geo';
 
 import { type CoastalRun, type TerritorioAnalysisSummary, SOURCE_DOWN_MESSAGES  } from '~/lib/analysis-contract';
@@ -244,9 +249,24 @@ export const NDVI_LABELS = {
   muyDensa: 'Vegetación muy densa / dosel maduro',
 } as const;
 
-export function vegetationConclusions(vegetation: VegetationResult): Conclusion[] {
+export function vegetationConclusions(
+  vegetation: VegetationResult,
+  provenance?: Provenance,
+): Conclusion[] {
   const out: Conclusion[] = [];
   const summary = vegetation.summary;
+
+  if (
+    provenance?.sentinel2_temporal_status === 'cloudy' ||
+    provenance?.sentinel2_temporal_status === 'delayed'
+  ) {
+    const used = provenance.sentinel2_latest_acquisition_datetime;
+    out.push({
+      id: 'vegetacion-temporalidad',
+      tone: 'warning',
+      text: `${provenance.sentinel2_temporal_message ?? 'La observación de vegetación no está dentro de la ventana primaria.'}${used == null ? '' : ` La última escena usada fue adquirida el ${used}.`}`,
+    });
+  }
 
   if (!vegetation.ndvi_available) {
     out.push({
@@ -302,7 +322,7 @@ export function vegetationConclusions(vegetation: VegetationResult): Conclusion[
         )} y el promedio ${formatNumber(
           ndviMean,
           2,
-        )} (la escala va de -1 a 1). Es la mediana de las 6 escenas menos nubladas de los últimos 180 días, no una foto de un día puntual.`,
+        )} (la escala va de -1 a 1). Es la mediana de hasta 6 escenas válidas recientes: primero se buscan 30 días y sólo se amplía a 180 como respaldo explícito; no es una foto de un día puntual.`,
       });
     }
   }

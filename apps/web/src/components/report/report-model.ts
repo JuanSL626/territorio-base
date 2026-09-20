@@ -315,6 +315,13 @@ export type DatasetUsage = {
   unavailable: { source: SourceRef; reason: string }[];
 };
 
+const SENTINEL_TEMPORAL_LABEL = {
+  updated: 'actualizada',
+  delayed: 'retrasada',
+  cloudy: 'nublada',
+  no_valid_data: 'sin dato válido',
+} as const;
+
 function sourceOf(layerId: string): LayerDef | undefined {
   return getLayer(layerId);
 }
@@ -365,9 +372,11 @@ export function datasetUsage(analysis: TerritorioAnalysisSummary): DatasetUsage 
   const latestSentinel = analysis.provenance.sentinel2_latest_acquisition_datetime;
   if (sentinelRow !== undefined && latestSentinel != null) {
     const age = analysis.provenance.sentinel2_observation_age_days;
+    const available = analysis.provenance.sentinel2_latest_available_acquisition_datetime;
+    const status = analysis.provenance.sentinel2_temporal_status;
     sentinelRow.source = {
       ...sentinelRow.source,
-      acquisition: `${latestSentinel} (última escena usada${age == null ? '' : `; ${String(age)} días de antigüedad`})`,
+      acquisition: `${available == null ? '' : `Última disponible: ${available}. `}Última usada: ${latestSentinel}${age == null ? '' : ` (${String(age)} días de antigüedad)`}${status == null ? '' : `. Estado: ${SENTINEL_TEMPORAL_LABEL[status]}`}`,
     };
   }
   consider(

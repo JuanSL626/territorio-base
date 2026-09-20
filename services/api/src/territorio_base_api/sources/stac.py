@@ -15,7 +15,8 @@ from __future__ import annotations
 import datetime as _dt
 import logging
 from collections import Counter
-from typing import Any, Iterable, Sequence
+from dataclasses import dataclass
+from typing import Any, Iterable, Literal, Sequence
 
 import numpy as np
 import odc.stac
@@ -55,6 +56,26 @@ TREE_COVER_CLASS = 10
 # el comentario ahora describe lo que la clase realmente significa.
 SCL_VALID_CLASSES = (4, 5, 6, 7, 11)
 SENTINEL2_COMPOSITE_SCENE_LIMIT = 6
+SENTINEL2_PRIMARY_WINDOW_DAYS = 30
+Sentinel2AnalysisTemporalStatus = Literal["updated", "delayed", "cloudy", "no_valid_data"]
+
+
+@dataclass(frozen=True)
+class Sentinel2TemporalSelection:
+    latest_available: Any | None
+    latest_valid: Any | None
+    used_items: tuple[Any, ...]
+    status: Sentinel2AnalysisTemporalStatus
+    message: str
+    selection_window_days: int | None
+
+
+class NoValidSentinel2Data(RuntimeError):
+    """El catálogo respondió, pero no hubo una escena utilizable para NDVI."""
+
+    def __init__(self, message: str, temporal_metadata: dict[str, Any]) -> None:
+        super().__init__(message)
+        self.temporal_metadata = temporal_metadata
 
 
 def _item_acquired_at(item: Any) -> _dt.datetime | None:
@@ -72,8 +93,16 @@ def _item_acquired_at(item: Any) -> _dt.datetime | None:
         return None
 
 
+def _item_cloud_cover(item: Any) -> float | None:
+    raw = (getattr(item, "properties", None) or {}).get("eo:cloud_cover")
+    try:
+        return float(raw) if raw is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
 def select_recent_sentinel2_items(items: Sequence[Any], limit: int = 6) -> list[Any]:
-    """Prioriza adquisición reciente; la nubosidad ya fue filtrada en STAC.
+    """Prioriza adquisición reciente; la nubosidad sólo desempata la misma fecha.
 
     El flujo anterior ordenaba únicamente por ``eo:cloud_cover`` y podía usar
     una escena de varios meses atrás aunque hubiera observaciones válidas más
@@ -84,10 +113,131 @@ def select_recent_sentinel2_items(items: Sequence[Any], limit: int = 6) -> list[
     def key(item: Any) -> tuple[float, float]:
         acquired = _item_acquired_at(item)
         timestamp = acquired.timestamp() if acquired is not None else float("-inf")
-        cloud = float((getattr(item, "properties", None) or {}).get("eo:cloud_cover", 100))
-        return (-timestamp, cloud)
+        cloud = _item_cloud_cover(item)
+        return (-timestamp, cloud if cloud is not None else float("inf"))
 
     return sorted(items, key=key)[:limit]
+
+
+def select_sentinel2_temporal(
+    items: Sequence[Any],
+    *,
+    checked_on: _dt.date,
+    max_cloud_cover: int,
+    fallback_window_days: int,
+    primary_window_days: int = SENTINEL2_PRIMARY_WINDOW_DAYS,
+    limit: int = SENTINEL2_COMPOSITE_SCENE_LIMIT,
+) -> Sentinel2TemporalSelection:
+    """Separa disponibilidad, validez y uso sin esconder escenas nubladas."""
+    dated = [item for item in items if _item_acquired_at(item) is not None]
+    ordered = select_recent_sentinel2_items(dated, limit=max(1, len(dated)))
+    latest_available = ordered[0] if ordered else None
+    valid = [
+        item
+        for item in ordered
+        if (cloud := _item_cloud_cover(item)) is not None and cloud < max_cloud_cover
+    ]
+    latest_valid = valid[0] if valid else None
+    primary_start = checked_on - _dt.timedelta(days=primary_window_days)
+    primary_valid = [
+        item for item in valid if (_item_acquired_at(item) or _dt.datetime.min).date() >= primary_start
+    ]
+
+    if primary_valid:
+        used = tuple(primary_valid[:limit])
+        selection_window_days: int | None = primary_window_days
+    else:
+        used = tuple(valid[:limit])
+        selection_window_days = fallback_window_days if used else None
+
+    latest_at = _item_acquired_at(latest_available) if latest_available is not None else None
+    valid_at = _item_acquired_at(latest_valid) if latest_valid is not None else None
+    latest_cloud = _item_cloud_cover(latest_available) if latest_available is not None else None
+    latest_is_primary = latest_at is not None and latest_at.date() >= primary_start
+    latest_is_newer_than_valid = latest_at is not None and (valid_at is None or latest_at > valid_at)
+
+    if latest_is_primary and latest_is_newer_than_valid and (
+        latest_cloud is not None and latest_cloud >= max_cloud_cover
+    ):
+        status = "cloudy"
+        message = (
+            "La última escena disponible está nublada; se usa por separado la observación "
+            "válida anterior."
+            if latest_valid is not None
+            else "La última escena disponible está nublada y no hay una escena válida para NDVI."
+        )
+    elif primary_valid:
+        status = "updated"
+        message = "La escena válida usada fue adquirida dentro de los últimos 30 días."
+    elif used:
+        status = "delayed"
+        message = (
+            "No hubo una escena válida en los últimos 30 días; se usó una observación "
+            f"anterior dentro de la ventana de {fallback_window_days} días."
+        )
+    else:
+        status = "no_valid_data"
+        message = (
+            f"No hay escenas Sentinel-2 válidas en los últimos {fallback_window_days} días."
+        )
+
+    return Sentinel2TemporalSelection(
+        latest_available=latest_available,
+        latest_valid=latest_valid,
+        used_items=used,
+        status=status,
+        message=message,
+        selection_window_days=selection_window_days,
+    )
+
+
+def sentinel2_temporal_metadata(
+    selection: Sentinel2TemporalSelection,
+    *,
+    checked_at: _dt.datetime,
+    max_cloud_cover: int,
+    fallback_window_days: int,
+    primary_window_days: int = SENTINEL2_PRIMARY_WINDOW_DAYS,
+) -> dict[str, Any]:
+    latest_available_at = _item_acquired_at(selection.latest_available)
+    latest_valid_at = _item_acquired_at(selection.latest_valid)
+    used_at = [_item_acquired_at(item) for item in selection.used_items]
+    used_at = [value for value in used_at if value is not None]
+    observation_age_days = None
+    if used_at:
+        observation_age_days = max(0, (checked_at.date() - used_at[0].date()).days)
+
+    return {
+        "last_checked_at": checked_at.isoformat(),
+        "temporal_status": selection.status,
+        "temporal_message": selection.message,
+        "latest_available_scene_id": (
+            getattr(selection.latest_available, "id", None)
+            if selection.latest_available is not None
+            else None
+        ),
+        "latest_available_acquired_at": (
+            latest_available_at.isoformat() if latest_available_at is not None else None
+        ),
+        "latest_available_cloud_cover_pct": _item_cloud_cover(selection.latest_available),
+        "latest_valid_scene_id": (
+            getattr(selection.latest_valid, "id", None)
+            if selection.latest_valid is not None
+            else None
+        ),
+        "latest_valid_acquired_at": (
+            latest_valid_at.isoformat() if latest_valid_at is not None else None
+        ),
+        "latest_valid_cloud_cover_pct": _item_cloud_cover(selection.latest_valid),
+        "last_used_scene_ids": [getattr(item, "id", "?") for item in selection.used_items],
+        "last_used_acquired_at": [value.isoformat() for value in used_at],
+        "observation_age_days": observation_age_days,
+        "primary_window_days": primary_window_days,
+        "fallback_window_days": fallback_window_days,
+        "selection_window_days": selection.selection_window_days,
+        "fallback_used": selection.selection_window_days == fallback_window_days,
+        "max_cloud_cover": max_cloud_cover,
+    }
 
 
 # H1 — BOA_ADD_OFFSET de Sentinel-2 L2A. REGLA (documentada acá porque es la
@@ -346,26 +496,35 @@ def fetch_dem(aoi: AOI, resolution_m: int = 30) -> xr.DataArray:
 def fetch_sentinel2_ndvi(
     aoi: AOI, resolution_m: int = 10, max_cloud_cover: int = 30, lookback_days: int = 180
 ) -> xr.DataArray:
-    """Mediana de NDVI sobre las escenas recientes que cumplen el umbral de nubes.
+    """NDVI reciente con ventana primaria de 30 días y respaldo explícito.
 
     Aplica el BOA_ADD_OFFSET por escena antes de calcular el índice (H1).
     """
     catalog = _client()
-    end = _dt.date.today()
+    checked_at = _dt.datetime.now(_dt.timezone.utc)
+    end = checked_at.date()
     start = end - _dt.timedelta(days=lookback_days)
     search = catalog.search(
         collections=["sentinel-2-l2a"],
         bbox=aoi.bbox,
         datetime=f"{start.isoformat()}/{end.isoformat()}",
-        query={"eo:cloud_cover": {"lt": max_cloud_cover}},
     )
-    items = list(search.items())
+    catalog_items = list(search.items())
+    selection = select_sentinel2_temporal(
+        catalog_items,
+        checked_on=end,
+        max_cloud_cover=max_cloud_cover,
+        fallback_window_days=lookback_days,
+    )
+    temporal = sentinel2_temporal_metadata(
+        selection,
+        checked_at=checked_at,
+        max_cloud_cover=max_cloud_cover,
+        fallback_window_days=lookback_days,
+    )
+    items = list(selection.used_items)
     if not items:
-        raise RuntimeError(
-            "No se encontraron escenas Sentinel-2 con poca nubosidad en el rango de fechas. "
-            "Prueba subiendo max_cloud_cover o lookback_days."
-        )
-    items = select_recent_sentinel2_items(items, SENTINEL2_COMPOSITE_SCENE_LIMIT)
+        raise NoValidSentinel2Data(selection.message, temporal)
 
     ds = odc.stac.load(
         items,
@@ -398,16 +557,13 @@ def fetch_sentinel2_ndvi(
     out.attrs["source"] = "Sentinel-2 L2A (ESA Copernicus, vía Microsoft Planetary Computer)"
     out.attrs["scene_count"] = len(items)
     out.attrs["scene_ids"] = [getattr(it, "id", "?") for it in items]
-    acquisitions = [acquired.isoformat() for item in items if (acquired := _item_acquired_at(item))]
+    acquisitions = list(temporal["last_used_acquired_at"])
     out.attrs["scene_acquired_at"] = acquisitions
     out.attrs["latest_acquired_at"] = acquisitions[0] if acquisitions else None
     out.attrs["oldest_acquired_at"] = acquisitions[-1] if acquisitions else None
-    if acquisitions:
-        latest_date = _dt.datetime.fromisoformat(acquisitions[0]).date()
-        out.attrs["observation_age_days"] = max(0, (end - latest_date).days)
+    out.attrs.update(temporal)
     out.attrs["boa_offsets_applied"] = sorted({float(v) for v in red_offsets}) if len(red_offsets) else []
     out.attrs["lookback_days"] = lookback_days
-    out.attrs["max_cloud_cover"] = max_cloud_cover
     return out
 
 

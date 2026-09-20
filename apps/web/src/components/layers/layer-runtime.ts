@@ -92,13 +92,21 @@ function rasterRuntime(
     texto del §8 ("Empty result"), no un "error" genérico.
   */
   if (layer.id === 'ndvi' || layer.id === 'ndvi-density') {
+    const temporal = analysis.provenance.sentinel2_temporal_status;
+    const temporalReason =
+      temporal === 'cloudy'
+        ? 'nublada'
+        : temporal === 'delayed'
+          ? 'retrasada'
+          : 'sin escenas S2';
     return analysis.vegetation.ndvi_available
       ? EMPTY_RUNTIME
       : {
           status: 'empty',
-          reason: 'sin escenas S2',
+          reason: temporalReason,
           detail:
-            'No se encontraron escenas Sentinel-2 con menos de 30 % de nubes en los últimos 180 días.',
+            analysis.provenance.sentinel2_temporal_message ??
+            'No se encontraron escenas Sentinel-2 válidas en la ventana consultada.',
         };
   }
   if (layer.id === 'worldcover') {

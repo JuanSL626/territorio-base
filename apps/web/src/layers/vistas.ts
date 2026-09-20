@@ -59,7 +59,7 @@ export const VISTAS: Vista[] = [
   {
     id: 'vegetacion',
     label: 'Vegetación',
-    hint: 'NDVI con las escenas válidas más recientes; WorldCover 2021 sólo como referencia histórica.',
+    hint: 'NDVI reciente (30 días, respaldo explícito a 180); WorldCover 2021 sólo como referencia histórica.',
     basemap: 'satellite',
     inspectorDefaultTab: 'atributos',
     layers: [

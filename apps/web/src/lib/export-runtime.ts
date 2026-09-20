@@ -580,7 +580,11 @@ async function writeDocuments(job: ExportJob): Promise<void> {
 
   const parameters = [
     { label: 'Resolución NDVI', value: `${String(job.analysis.params.ndvi_resolution_m)} m` },
-    { label: 'Ventana Sentinel-2', value: `${String(job.analysis.params.lookback_days)} días` },
+    { label: 'Ventana primaria Sentinel-2', value: '30 días' },
+    {
+      label: 'Respaldo máximo Sentinel-2',
+      value: `${String(job.analysis.params.lookback_days)} días`,
+    },
     { label: 'Nubosidad máxima', value: `${String(job.analysis.params.max_cloud_cover)} %` },
     { label: 'CRS de los vectores', value: `EPSG:${String(vectorEpsg)}` },
     { label: 'Recorte al AOI', value: job.selection.clipToAoi ? 'sí' : 'no' },

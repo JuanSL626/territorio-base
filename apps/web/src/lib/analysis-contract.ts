@@ -387,13 +387,31 @@ const provenanceSchema: z.ZodType<Provenance> = z.object({
   dem_source: z.string().nullable().optional(),
   sentinel2_acquisition_datetimes: z.array(z.string()).nullable().optional(),
   sentinel2_boa_offsets_applied: z.array(z.number()).nullable().optional(),
+  sentinel2_fallback_used: z.boolean().nullable().optional(),
+  sentinel2_fallback_window_days: z.number().nullable().optional(),
+  sentinel2_last_checked_at: z.string().nullable().optional(),
+  sentinel2_last_used_acquisition_datetimes: z.array(z.string()).nullable().optional(),
+  sentinel2_last_used_scene_ids: z.array(z.string()).nullable().optional(),
   sentinel2_latest_acquisition_datetime: z.string().nullable().optional(),
+  sentinel2_latest_available_acquisition_datetime: z.string().nullable().optional(),
+  sentinel2_latest_available_cloud_cover_pct: z.number().nullable().optional(),
+  sentinel2_latest_available_scene_id: z.string().nullable().optional(),
+  sentinel2_latest_valid_acquisition_datetime: z.string().nullable().optional(),
+  sentinel2_latest_valid_cloud_cover_pct: z.number().nullable().optional(),
+  sentinel2_latest_valid_scene_id: z.string().nullable().optional(),
   sentinel2_lookback_days: z.number().nullable().optional(),
   sentinel2_max_cloud_cover: z.number().nullable().optional(),
   sentinel2_observation_age_days: z.number().nullable().optional(),
   sentinel2_oldest_acquisition_datetime: z.string().nullable().optional(),
+  sentinel2_primary_window_days: z.number().nullable().optional(),
   sentinel2_scene_count: z.number().nullable().optional(),
   sentinel2_scene_ids: z.array(z.string()).nullable().optional(),
+  sentinel2_selection_window_days: z.number().nullable().optional(),
+  sentinel2_temporal_message: z.string().nullable().optional(),
+  sentinel2_temporal_status: z
+    .enum(['updated', 'delayed', 'cloudy', 'no_valid_data'])
+    .nullable()
+    .optional(),
   worldcover_epoch_year: z.number().nullable().optional(),
 });
 

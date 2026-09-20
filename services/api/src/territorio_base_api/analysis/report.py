@@ -92,6 +92,7 @@ def run_analysis(
     progress(STEP_NDVI)
     ndvi_summary: dict | None = None
     ndvi_error: str | None = None
+    sentinel2_temporal: dict = {}
     try:
         ndvi = stac.fetch_sentinel2_ndvi(
             aoi,
@@ -99,12 +100,15 @@ def run_analysis(
             max_cloud_cover=max_cloud_cover,
             lookback_days=lookback_days,
         )
+        sentinel2_temporal = dict(ndvi.attrs)
         ndvi_summary = summarize_ndvi(ndvi)
         rasters["ndvi"] = ndvi
         rasters["ndvi_density"] = classify_ndvi_density(ndvi)
     except Exception as exc:  # noqa: BLE001
         log.warning("NDVI no disponible: %s", exc, exc_info=True)
         ndvi_error = _reason(exc)
+        if isinstance(exc, stac.NoValidSentinel2Data):
+            sentinel2_temporal = exc.temporal_metadata
 
     progress(STEP_WORLDCOVER)
     worldcover_summary: dict | None = None
@@ -146,17 +150,20 @@ def run_analysis(
         "topography": topography,
         "vegetation": vegetation,
         "rasters": rasters,
-        "provenance": build_provenance(rasters),
+        "provenance": build_provenance(rasters, sentinel2_temporal=sentinel2_temporal),
     }
 
 
-def build_provenance(rasters: dict[str, xr.DataArray]) -> dict:
+def build_provenance(
+    rasters: dict[str, xr.DataArray], *, sentinel2_temporal: dict | None = None
+) -> dict:
     """Metadatos de qué se usó realmente en esta corrida (para la tabla de fuentes)."""
     ndvi = rasters.get("ndvi")
     worldcover = rasters.get("worldcover")
     dem = rasters.get("dem")
     scene_ids = ndvi.attrs.get("scene_ids") if ndvi is not None else None
     offsets = ndvi.attrs.get("boa_offsets_applied") if ndvi is not None else None
+    temporal = sentinel2_temporal or (dict(ndvi.attrs) if ndvi is not None else {})
     derived_products = []
     if ndvi is not None and scene_ids:
         derived_products.append(
@@ -191,15 +198,40 @@ def build_provenance(rasters: dict[str, xr.DataArray]) -> dict:
             ndvi.attrs.get("oldest_acquired_at") if ndvi is not None else None
         ),
         "sentinel2_observation_age_days": (
-            ndvi.attrs.get("observation_age_days") if ndvi is not None else None
+            temporal.get("observation_age_days")
         ),
+        "sentinel2_temporal_status": temporal.get("temporal_status"),
+        "sentinel2_temporal_message": temporal.get("temporal_message"),
+        "sentinel2_last_checked_at": temporal.get("last_checked_at"),
+        "sentinel2_latest_available_scene_id": temporal.get("latest_available_scene_id"),
+        "sentinel2_latest_available_acquisition_datetime": temporal.get(
+            "latest_available_acquired_at"
+        ),
+        "sentinel2_latest_available_cloud_cover_pct": temporal.get(
+            "latest_available_cloud_cover_pct"
+        ),
+        "sentinel2_latest_valid_scene_id": temporal.get("latest_valid_scene_id"),
+        "sentinel2_latest_valid_acquisition_datetime": temporal.get(
+            "latest_valid_acquired_at"
+        ),
+        "sentinel2_latest_valid_cloud_cover_pct": temporal.get(
+            "latest_valid_cloud_cover_pct"
+        ),
+        "sentinel2_last_used_scene_ids": temporal.get("last_used_scene_ids"),
+        "sentinel2_last_used_acquisition_datetimes": temporal.get("last_used_acquired_at"),
+        "sentinel2_primary_window_days": temporal.get("primary_window_days"),
+        "sentinel2_fallback_window_days": temporal.get("fallback_window_days"),
+        "sentinel2_selection_window_days": temporal.get("selection_window_days"),
+        "sentinel2_fallback_used": temporal.get("fallback_used"),
         "sentinel2_boa_offsets_applied": (
             ndvi.attrs.get("boa_offsets_applied") if ndvi is not None else None
         ),
-        "sentinel2_lookback_days": (ndvi.attrs.get("lookback_days") if ndvi is not None else None),
-        "sentinel2_max_cloud_cover": (
-            ndvi.attrs.get("max_cloud_cover") if ndvi is not None else None
+        "sentinel2_lookback_days": (
+            ndvi.attrs.get("lookback_days")
+            if ndvi is not None
+            else temporal.get("fallback_window_days")
         ),
+        "sentinel2_max_cloud_cover": temporal.get("max_cloud_cover"),
         "worldcover_epoch_year": (
             worldcover.attrs.get("epoch_year") if worldcover is not None else None
         ),

@@ -203,6 +203,21 @@ class Provenance(BaseModel):
     sentinel2_observation_age_days: int | None = Field(
         default=None, description="Días entre la comprobación y la adquisición más reciente usada."
     )
+    sentinel2_temporal_status: Literal["updated", "delayed", "cloudy", "no_valid_data"] | None = None
+    sentinel2_temporal_message: str | None = None
+    sentinel2_last_checked_at: str | None = None
+    sentinel2_latest_available_scene_id: str | None = None
+    sentinel2_latest_available_acquisition_datetime: str | None = None
+    sentinel2_latest_available_cloud_cover_pct: float | None = None
+    sentinel2_latest_valid_scene_id: str | None = None
+    sentinel2_latest_valid_acquisition_datetime: str | None = None
+    sentinel2_latest_valid_cloud_cover_pct: float | None = None
+    sentinel2_last_used_scene_ids: list[str] | None = None
+    sentinel2_last_used_acquisition_datetimes: list[str] | None = None
+    sentinel2_primary_window_days: int | None = None
+    sentinel2_fallback_window_days: int | None = None
+    sentinel2_selection_window_days: int | None = None
+    sentinel2_fallback_used: bool | None = None
     sentinel2_boa_offsets_applied: list[float] | None = Field(
         default=None,
         description=(
