@@ -15,6 +15,7 @@ import type { SourceRef } from '~/layers/types';
 import { Badge, type BadgeTone } from '~/components/ui/badge';
 import { AlertIcon, ExternalIcon, InfoIcon } from '~/components/ui/icons';
 import { LAYER_REGISTRY } from '~/layers/registry';
+import { SRC_NASA_POWER } from '~/layers/sources';
 import { inspectPilotSource, runLandsatPilot } from '~/lib/remote-sensing-server';
 
 /**
@@ -79,6 +80,13 @@ function sourceEntries(): SourceEntry[] {
       citationId: citation?.id ?? null,
     });
   }
+
+  byName.set(SRC_NASA_POWER.name, {
+    source: SRC_NASA_POWER,
+    layers: ['Potencial solar regional'],
+    endpoint: 'https://power.larc.nasa.gov/api/temporal/climatology/point',
+    citationId: null,
+  });
 
   return [...byName.values()];
 }

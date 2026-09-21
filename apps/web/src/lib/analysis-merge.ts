@@ -24,6 +24,7 @@ import {
   type Aoi,
   type HydrologyFeature,
   type MepydResult,
+  type NasaPowerSolarResource,
   type OsmContextFeature,
   type ProtectedAreaFeature,
   type SourceOutcome,
@@ -44,6 +45,7 @@ import {
   type ProtectedAreaGeo,
   type SourceState,
   type SourceStatus,
+  type SolarResource,
   type TerritorioAnalysis,
 } from './analysis-contract';
 
@@ -63,10 +65,51 @@ export type VectorOutcomes = {
   hydrology: SourceOutcome<readonly HydrologyFeature[]>;
   /** Comparte llamada y disponibilidad con hidrología; opcional en fixtures históricos. */
   osmContext?: SourceOutcome<{ features: readonly OsmContextFeature[]; truncated: boolean }>;
+  /** Opcional sólo para poder fusionar fixtures y análisis históricos. */
+  solar?: SourceOutcome<NasaPowerSolarResource>;
   protectedAreas: SourceOutcome<readonly ProtectedAreaFeature[]>;
   /** `fetchAllMepyd` no lanza por capa; `available: false` = falló la llamada entera. */
   mepyd: SourceOutcome<MepydResult>;
 };
+
+function mapSolar(resource: NasaPowerSolarResource): SolarResource {
+  const metric = (value: Omit<NasaPowerSolarResource['monthly'][number], 'month'>) => ({
+    ghi_kwh_m2_day: value.ghiKwhM2Day,
+    dni_kwh_m2_day: value.dniKwhM2Day,
+    dhi_kwh_m2_day: value.dhiKwhM2Day,
+    clear_sky_ghi_kwh_m2_day: value.clearSkyGhiKwhM2Day,
+    clear_sky_days: value.clearSkyDays,
+    cloud_amount_pct: value.cloudAmountPct,
+    temperature_c: value.temperatureC,
+    wind_speed_10m_ms: value.windSpeed10mMs,
+  });
+  return {
+    checked_at: resource.checkedAt,
+    reference_point: {
+      latitude: resource.latitude,
+      longitude: resource.longitude,
+      elevation_m: resource.elevationM,
+    },
+    temporal_range: resource.temporalRange,
+    time_standard: resource.timeStandard,
+    api_version: resource.apiVersion,
+    source_datasets: resource.sourceDatasets,
+    spatial_resolution: resource.spatialResolution,
+    license: resource.license,
+    attribution: resource.attribution,
+    annual: {
+      ...metric(resource.annual),
+      annual_ghi_kwh_m2: resource.annual.annualGhiKwhM2,
+      peak_sun_hours_day: resource.annual.peakSunHoursDay,
+    },
+    monthly: resource.monthly.map((value) => ({ month: value.month, ...metric(value) })),
+    formulas: {
+      annual_ghi_kwh_m2: resource.formulas.annualGhiKwhM2,
+      peak_sun_hours_day: resource.formulas.peakSunHoursDay,
+    },
+    parameter_units: resource.parameterUnits,
+  };
+}
 
 export type MergeAnalysisInput = {
   id: string;
@@ -429,6 +472,18 @@ export function mergeAnalysis(input: MergeAnalysisInput): TerritorioAnalysis {
   const raster = buildRaster(input.raster);
   const hydrology = buildHydrology(input.aoi, input.vector.hydrology);
   const protectedAreas = buildProtectedAreas(input.aoi, input.vector.protectedAreas);
+  const solarOutcome = input.vector.solar;
+  const solarStatus =
+    solarOutcome === undefined
+      ? null
+      : sourceStatus(
+          'solar',
+          solarOutcome.available ? 'ok' : 'error',
+          solarOutcome.available ? 1 : 0,
+          solarOutcome.available
+            ? null
+            : reasonText(solarOutcome.error, SOURCE_DOWN_MESSAGES.solar),
+        );
 
   /*
     Si la llamada a MEPyD reventó entera no hay `inRd` que leer, así que se
@@ -444,6 +499,7 @@ export function mergeAnalysis(input: MergeAnalysisInput): TerritorioAnalysis {
   // El ORDEN es el del §1.4 y el de las tarjetas del reporte.
   const sources: SourceStatus[] = [
     raster.status,
+    ...(solarStatus === null ? [] : [solarStatus]),
     hydrology.status,
     protectedAreas.status,
     mepyd.status,
@@ -467,6 +523,12 @@ export function mergeAnalysis(input: MergeAnalysisInput): TerritorioAnalysis {
 
     topography: raster.topography,
     vegetation: raster.vegetation,
+    solar_resource:
+      solarOutcome === undefined
+        ? undefined
+        : solarOutcome.available
+          ? mapSolar(solarOutcome.data)
+          : null,
 
     hydrology: hydrology.block,
     osm_context: input.vector.osmContext?.available

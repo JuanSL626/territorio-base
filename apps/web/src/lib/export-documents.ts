@@ -289,6 +289,7 @@ export function buildSummaryRows(analysis: TerritorioAnalysis): SummaryRow[] {
   const WDPA = 'WDPA — UNEP-WCMC';
   const MEPYD = 'MEPyD — Sistema de Información para la GRD y la AC';
   const AQUEDUCT = 'WRI Aqueduct Floods v2';
+  const POWER = 'NASA POWER (CERES/SRB y MERRA-2)';
 
   rows.push(
     {
@@ -611,6 +612,33 @@ export function buildSummaryRows(analysis: TerritorioAnalysis): SummaryRow[] {
     }
   }
 
+  const solar = analysis.solar_resource;
+  if (solar != null) {
+    rows.push(
+      {
+        tema: 'Potencial solar',
+        indicador: 'GHI anual',
+        valor: formatNumber(solar.annual.annual_ghi_kwh_m2, 0),
+        unidad: 'kWh/m²/año',
+        fuente: POWER,
+      },
+      {
+        tema: 'Potencial solar',
+        indicador: 'Horas solares pico',
+        valor: formatNumber(solar.annual.peak_sun_hours_day, 2),
+        unidad: 'h/día',
+        fuente: POWER,
+      },
+      {
+        tema: 'Potencial solar',
+        indicador: 'Nubosidad media',
+        valor: formatNumber(solar.annual.cloud_amount_pct, 1),
+        unidad: '%',
+        fuente: POWER,
+      },
+    );
+  }
+
   return rows;
 }
 
@@ -749,6 +777,30 @@ export function buildReportMarkdown(options: ReportOptions): string {
         ...unavailableBlock(
           analysis.vegetation.worldcover_error ??
             'El servicio no devolvió cobertura de suelo para este AOI.',
+        ),
+      );
+    }
+  }
+
+  if (wants(sections, 'solar')) {
+    lines.push('## Potencial solar', '');
+    const solar = analysis.solar_resource;
+    if (solar != null) {
+      lines.push(
+        `- GHI anual: **${formatNumber(solar.annual.annual_ghi_kwh_m2, 0)} kWh/m²/año**.`,
+        `- Horas solares pico: **${formatNumber(solar.annual.peak_sun_hours_day, 2)} h/día** (derivadas del GHI; no son horas de sol observadas).`,
+        `- DNI / DHI medios: ${formatNumber(solar.annual.dni_kwh_m2_day, 2)} / ${formatNumber(solar.annual.dhi_kwh_m2_day, 2)} kWh/m²/día.`,
+        `- Nubosidad media: ${formatPercent(solar.annual.cloud_amount_pct, 1)}; temperatura ${formatNumber(solar.annual.temperature_c, 1)} °C; viento a 10 m ${formatNumber(solar.annual.wind_speed_10m_ms, 1)} m/s.`,
+        `- Fuente: NASA POWER API ${solar.api_version}; climatología ${solar.temporal_range}; malla ${solar.spatial_resolution}; comprobada ${solar.checked_at}.`,
+        '',
+        '> **Alcance.** Tamizaje regional. No modela sombras, obstáculos, inclinación del tejado, pérdidas eléctricas ni producción garantizada.',
+        '',
+      );
+    } else {
+      lines.push(
+        ...unavailableBlock(
+          analysis.sources.find((source) => source.id === 'solar')?.error ??
+            'NASA POWER no respondió en esta corrida.',
         ),
       );
     }

@@ -1,7 +1,6 @@
-
 import { DistributionChart, rowsFromClasses, StatList } from './charts';
 import { SectionCitations } from './citations';
-import { MetricCard, type CardDownload  } from './metric-card';
+import { MetricCard, type CardDownload } from './metric-card';
 import {
   chartTextEquivalent,
   coastalConclusions,
@@ -16,7 +15,7 @@ import {
   vegetationConclusions,
 } from './narrative';
 import { Conclusions, MapAction, StatusBanner } from './narrative-blocks';
-import { locationLabel, type ReportSection  } from './report-model';
+import { locationLabel, type ReportSection } from './report-model';
 
 import type { CoastalPreset } from '@territorio/api-client';
 import type { ReactNode } from 'react';
@@ -127,7 +126,10 @@ export function downloadForLayer(
   }
   const url = entry.raster_url;
   if (url == null || url === '') {
-    return { kind: 'unavailable', reason: 'El servicio no publicó una URL de descarga para esta capa.' };
+    return {
+      kind: 'unavailable',
+      reason: 'El servicio no publicó una URL de descarga para esta capa.',
+    };
   }
   /*
     `raster_url` viene RELATIVA al servicio raster (`/analysis/{id}/raster/dem.tif`),
@@ -328,6 +330,82 @@ export function TopografiaSection({
   );
 }
 
+export function SolarSection({ analysis, section, inlineMap }: SectionProps) {
+  const solar = analysis.solar_resource;
+  if (solar == null) {
+    const reason =
+      analysis.sources.find((source) => source.id === 'solar')?.error ??
+      'NASA POWER no devolvió datos para esta corrida.';
+    return (
+      <SectionShell section={section} inlineMap={inlineMap}>
+        <NoDataCard
+          title="Potencial solar no disponible"
+          reason={reason}
+          service="NASA POWER (CERES/SRB y MERRA-2)"
+        />
+      </SectionShell>
+    );
+  }
+
+  const annual = solar.annual;
+  return (
+    <SectionShell section={section} inlineMap={inlineMap}>
+      <div className="rounded-panel border-border-base bg-surface print-card border p-4">
+        <StatList
+          stats={[
+            {
+              label: 'GHI anual',
+              value: `${formatNumber(annual.annual_ghi_kwh_m2, 0)} kWh/m²/año`,
+            },
+            {
+              label: 'Horas solares pico',
+              value: `${formatNumber(annual.peak_sun_hours_day, 2)} h/día`,
+            },
+            {
+              label: 'DNI medio',
+              value: `${formatNumber(annual.dni_kwh_m2_day, 2)} kWh/m²/día`,
+            },
+            {
+              label: 'DHI medio',
+              value: `${formatNumber(annual.dhi_kwh_m2_day, 2)} kWh/m²/día`,
+            },
+            {
+              label: 'Días de cielo despejado',
+              value: `${formatNumber(annual.clear_sky_days, 0)} días/año`,
+            },
+            {
+              label: 'Nubosidad media',
+              value: `${formatNumber(annual.cloud_amount_pct, 1)} %`,
+            },
+            {
+              label: 'Temperatura media',
+              value: `${formatNumber(annual.temperature_c, 1)} °C`,
+            },
+            {
+              label: 'Viento a 10 m',
+              value: `${formatNumber(annual.wind_speed_10m_ms, 1)} m/s`,
+            },
+          ]}
+        />
+      </div>
+      <div className="rounded-panel border-border-base bg-surface border p-4">
+        <h3 className="text-13 text-fg font-semibold">Trazabilidad y alcance</h3>
+        <p className="text-12 text-fg-muted mt-2">
+          NASA POWER, climatología {solar.temporal_range}; punto de referencia{' '}
+          {formatNumber(solar.reference_point.latitude, 4)},{' '}
+          {formatNumber(solar.reference_point.longitude, 4)}. Resolución {solar.spatial_resolution}.
+          Las horas solares pico son derivadas del GHI; no equivalen a horas de sol observadas.
+        </p>
+        <p className="text-12 text-fg-muted mt-2">
+          Este resultado sirve para preselección regional. La pendiente y orientación mostradas en
+          el mapa provienen del DEM; todavía no se modelan sombras de edificios, vegetación,
+          inclinación del tejado, pérdidas eléctricas ni rendimiento de módulos.
+        </p>
+      </div>
+    </SectionShell>
+  );
+}
+
 export function VegetacionSection({
   analysis,
   section,
@@ -338,17 +416,18 @@ export function VegetacionSection({
   const vegetation = analysis.vegetation;
   const summary = vegetation.summary;
 
-  const densityRows = rowsFromClasses(
-    summary?.ndvi_density_class_pct,
-    NDVI_DENSITY_CLASSES,
-    { sparse: false },
-  );
+  const densityRows = rowsFromClasses(summary?.ndvi_density_class_pct, NDVI_DENSITY_CLASSES, {
+    sparse: false,
+  });
   const coverRows = rowsFromClasses(summary?.worldcover_landcover_pct, WORLDCOVER_CLASSES, {
     sparse: true,
   });
 
   const densityEquivalent = chartTextEquivalent('Densidad de vegetación', densityRows);
-  const coverEquivalent = chartTextEquivalent('Cobertura de suelo (ESA WorldCover 2021)', coverRows);
+  const coverEquivalent = chartTextEquivalent(
+    'Cobertura de suelo (ESA WorldCover 2021)',
+    coverRows,
+  );
 
   return (
     <SectionShell section={section} inlineMap={inlineMap}>
@@ -532,7 +611,9 @@ export function HidrologiaSection({
                       <td className="text-11 text-fg py-1">
                         {OSM_HYDRO_KIND_LABELS[feature.kind] ?? feature.kind}
                       </td>
-                      <td className="text-11 text-fg py-1">{feature.name ?? 'Sin nombre en OSM'}</td>
+                      <td className="text-11 text-fg py-1">
+                        {feature.name ?? 'Sin nombre en OSM'}
+                      </td>
                       <td className="tabular text-11 text-fg py-1">
                         {feature.distance_m <= 0
                           ? '0 m (intersecta)'
@@ -640,17 +721,22 @@ export function AreasProtegidasSection({
                 </caption>
                 <thead>
                   <tr className="border-border-base border-b">
-                    {['Nombre', 'Designación', 'Categoría UICN', 'Estado', 'Distancia', 'Solape'].map(
-                      (heading) => (
-                        <th
-                          key={heading}
-                          scope="col"
-                          className="text-11 text-fg-subtle py-1 font-semibold"
-                        >
-                          {heading}
-                        </th>
-                      ),
-                    )}
+                    {[
+                      'Nombre',
+                      'Designación',
+                      'Categoría UICN',
+                      'Estado',
+                      'Distancia',
+                      'Solape',
+                    ].map((heading) => (
+                      <th
+                        key={heading}
+                        scope="col"
+                        className="text-11 text-fg-subtle py-1 font-semibold"
+                      >
+                        {heading}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -752,7 +838,9 @@ export function RiesgoCosteroSection({
 }
 
 /** Columnas dinámicas: el esquema de atributos es distinto por capa (§6). */
-function columnsOf(features: readonly Record<string, string | number | boolean | null>[]): string[] {
+function columnsOf(
+  features: readonly Record<string, string | number | boolean | null>[],
+): string[] {
   const columns: string[] = [];
   for (const feature of features) {
     for (const key of Object.keys(feature)) {

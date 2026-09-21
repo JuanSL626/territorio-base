@@ -56,7 +56,13 @@ import {
  * reporta en `topography.available` / `vegetation.ndvi_available` /
  * `vegetation.worldcover_available`.
  */
-export const ANALYSIS_SOURCE_IDS = ['raster', 'hidrologia', 'areas-protegidas', 'mepyd'] as const;
+export const ANALYSIS_SOURCE_IDS = [
+  'raster',
+  'solar',
+  'hidrologia',
+  'areas-protegidas',
+  'mepyd',
+] as const;
 export type AnalysisSourceId = (typeof ANALYSIS_SOURCE_IDS)[number];
 
 /** El vocabulario del design brief §0.5, menos `pending` (que no se persiste). */
@@ -87,6 +93,8 @@ export type SourceStatus = {
 export const SOURCE_DOWN_MESSAGES: Record<AnalysisSourceId, string> = {
   raster:
     'No se pudo consultar el servicio raster — no respondió. El resto del análisis sí se completó.',
+  solar:
+    'No se pudo consultar NASA POWER — el servicio no respondió. El resto del análisis sí se completó.',
   hidrologia:
     'No se pudo consultar hidrología (Overpass API) — el servicio no respondió. El resto del análisis sí se completó.',
   'areas-protegidas':
@@ -97,6 +105,7 @@ export const SOURCE_DOWN_MESSAGES: Record<AnalysisSourceId, string> = {
 
 export const SOURCE_SERVICE_NAMES: Record<AnalysisSourceId, string> = {
   raster: 'Servicio raster (Planetary Computer)',
+  solar: 'NASA POWER (CERES/SRB y MERRA-2)',
   hidrologia: 'Overpass API (OpenStreetMap)',
   'areas-protegidas': 'WDPA (UNEP-WCMC)',
   mepyd: 'MEPyD — Sistema de Información para la GRD y la AC',
@@ -122,6 +131,33 @@ export type OsmContextFeatureGeo = {
   subtype: string;
   name: string | null;
   geometry: Geometry;
+};
+
+export type SolarMetricSet = {
+  ghi_kwh_m2_day: number;
+  dni_kwh_m2_day: number;
+  dhi_kwh_m2_day: number;
+  clear_sky_ghi_kwh_m2_day: number;
+  clear_sky_days: number;
+  cloud_amount_pct: number;
+  temperature_c: number;
+  wind_speed_10m_ms: number;
+};
+
+export type SolarResource = {
+  checked_at: string;
+  reference_point: { latitude: number; longitude: number; elevation_m: number | null };
+  temporal_range: string;
+  time_standard: string;
+  api_version: string;
+  source_datasets: string[];
+  spatial_resolution: string;
+  license: string;
+  attribution: string;
+  annual: SolarMetricSet & { annual_ghi_kwh_m2: number; peak_sun_hours_day: number };
+  monthly: (SolarMetricSet & { month: string })[];
+  formulas: { annual_ghi_kwh_m2: string; peak_sun_hours_day: string };
+  parameter_units: Record<string, string>;
 };
 
 export type ProtectedAreaGeo = {
@@ -262,6 +298,9 @@ export type TerritorioAnalysis = {
   topography: TopographyResult;
   vegetation: VegetationResult;
 
+  /** Climatología regional NASA POWER. Opcional para análisis históricos. */
+  solar_resource?: SolarResource | null;
+
   hydrology: { summary: HydrologySummary; features: HydrologyFeatureGeo[] };
   /** Contexto vivo de OSM. Opcional para poder leer análisis históricos. */
   osm_context?: { features: OsmContextFeatureGeo[]; truncated: boolean };
@@ -361,6 +400,40 @@ const sourceStatusSchema = z.object({
   state: z.enum(SOURCE_STATES),
   found: z.number().int(),
   error: z.string().nullable(),
+});
+
+const solarMetricSetSchema = z.object({
+  ghi_kwh_m2_day: z.number(),
+  dni_kwh_m2_day: z.number(),
+  dhi_kwh_m2_day: z.number(),
+  clear_sky_ghi_kwh_m2_day: z.number(),
+  clear_sky_days: z.number(),
+  cloud_amount_pct: z.number(),
+  temperature_c: z.number(),
+  wind_speed_10m_ms: z.number(),
+});
+
+const solarResourceSchema = z.object({
+  checked_at: z.string(),
+  reference_point: z.object({
+    latitude: z.number(),
+    longitude: z.number(),
+    elevation_m: z.number().nullable(),
+  }),
+  temporal_range: z.string(),
+  time_standard: z.string(),
+  api_version: z.string(),
+  source_datasets: z.array(z.string()),
+  spatial_resolution: z.string(),
+  license: z.string(),
+  attribution: z.string(),
+  annual: solarMetricSetSchema.extend({
+    annual_ghi_kwh_m2: z.number(),
+    peak_sun_hours_day: z.number(),
+  }),
+  monthly: z.array(solarMetricSetSchema.extend({ month: z.string() })),
+  formulas: z.object({ annual_ghi_kwh_m2: z.string(), peak_sun_hours_day: z.string() }),
+  parameter_units: z.record(z.string(), z.string()),
 });
 
 const topographyResultSchema: z.ZodType<TopographyResult> = z.object({
@@ -484,6 +557,7 @@ export const territorioAnalysisSchema = z.object({
 
   topography: topographyResultSchema,
   vegetation: vegetationResultSchema,
+  solar_resource: solarResourceSchema.nullable().optional(),
 
   hydrology: z.object({
     summary: hydrologySummarySchema,

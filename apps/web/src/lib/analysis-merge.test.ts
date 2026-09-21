@@ -21,6 +21,7 @@ import {
   type HydrologyFeature,
   type MepydLayerDef,
   type MepydResult,
+  type NasaPowerSolarResource,
   type ProtectedAreaFeature,
   type SourceOutcome,
   type AreaGeometry,
@@ -205,6 +206,38 @@ const RASTER_RESULT: AnalysisJob = {
 const RASTER_UP: RasterOutcome = { available: true, job: RASTER_RESULT };
 const RASTER_DOWN: RasterOutcome = { available: false, error: 'El servicio raster no respondió.' };
 
+const SOLAR_RESULT: NasaPowerSolarResource = {
+  checkedAt: '2026-09-22T00:00:00.000Z',
+  latitude: 18.45,
+  longitude: -69.59,
+  elevationM: 47.67,
+  temporalRange: 'January 2001 - December 2020',
+  timeStandard: 'LST',
+  apiVersion: 'v2.10.0',
+  sourceDatasets: ['MERRA2', 'SYN1DEG', 'POWER'],
+  spatialResolution: '1° × 1°',
+  license: 'NASA Earth Science Data and Information Policy',
+  attribution: 'NASA POWER',
+  annual: {
+    ghiKwhM2Day: 5.4854,
+    dniKwhM2Day: 4.6673,
+    dhiKwhM2Day: 2.0508,
+    clearSkyGhiKwhM2Day: 6.605,
+    clearSkyDays: 111,
+    cloudAmountPct: 47.11,
+    temperatureC: 27.11,
+    windSpeed10mMs: 4.16,
+    annualGhiKwhM2: 2002.171,
+    peakSunHoursDay: 5.4854,
+  },
+  monthly: [],
+  formulas: {
+    annualGhiKwhM2: 'GHI anual = GHI medio diario × 365 días',
+    peakSunHoursDay: 'Horas solares pico/día = GHI diario ÷ 1 kW/m²',
+  },
+  parameterUnits: { ALLSKY_SFC_SW_DWN: 'kW-hr/m^2/day' },
+};
+
 const up = <T>(data: T): SourceOutcome<T> => ({ available: true, data });
 const down = (reason: string): SourceOutcome<never> => ({
   available: false,
@@ -234,6 +267,26 @@ function merge(options: { raster?: RasterOutcome; vector?: VectorOutcomes; aoi?:
 }
 
 describe('mergeAnalysis — el camino completo', () => {
+  it('normaliza NASA POWER sin confundir valores derivados con valores del proveedor', () => {
+    const result = merge({ vector: vector({ solar: up(SOLAR_RESULT) }) });
+
+    expect(findSource(result, 'solar')?.state).toBe('ok');
+    expect(result.solar_resource?.annual.annual_ghi_kwh_m2).toBeCloseTo(2002.171, 3);
+    expect(result.solar_resource?.annual.peak_sun_hours_day).toBe(5.4854);
+    expect(result.solar_resource?.formulas.peak_sun_hours_day).toContain('GHI diario');
+    expect(result.solar_resource?.temporal_range).toContain('2001');
+  });
+
+  it('aísla una caída de NASA POWER y conserva las demás fuentes', () => {
+    const result = merge({ vector: vector({ solar: down('POWER no respondió.') }) });
+
+    expect(result.status).toBe('partial');
+    expect(result.solar_resource).toBeNull();
+    expect(findSource(result, 'solar')?.state).toBe('error');
+    expect(result.topography.available).toBe(true);
+    expect(result.hydrology.summary.available).toBe(true);
+  });
+
   it('arma el contrato del §3 con las dos mitades', () => {
     const result = merge();
 

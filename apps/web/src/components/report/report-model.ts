@@ -21,11 +21,13 @@ import type { Bbox } from '~/lib/search-params';
 
 import { MEPYD_GROUP } from '~/layers/mepyd';
 import { getLayer, LAYER_REGISTRY } from '~/layers/registry';
+import { SRC_NASA_POWER } from '~/layers/sources';
 import { type BasemapId, MAX_VISIBLE_DATA_LAYERS } from '~/layers/vistas';
 
 export type ReportSectionId =
   | 'portada'
   | 'topografia'
+  | 'solar'
   | 'vegetacion'
   | 'hidrologia'
   | 'areas-protegidas'
@@ -193,6 +195,24 @@ export function buildSections(
         fly,
       }),
     },
+    ...(analysis.solar_resource === undefined
+      ? []
+      : [
+          {
+            id: 'solar' as const,
+            eyebrow: 'Energía solar',
+            title: 'Potencial solar regional',
+            citedLayerIds: ['slope-classes', 'aspect'],
+            map: mapState({
+              layers: ['slope-classes', 'aspect'],
+              bounds: base,
+              basemap: 'satellite',
+              caption:
+                'Pendiente y orientación del terreno como contexto del recurso solar regional.',
+              fly,
+            }),
+          },
+        ]),
     {
       id: 'vegetacion',
       eyebrow: 'Vegetación',
@@ -355,6 +375,24 @@ export function datasetUsage(analysis: TerritorioAnalysisSummary): DatasetUsage 
   };
 
   push(used, 'aoi');
+
+  if (analysis.solar_resource != null) {
+    used.set(SRC_NASA_POWER.name, {
+      source: {
+        ...SRC_NASA_POWER,
+        acquisition: `Climatología ${analysis.solar_resource.temporal_range}; comprobada ${analysis.solar_resource.checked_at}`,
+        vintage: `NASA POWER API ${analysis.solar_resource.api_version}`,
+      },
+      layers: ['Recurso solar climatológico'],
+    });
+  } else if (analysis.solar_resource === null) {
+    unavailable.push({
+      source: SRC_NASA_POWER,
+      reason:
+        analysis.sources.find((source) => source.id === 'solar')?.error ??
+        'NASA POWER no respondió en esta corrida.',
+    });
+  }
 
   consider(
     analysis.topography.available,

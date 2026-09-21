@@ -15,6 +15,7 @@ import { DEFAULT_VISTA, type LayerVisibility } from '~/layers/vistas';
 
 export const THEME_IDS = [
   'topografia',
+  'solar',
   'vegetacion',
   'hidrologia',
   'areas-protegidas',

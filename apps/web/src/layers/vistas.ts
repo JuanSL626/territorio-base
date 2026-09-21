@@ -57,6 +57,18 @@ export const VISTAS: Vista[] = [
     ],
   },
   {
+    id: 'solar',
+    label: 'Solar',
+    hint: 'Recurso solar regional NASA POWER (climatología 2001–2020) y relieve del DEM; no modela sombras de techo.',
+    basemap: 'satellite',
+    inspectorDefaultTab: 'fuente',
+    layers: [
+      { id: 'slope-classes', on: true, opacity: 0.55 },
+      { id: 'aspect', on: false, opacity: 0.65 },
+      { id: 'aoi', on: true, opacity: 1 },
+    ],
+  },
+  {
     id: 'vegetacion',
     label: 'Vegetación',
     hint: 'NDVI reciente (30 días, respaldo explícito a 180); WorldCover 2021 sólo como referencia histórica.',

@@ -19,6 +19,7 @@ import {
   PortadaSection,
   RiesgoCosteroSection,
   SectionShell,
+  SolarSection,
   TopografiaSection,
   VegetacionSection,
 } from './sections';
@@ -239,6 +240,8 @@ export function ReportBody({ analysisId, print = false }: ReportBodyProps) {
         return <PortadaSection key={section.id} {...common} />;
       case 'topografia':
         return <TopografiaSection key={section.id} {...common} />;
+      case 'solar':
+        return <SolarSection key={section.id} {...common} />;
       case 'vegetacion':
         return <VegetacionSection key={section.id} {...common} />;
       case 'hidrologia':

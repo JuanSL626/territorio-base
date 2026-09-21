@@ -7,6 +7,22 @@
 
 import type { SourceRef } from './types';
 
+export const SRC_NASA_POWER: SourceRef = {
+  name: 'NASA POWER — recurso solar climatológico',
+  provider: 'NASA Langley Research Center; CERES/SRB y MERRA-2',
+  url: 'https://power.larc.nasa.gov/',
+  acquisition: 'Climatología histórica de largo plazo; período exacto devuelto por la API',
+  vintage: 'NASA POWER API, comprobada al ejecutar cada análisis',
+  resolution: 'Radiación 1° × 1°; meteorología 0.5° × 0.625°',
+  coverage: 'Global',
+  license: 'NASA Earth Science Data and Information Policy — acceso público y gratuito',
+  citation: 'NASA POWER Project, NASA Langley Research Center (LaRC).',
+  method:
+    'Consulta del punto de la malla climática correspondiente al centro del bbox del AOI. GHI anual = GHI medio diario × 365; horas solares pico = GHI diario ÷ 1 kW/m².',
+  caveat:
+    'Tamizaje regional: no representa sombras locales, obstáculos, inclinación del tejado, pérdidas del sistema ni producción eléctrica garantizada.',
+};
+
 export const SRC_COPERNICUS_DEM: SourceRef = {
   name: 'Copernicus DEM GLO-30',
   provider: 'ESA, vía Microsoft Planetary Computer',

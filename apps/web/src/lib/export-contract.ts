@@ -98,6 +98,7 @@ export type ExportSelection = {
 export const REPORT_SECTION_IDS = [
   'portada',
   'topografia',
+  'solar',
   'vegetacion',
   'hidrologia',
   'areas-protegidas',
@@ -110,6 +111,7 @@ export type ReportSectionId = (typeof REPORT_SECTION_IDS)[number];
 export const REPORT_SECTION_LABELS: Record<ReportSectionId, string> = {
   portada: 'Portada y resumen del AOI',
   topografia: 'Topografía',
+  solar: 'Potencial solar',
   vegetacion: 'Vegetación',
   hidrologia: 'Hidrología',
   'areas-protegidas': 'Áreas protegidas',

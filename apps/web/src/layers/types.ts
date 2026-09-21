@@ -10,7 +10,8 @@
   pueda moverse tal cual a `packages/layers/` cuando ese paquete exista.
 */
 
-export type ThemeId = 'topografia' | 'vegetacion' | 'hidrologia' | 'areas-protegidas' | 'riesgo-rd';
+export type ThemeId =
+  'topografia' | 'solar' | 'vegetacion' | 'hidrologia' | 'areas-protegidas' | 'riesgo-rd';
 
 export type LayerKind =
   'raster-continuous' | 'raster-categorical' | 'vector-line' | 'vector-polygon' | 'vector-point';

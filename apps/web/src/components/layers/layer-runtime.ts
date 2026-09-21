@@ -31,6 +31,7 @@ import {
 */
 const DOWN_REASON: Record<AnalysisSourceId, string> = {
   raster: 'servicio caído',
+  solar: 'NASA POWER caído',
   hidrologia: 'Overpass caído',
   'areas-protegidas': 'WDPA caído',
   mepyd: 'MEPyD caído',
@@ -38,6 +39,7 @@ const DOWN_REASON: Record<AnalysisSourceId, string> = {
 
 const DOWN_DETAIL: Record<AnalysisSourceId, string> = {
   raster: SOURCE_DOWN_MESSAGES.raster,
+  solar: SOURCE_DOWN_MESSAGES.solar,
   hidrologia: SOURCE_DOWN_MESSAGES.hidrologia,
   'areas-protegidas': SOURCE_DOWN_MESSAGES['areas-protegidas'],
   mepyd: SOURCE_DOWN_MESSAGES.mepyd,

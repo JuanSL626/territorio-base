@@ -41,6 +41,7 @@ const LINE_SOURCE: Record<string, AnalysisSourceId> = {
 
 const SOURCE_THEME: Record<AnalysisSourceId, ThemeId> = {
   raster: 'topografia',
+  solar: 'solar',
   hidrologia: 'hidrologia',
   'areas-protegidas': 'areas-protegidas',
   mepyd: 'riesgo-rd',
@@ -101,6 +102,39 @@ export function buildAnalysisCards({ analysis, onRetry }: BuildCardsInput): Anal
   const summary = toSummary(analysis);
   const down = new Map(downSources(analysis).map((source) => [source.id, source]));
   const cards: AnalysisCard[] = [];
+
+  if (analysis.solar_resource != null) {
+    const solar = analysis.solar_resource;
+    cards.push({
+      id: 'potencial-solar',
+      theme: 'solar',
+      title: 'Potencial solar regional',
+      content: (
+        <div className="grid grid-cols-2 gap-3">
+          <Metric
+            value={`${formatNumber(solar.annual.annual_ghi_kwh_m2, 0)} kWh/m²/año`}
+            note="Irradiación global horizontal (GHI)"
+          />
+          <Metric
+            value={`${formatNumber(solar.annual.peak_sun_hours_day, 2)} h/día`}
+            note="Horas solares pico (derivadas del GHI)"
+          />
+          <Metric
+            value={`${formatNumber(solar.annual.dni_kwh_m2_day, 2)} kWh/m²/día`}
+            note="Irradiación normal directa (DNI)"
+          />
+          <Metric
+            value={`${formatNumber(solar.annual.cloud_amount_pct, 1)} %`}
+            note="Nubosidad media"
+          />
+          <p className="text-11 text-fg-subtle col-span-2">
+            Climatología {solar.temporal_range}; punto de malla {solar.spatial_resolution}. Sirve
+            para tamizaje regional, no para sombras locales ni diseño final.
+          </p>
+        </div>
+      ),
+    });
+  }
 
   for (const line of executiveSummary(summary)) {
     const theme = LINE_THEME[line.id] ?? 'topografia';

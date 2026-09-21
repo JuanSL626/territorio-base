@@ -20,11 +20,13 @@
  */
 import {
   fetchAllMepyd,
+  fetchNasaPowerSolar,
   fetchOsmBundle,
   fetchProtectedAreas,
   type Aoi,
   type HydrologyFeature,
   type MepydResult,
+  type NasaPowerSolarResource,
   type OsmContextFeature,
   type ProtectedAreaFeature,
   type SourceOutcome,
@@ -43,6 +45,7 @@ export type RunVectorSourcesOptions = {
     }>;
     protectedAreas: () => Promise<readonly ProtectedAreaFeature[]>;
     mepyd: () => Promise<MepydResult>;
+    solar: () => Promise<NasaPowerSolarResource>;
   }>;
 };
 
@@ -70,8 +73,13 @@ export async function runVectorSources(
   const overrides = options.overrides ?? {};
 
   const useBundle = overrides.hydrology === undefined && overrides.osmContext === undefined;
-  const [osm, protectedAreas, mepyd] = await Promise.all([
+  const [osm, solar, protectedAreas, mepyd] = await Promise.all([
     useBundle ? isolate(async () => await fetchOsmBundle(aoi, { signal })) : Promise.resolve(null),
+    isolate(async () =>
+      overrides.solar === undefined
+        ? await fetchNasaPowerSolar(aoi, { signal })
+        : await overrides.solar(),
+    ),
     isolate(async () =>
       overrides.protectedAreas === undefined
         ? await fetchProtectedAreas(aoi, { signal })
@@ -94,13 +102,11 @@ export async function runVectorSources(
           data: { features: osm.data.context, truncated: osm.data.truncated },
         }
       : { available: false as const, error: osm.error };
-    return { hydrology, osmContext, protectedAreas, mepyd };
+    return { hydrology, osmContext, solar, protectedAreas, mepyd };
   }
 
   const [hydrology, osmContext] = await Promise.all([
-    isolate(async () =>
-      overrides.hydrology === undefined ? [] : await overrides.hydrology(),
-    ),
+    isolate(async () => (overrides.hydrology === undefined ? [] : await overrides.hydrology())),
     isolate(async () =>
       overrides.osmContext === undefined
         ? { features: [], truncated: false }
@@ -108,5 +114,5 @@ export async function runVectorSources(
     ),
   ]);
 
-  return { hydrology, osmContext, protectedAreas, mepyd };
+  return { hydrology, osmContext, solar, protectedAreas, mepyd };
 }
