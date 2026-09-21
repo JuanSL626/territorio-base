@@ -20,11 +20,12 @@
  */
 import {
   fetchAllMepyd,
-  fetchHydrology,
+  fetchOsmBundle,
   fetchProtectedAreas,
   type Aoi,
   type HydrologyFeature,
   type MepydResult,
+  type OsmContextFeature,
   type ProtectedAreaFeature,
   type SourceOutcome,
 } from '@territorio/geo';
@@ -36,6 +37,10 @@ export type RunVectorSourcesOptions = {
   /** Semillas de test: reemplazan la fuente entera. */
   overrides?: Partial<{
     hydrology: () => Promise<readonly HydrologyFeature[]>;
+    osmContext: () => Promise<{
+      features: readonly OsmContextFeature[];
+      truncated: boolean;
+    }>;
     protectedAreas: () => Promise<readonly ProtectedAreaFeature[]>;
     mepyd: () => Promise<MepydResult>;
   }>;
@@ -64,13 +69,9 @@ export async function runVectorSources(
   const signal = options.signal;
   const overrides = options.overrides ?? {};
 
-  const [hydrology, protectedAreas, mepyd] = await Promise.all([
-    isolate(async () =>
-      overrides.hydrology === undefined
-        ? await fetchHydrology(aoi, { signal })
-        : await overrides.hydrology(),
-    ),
-
+  const useBundle = overrides.hydrology === undefined && overrides.osmContext === undefined;
+  const [osm, protectedAreas, mepyd] = await Promise.all([
+    useBundle ? isolate(async () => await fetchOsmBundle(aoi, { signal })) : Promise.resolve(null),
     isolate(async () =>
       overrides.protectedAreas === undefined
         ? await fetchProtectedAreas(aoi, { signal })
@@ -83,5 +84,29 @@ export async function runVectorSources(
     ),
   ]);
 
-  return { hydrology, protectedAreas, mepyd };
+  if (osm !== null) {
+    const hydrology = osm.available
+      ? { available: true as const, data: osm.data.hydrology }
+      : { available: false as const, error: osm.error };
+    const osmContext = osm.available
+      ? {
+          available: true as const,
+          data: { features: osm.data.context, truncated: osm.data.truncated },
+        }
+      : { available: false as const, error: osm.error };
+    return { hydrology, osmContext, protectedAreas, mepyd };
+  }
+
+  const [hydrology, osmContext] = await Promise.all([
+    isolate(async () =>
+      overrides.hydrology === undefined ? [] : await overrides.hydrology(),
+    ),
+    isolate(async () =>
+      overrides.osmContext === undefined
+        ? { features: [], truncated: false }
+        : await overrides.osmContext(),
+    ),
+  ]);
+
+  return { hydrology, osmContext, protectedAreas, mepyd };
 }

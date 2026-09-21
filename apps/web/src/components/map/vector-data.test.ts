@@ -7,6 +7,7 @@ import {
   type Geometry,
   type HydrologyFeature,
   type MepydResult,
+  type OsmContextFeature,
   type ProtectedAreaFeature,
   type SourceOutcome,
 } from '@territorio/geo';
@@ -61,6 +62,25 @@ const aoi = createAoi(AOI_GEOMETRY);
 const HYDROLOGY: HydrologyFeature[] = [
   { osmId: 24_193, kind: 'waterway', name: 'Río Ozama', geometry: LINE },
   { osmId: 55, kind: 'wetland', name: null, geometry: POLYGON },
+];
+
+const OSM_CONTEXT: OsmContextFeature[] = [
+  {
+    osmId: 77,
+    osmType: 'way',
+    kind: 'road',
+    subtype: 'residential',
+    name: 'Calle OSM',
+    geometry: LINE,
+  },
+  {
+    osmId: 88,
+    osmType: 'way',
+    kind: 'building',
+    subtype: 'yes',
+    name: null,
+    geometry: POLYGON,
+  },
 ];
 
 const PROTECTED: ProtectedAreaFeature[] = [
@@ -132,6 +152,7 @@ const down = (reason: string): SourceOutcome<never> => ({
 
 function analysisWith(overrides: {
   hydrology?: SourceOutcome<readonly HydrologyFeature[]>;
+  osmContext?: SourceOutcome<{ features: readonly OsmContextFeature[]; truncated: boolean }>;
   protectedAreas?: SourceOutcome<readonly ProtectedAreaFeature[]>;
   mepyd?: SourceOutcome<MepydResult>;
   raster?: RasterOutcome;
@@ -145,6 +166,7 @@ function analysisWith(overrides: {
     raster: overrides.raster ?? { available: true, job: RASTER_JOB },
     vector: {
       hydrology: overrides.hydrology ?? up(HYDROLOGY),
+      osmContext: overrides.osmContext ?? up({ features: OSM_CONTEXT, truncated: false }),
       protectedAreas: overrides.protectedAreas ?? up(PROTECTED),
       mepyd: overrides.mepyd ?? up(MEPYD),
     },
@@ -177,6 +199,17 @@ describe('buildVectorData', () => {
     const first = data.get('osm-hydro')?.data.features[0];
     expect(first?.properties).toMatchObject({ kind: 'waterway', name: 'Río Ozama' });
     expect(typeof first?.properties?.distance_m).toBe('number');
+  });
+
+  it('separa el contexto OSM en capas independientes con ids estables', () => {
+    expect(data.get('osm-roads')?.count).toBe(1);
+    expect(data.get('osm-buildings')?.count).toBe(1);
+    expect(data.get('osm-amenities-points')?.count).toBe(0);
+    expect(data.get('osm-roads')?.data.features[0]?.properties).toMatchObject({
+      osm_id: 77,
+      subtype: 'residential',
+      [FEATURE_ID_KEY]: 'osm-way-77',
+    });
   });
 
   it('WDPA conserva `desig_eng` y `mang_auth` para la exportación aunque no se muestren', () => {
@@ -221,7 +254,11 @@ describe('buildLayerRuntime — el estado por fila (§4.3)', () => {
 
   it('Overpass vivo sin resultados → `empty`, que es un resultado válido', () => {
     const runtime = runtimeFor(analysisWith({ hydrology: up([]) }));
-    expect(runtime['osm-hydro']).toMatchObject({ status: 'empty', reason: 'sin datos' });
+    expect(runtime['osm-hydro']).toMatchObject({
+      status: 'empty',
+      reason: 'sin hidrología OSM',
+    });
+    expect(runtime['osm-hydro']?.detail).toContain('dentro de 500 m');
   });
 
   it('una fuente caída no contamina a las demás', () => {
@@ -232,6 +269,15 @@ describe('buildLayerRuntime — el estado por fila (§4.3)', () => {
 
   it('el conteo de features viaja a la fila para el chip numérico', () => {
     expect(runtimeFor(analysisWith({})).wdpa).toEqual({ status: 'ok', featureCount: 1 });
+  });
+
+  it('si Overpass alcanza el límite no presenta una categoría vacía como ausencia real', () => {
+    const runtime = runtimeFor(analysisWith({ osmContext: up({ features: [], truncated: true }) }));
+    expect(runtime['osm-buildings']).toMatchObject({
+      status: 'error',
+      reason: 'resultado parcial',
+    });
+    expect(runtime['osm-buildings']?.detail).toContain('1.500 elementos');
   });
 
   it('sin análisis, toda capa de datos dice "sin AOI" en vez de fingir estar lista', () => {

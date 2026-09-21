@@ -81,6 +81,22 @@ export const SRC_OSM_HYDRO: SourceRef = {
     'Que no aparezca un curso de agua no prueba que no exista: cruzar con INDRHI / Medio Ambiente si el proyecto lo amerita.',
 };
 
+export const SRC_OSM_CONTEXT: SourceRef = {
+  name: 'OpenStreetMap — contexto territorial',
+  provider: 'Comunidad OSM, vía Overpass API',
+  url: 'https://www.openstreetmap.org/copyright',
+  acquisition: 'Consulta realizada al ejecutar el análisis',
+  vintage: 'Datos vivos (consulta en el momento del análisis)',
+  resolution: 'Vectorial (colaborativo, variable)',
+  coverage: 'Global',
+  license: 'ODbL 1.0 — © colaboradores de OpenStreetMap',
+  citation: '© Colaboradores de OpenStreetMap, consultado vía Overpass API.',
+  method:
+    'Consulta de vías, edificios, servicios y usos de suelo dentro de un buffer de 500 m alrededor del AOI, con límite de respuesta y 5 mirrors en cascada.',
+  caveat:
+    'OSM es colaborativo: una categoría vacía significa que no está mapeada en OSM dentro del área consultada, no que no exista en terreno.',
+};
+
 export const SRC_WDPA: SourceRef = {
   name: 'WDPA — World Database on Protected Areas',
   provider: 'UNEP-WCMC (misma base que Protected Planet)',

@@ -24,6 +24,7 @@ import {
   type Aoi,
   type HydrologyFeature,
   type MepydResult,
+  type OsmContextFeature,
   type ProtectedAreaFeature,
   type SourceOutcome,
 } from '@territorio/geo';
@@ -60,6 +61,8 @@ export type RasterOutcome =
 
 export type VectorOutcomes = {
   hydrology: SourceOutcome<readonly HydrologyFeature[]>;
+  /** Comparte llamada y disponibilidad con hidrología; opcional en fixtures históricos. */
+  osmContext?: SourceOutcome<{ features: readonly OsmContextFeature[]; truncated: boolean }>;
   protectedAreas: SourceOutcome<readonly ProtectedAreaFeature[]>;
   /** `fetchAllMepyd` no lanza por capa; `available: false` = falló la llamada entera. */
   mepyd: SourceOutcome<MepydResult>;
@@ -466,6 +469,19 @@ export function mergeAnalysis(input: MergeAnalysisInput): TerritorioAnalysis {
     vegetation: raster.vegetation,
 
     hydrology: hydrology.block,
+    osm_context: input.vector.osmContext?.available
+      ? {
+          features: input.vector.osmContext.data.features.map((item) => ({
+            osm_id: item.osmId,
+            osm_type: item.osmType,
+            kind: item.kind,
+            subtype: item.subtype,
+            name: item.name,
+            geometry: item.geometry,
+          })),
+          truncated: input.vector.osmContext.data.truncated,
+        }
+      : { features: [], truncated: false },
     protected_areas: protectedAreas.block,
     mepyd_rd: mepyd.block,
 

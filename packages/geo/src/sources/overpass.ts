@@ -77,6 +77,26 @@ export type HydrologyFeature = {
   geometry: Geometry;
 };
 
+export type OsmContextKind = 'road' | 'building' | 'amenity' | 'landuse';
+
+export type OsmContextFeature = {
+  osmId: number;
+  osmType: 'node' | 'way' | 'relation';
+  kind: OsmContextKind;
+  subtype: string;
+  name: string | null;
+  geometry: Geometry;
+};
+
+export type OsmBundle = {
+  hydrology: HydrologyFeature[];
+  context: OsmContextFeature[];
+  /** `true` sólo cuando se alcanzó el límite explícito de la consulta. */
+  truncated: boolean;
+};
+
+export const OSM_ELEMENT_LIMIT = 1_500;
+
 export class OverpassUnavailableError extends Error {
   override readonly name = 'OverpassUnavailableError';
   /** Un error por mirror, en orden de intento. */
@@ -95,22 +115,34 @@ function buildQuery(bounds: readonly [number, number, number, number]): string {
   const [west, south, east, north] = bounds;
   const bbox = `${south},${west},${north},${east}`;
   return `
-[out:json][timeout:60];
+[out:json][timeout:60][maxsize:67108864];
 (
   way["waterway"](${bbox});
   way["natural"="water"](${bbox});
   relation["natural"="water"](${bbox});
   way["natural"="wetland"](${bbox});
+  relation["natural"="wetland"](${bbox});
+  way["highway"](${bbox});
+  way["building"](${bbox});
+  relation["building"](${bbox});
+  nwr["amenity"](${bbox});
+  nwr["shop"](${bbox});
+  nwr["tourism"](${bbox});
+  nwr["leisure"](${bbox});
+  way["landuse"](${bbox});
+  relation["landuse"](${bbox});
 );
-out body geom;
+out body geom qt ${String(OSM_ELEMENT_LIMIT)};
 `;
 }
 
 const positionSchema = z.object({ lat: z.number(), lon: z.number() });
 
 const elementSchema = z.object({
-  type: z.string(),
+  type: z.enum(['node', 'way', 'relation']),
   id: z.number(),
+  lat: z.number().optional(),
+  lon: z.number().optional(),
   tags: z.record(z.string(), z.string()).optional(),
   geometry: z.array(positionSchema).optional(),
   members: z
@@ -155,6 +187,9 @@ function isClosedRing(coords: Position[]): boolean {
  * #2 pide no repetir, así que se corrige en vez de portarse el hueco.
  */
 export function geometryFromElement(element: OverpassElement): Geometry | null {
+  if (element.type === 'node' && element.lat !== undefined && element.lon !== undefined) {
+    return { type: 'Point', coordinates: [element.lon, element.lat] };
+  }
   if (element.geometry !== undefined && element.geometry.length > 0) {
     const coords = toPositions(element.geometry);
     const first = coords[0];
@@ -186,6 +221,19 @@ export function classifyElement(tags: Record<string, string> | undefined): Hydro
   if ('waterway' in t) return 'waterway';
   if (t.natural === 'wetland') return 'wetland';
   return 'water_body';
+}
+
+function classifyContextElement(
+  tags: Record<string, string> | undefined,
+): { kind: OsmContextKind; subtype: string } | null {
+  const t = tags ?? {};
+  if (t.highway !== undefined) return { kind: 'road', subtype: t.highway };
+  if (t.building !== undefined) return { kind: 'building', subtype: t.building };
+  for (const key of ['amenity', 'shop', 'tourism', 'leisure'] as const) {
+    if (t[key] !== undefined) return { kind: 'amenity', subtype: `${key}=${t[key]}` };
+  }
+  if (t.landuse !== undefined) return { kind: 'landuse', subtype: t.landuse };
+  return null;
 }
 
 /**
@@ -224,23 +272,49 @@ export async function queryOverpass(
  * llamador lo traduce a `available: false`, que es semánticamente distinto de
  * "consulté y no hay nada" (inventario §3).
  */
+export async function fetchOsmBundle(
+  aoi: Aoi,
+  options: RequestOptions & { bufferM?: number; mirrors?: readonly string[] } = {},
+): Promise<OsmBundle> {
+  const searchArea = bufferAoiOrOriginal(aoi, options.bufferM ?? HYDROLOGY_BUFFER_M);
+  const data = await queryOverpass(buildQuery(geometryBounds(searchArea)), options);
+
+  const hydrology: HydrologyFeature[] = [];
+  const context: OsmContextFeature[] = [];
+  const seen = new Set<string>();
+  for (const element of data.elements) {
+    const key = `${element.type}:${String(element.id)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const geometry = geometryFromElement(element);
+    if (geometry === null) continue;
+    const tags = element.tags ?? {};
+    if ('waterway' in tags || tags.natural === 'water' || tags.natural === 'wetland') {
+      hydrology.push({
+        osmId: element.id,
+        kind: classifyElement(tags),
+        name: tags.name ?? null,
+        geometry,
+      });
+    }
+    const classification = classifyContextElement(tags);
+    if (classification !== null) {
+      context.push({
+        osmId: element.id,
+        osmType: element.type,
+        ...classification,
+        name: tags.name ?? null,
+        geometry,
+      });
+    }
+  }
+  return { hydrology, context, truncated: data.elements.length >= OSM_ELEMENT_LIMIT };
+}
+
+/** Compatibilidad para consumidores que sólo necesitan hidrología. */
 export async function fetchHydrology(
   aoi: Aoi,
   options: RequestOptions & { bufferM?: number; mirrors?: readonly string[] } = {},
 ): Promise<HydrologyFeature[]> {
-  const searchArea = bufferAoiOrOriginal(aoi, options.bufferM ?? HYDROLOGY_BUFFER_M);
-  const data = await queryOverpass(buildQuery(geometryBounds(searchArea)), options);
-
-  const features: HydrologyFeature[] = [];
-  for (const element of data.elements) {
-    const geometry = geometryFromElement(element);
-    if (geometry === null) continue;
-    features.push({
-      osmId: element.id,
-      kind: classifyElement(element.tags),
-      name: element.tags?.name ?? null,
-      geometry,
-    });
-  }
-  return features;
+  return (await fetchOsmBundle(aoi, options)).hydrology;
 }

@@ -6,6 +6,7 @@ import {
   classifyElement,
   EXCLUDED_MIRRORS,
   fetchHydrology,
+  fetchOsmBundle,
   geometryFromElement,
   OVERPASS_MIRRORS,
   OverpassUnavailableError,
@@ -263,5 +264,85 @@ describe('fetchHydrology', () => {
     expect(west).toBeLessThan(-69.6);
     expect(north).toBeGreaterThan(18.46);
     expect(east).toBeGreaterThan(-69.59);
+  });
+});
+
+describe('fetchOsmBundle', () => {
+  it('separa y tipa vías, edificios, servicios y usos de suelo sin duplicarlos', async () => {
+    const { fetchImpl } = jsonFetch(() => ({
+      status: 200,
+      body: {
+        elements: [
+          {
+            type: 'way',
+            id: 101,
+            tags: { highway: 'residential', name: 'Calle Fixture' },
+            geometry: [
+              { lat: 18.45, lon: -69.6 },
+              { lat: 18.451, lon: -69.595 },
+            ],
+          },
+          {
+            type: 'way',
+            id: 202,
+            tags: { building: 'yes' },
+            geometry: [
+              { lat: 18.452, lon: -69.6 },
+              { lat: 18.452, lon: -69.599 },
+              { lat: 18.453, lon: -69.599 },
+              { lat: 18.452, lon: -69.6 },
+            ],
+          },
+          {
+            type: 'node',
+            id: 303,
+            tags: { amenity: 'school', name: 'Escuela Fixture' },
+            lat: 18.454,
+            lon: -69.598,
+          },
+          {
+            type: 'way',
+            id: 404,
+            tags: { landuse: 'residential' },
+            geometry: [
+              { lat: 18.455, lon: -69.597 },
+              { lat: 18.455, lon: -69.595 },
+              { lat: 18.457, lon: -69.595 },
+              { lat: 18.455, lon: -69.597 },
+            ],
+          },
+          {
+            type: 'way',
+            id: 101,
+            tags: { highway: 'residential' },
+            geometry: [
+              { lat: 18.45, lon: -69.6 },
+              { lat: 18.451, lon: -69.595 },
+            ],
+          },
+        ],
+      },
+    }));
+
+    const result = await fetchOsmBundle(AOI, { fetchImpl });
+    expect(result.context.map((item) => item.kind)).toEqual([
+      'road',
+      'building',
+      'amenity',
+      'landuse',
+    ]);
+    expect(result.context.map((item) => item.geometry.type)).toEqual([
+      'LineString',
+      'Polygon',
+      'Point',
+      'Polygon',
+    ]);
+    expect(result.context[2]).toMatchObject({
+      osmId: 303,
+      osmType: 'node',
+      subtype: 'amenity=school',
+      name: 'Escuela Fixture',
+    });
+    expect(result.truncated).toBe(false);
   });
 });

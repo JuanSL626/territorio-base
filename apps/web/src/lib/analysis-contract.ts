@@ -115,6 +115,15 @@ export type HydrologyFeatureGeo = {
   geometry: Geometry;
 };
 
+export type OsmContextFeatureGeo = {
+  osm_id: number;
+  osm_type: 'node' | 'way' | 'relation';
+  kind: 'road' | 'building' | 'amenity' | 'landuse';
+  subtype: string;
+  name: string | null;
+  geometry: Geometry;
+};
+
 export type ProtectedAreaGeo = {
   name: string | null;
   desig: string | null;
@@ -254,6 +263,8 @@ export type TerritorioAnalysis = {
   vegetation: VegetationResult;
 
   hydrology: { summary: HydrologySummary; features: HydrologyFeatureGeo[] };
+  /** Contexto vivo de OSM. Opcional para poder leer análisis históricos. */
+  osm_context?: { features: OsmContextFeatureGeo[]; truncated: boolean };
   protected_areas: { summary: ProtectedAreasSummary; areas: ProtectedAreaGeo[] };
   mepyd_rd: {
     in_rd: boolean;
@@ -279,7 +290,7 @@ export type TerritorioAnalysis = {
 /** Sólo lo que el reporte necesita: sin geometrías. Para listados y SSR liviano. */
 export type TerritorioAnalysisSummary = Omit<
   TerritorioAnalysis,
-  'hydrology' | 'protected_areas' | 'mepyd_rd' | 'aoi_geometry'
+  'hydrology' | 'osm_context' | 'protected_areas' | 'mepyd_rd' | 'aoi_geometry'
 > & {
   hydrology: { summary: HydrologySummary };
   protected_areas: { summary: ProtectedAreasSummary };
@@ -287,7 +298,14 @@ export type TerritorioAnalysisSummary = Omit<
 };
 
 export function toSummary(analysis: TerritorioAnalysis): TerritorioAnalysisSummary {
-  const { aoi_geometry: _geometry, hydrology, protected_areas, mepyd_rd, ...rest } = analysis;
+  const {
+    aoi_geometry: _geometry,
+    hydrology,
+    osm_context: _osmContext,
+    protected_areas,
+    mepyd_rd,
+    ...rest
+  } = analysis;
   return {
     ...rest,
     hydrology: { summary: hydrology.summary },
@@ -479,6 +497,21 @@ export const territorioAnalysisSchema = z.object({
       }),
     ),
   }),
+  osm_context: z
+    .object({
+      features: z.array(
+        z.object({
+          osm_id: z.number(),
+          osm_type: z.enum(['node', 'way', 'relation']),
+          kind: z.enum(['road', 'building', 'amenity', 'landuse']),
+          subtype: z.string(),
+          name: z.string().nullable(),
+          geometry: geometrySchema,
+        }),
+      ),
+      truncated: z.boolean(),
+    })
+    .optional(),
   protected_areas: z.object({
     summary: protectedAreasSummarySchema,
     areas: z.array(

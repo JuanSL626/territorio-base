@@ -74,6 +74,44 @@ function hydrologyData(analysis: TerritorioAnalysis): VectorLayerData {
   return { layerId: 'osm-hydro', data: collection(features), count: features.length };
 }
 
+function osmContextData(analysis: TerritorioAnalysis): VectorLayerData[] {
+  const buckets = new Map<string, Feature[]>([
+    ['osm-roads', []],
+    ['osm-buildings', []],
+    ['osm-amenities-points', []],
+    ['osm-amenities-areas', []],
+    ['osm-landuse', []],
+  ]);
+
+  for (const item of analysis.osm_context?.features ?? []) {
+    const layerId =
+      item.kind === 'road'
+        ? 'osm-roads'
+        : item.kind === 'building'
+          ? 'osm-buildings'
+          : item.kind === 'landuse'
+            ? 'osm-landuse'
+            : item.geometry.type === 'Point' || item.geometry.type === 'MultiPoint'
+              ? 'osm-amenities-points'
+              : 'osm-amenities-areas';
+    buckets.get(layerId)?.push(
+      feature(`osm-${item.osm_type}-${String(item.osm_id)}`, item.geometry, {
+        osm_id: item.osm_id,
+        osm_type: item.osm_type,
+        kind: item.kind,
+        subtype: item.subtype,
+        name: item.name,
+      }),
+    );
+  }
+
+  return [...buckets].map(([layerId, features]) => ({
+    layerId,
+    data: collection(features),
+    count: features.length,
+  }));
+}
+
 function protectedData(analysis: TerritorioAnalysis): VectorLayerData {
   const features = analysis.protected_areas.areas.map((area, index) =>
     feature(`wdpa-${String(index)}`, area.geometry, {
@@ -126,6 +164,7 @@ export function buildVectorData(
   for (const entry of [
     aoiData(analysis),
     hydrologyData(analysis),
+    ...osmContextData(analysis),
     protectedData(analysis),
     ...mepydData(analysis),
   ]) {

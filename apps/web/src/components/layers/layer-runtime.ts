@@ -51,7 +51,7 @@ const EMPTY_RUNTIME: LayerRuntime = {
 };
 
 function sourceOf(layer: LayerDef): AnalysisSourceId {
-  if (layer.id === 'osm-hydro') return 'hidrologia';
+  if (layer.id.startsWith('osm-')) return 'hidrologia';
   if (layer.id === 'wdpa') return 'areas-protegidas';
   if (layer.id.startsWith('mepyd:')) return 'mepyd';
   return 'raster';
@@ -94,11 +94,7 @@ function rasterRuntime(
   if (layer.id === 'ndvi' || layer.id === 'ndvi-density') {
     const temporal = analysis.provenance.sentinel2_temporal_status;
     const temporalReason =
-      temporal === 'cloudy'
-        ? 'nublada'
-        : temporal === 'delayed'
-          ? 'retrasada'
-          : 'sin escenas S2';
+      temporal === 'cloudy' ? 'nublada' : temporal === 'delayed' ? 'retrasada' : 'sin escenas S2';
     return analysis.vegetation.ndvi_available
       ? EMPTY_RUNTIME
       : {
@@ -139,7 +135,24 @@ function vectorRuntime(
   }
 
   const count = input.featureCounts.get(layer.id);
-  if (count === undefined || count === 0) return EMPTY_RUNTIME;
+  if (source === 'hidrologia' && analysis.osm_context?.truncated === true) {
+    const detail =
+      'Overpass alcanzó el límite de 1.500 elementos. Se muestran los datos recibidos, pero la categoría puede estar incompleta.';
+    return count === undefined || count === 0
+      ? { status: 'error', reason: 'resultado parcial', detail }
+      : { status: 'ok', featureCount: count, detail };
+  }
+  if (count === undefined || count === 0) {
+    if (layer.id === 'osm-hydro') {
+      return {
+        status: 'empty',
+        reason: 'sin hidrología OSM',
+        detail:
+          'Overpass respondió correctamente; no hay cursos, cuerpos de agua ni humedales mapeados en OSM dentro de 500 m del AOI.',
+      };
+    }
+    return EMPTY_RUNTIME;
+  }
 
   if (source === 'mepyd' && analysis.mepyd_rd.geometries_omitted) {
     // El resultado se persistió sin geometrías por el tope de 6 MB: el
