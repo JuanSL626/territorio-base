@@ -198,6 +198,12 @@ function FuentesPage() {
           <code className="tabular">FUENTES.txt</code>, con la fecha exacta en que se consultó cada
           servicio.
         </p>
+        <Link
+          to="/normativa"
+          className="text-12 text-accent mt-3 inline-block font-medium underline underline-offset-2"
+        >
+          Ver mapa institucional de normativa y gestión →
+        </Link>
       </header>
 
       <nav aria-label="Índice de fuentes" className="mt-5 flex flex-wrap gap-2">
