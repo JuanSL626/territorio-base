@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Biblioteca de fuentes · Normativa RD</title>
+    <style>
+      :root { --ink:#17211d; --muted:#65716a; --line:#d8e0da; --paper:#f7f8f4; --surface:#fff; --green:#136c4a; --lime:#e3f2df; --amber:#8e5b00; --amber-bg:#fff2cf; --blue:#195f83; --blue-bg:#e3f2f8; }
+      * { box-sizing:border-box; } body { margin:0; background:var(--paper); color:var(--ink); font:15px/1.5 Inter,ui-sans-serif,system-ui,sans-serif; } a { color:inherit; }
+      main { max-width:980px; margin:auto; padding:42px 24px 64px; } .back { color:var(--green); font-size:13px; font-weight:700; } .eyebrow { margin-top:24px; color:var(--green); font-size:12px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; } h1 { margin:6px 0 9px; font-size:clamp(32px,5vw,52px); letter-spacing:-.045em; line-height:1; } .intro { color:var(--muted); max-width:720px; font-size:16px; }
+      .notice { margin:24px 0; padding:14px 16px; border:1px solid #e6cc8b; border-radius:12px; background:var(--amber-bg); color:#674300; } .notice strong { display:block; }
+      .record { scroll-margin-top:24px; margin:12px 0; padding:19px; background:var(--surface); border:1px solid var(--line); border-radius:14px; } .top { display:flex; flex-wrap:wrap; align-items:center; gap:8px; } .id { color:var(--muted); font-size:11px; font-weight:800; letter-spacing:.06em; } .tag { border-radius:99px; padding:3px 7px; font-size:11px; font-weight:800; background:var(--blue-bg); color:var(--blue); } .tag.local { background:var(--lime); color:#17613f; } .tag.pending { background:var(--amber-bg); color:var(--amber); } h2 { margin:9px 0 4px; font-size:19px; letter-spacing:-.02em; } p { margin:0; color:var(--muted); font-size:14px; } code { display:block; overflow-wrap:anywhere; margin-top:12px; padding:9px; background:#f1f4f0; border-radius:8px; color:#405049; font:11px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace; } .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:13px; } .button { border:1px solid var(--green); border-radius:8px; padding:7px 10px; background:var(--green); color:white; font:inherit; font-size:13px; font-weight:700; text-decoration:none; } .button.secondary { background:white; color:var(--green); cursor:pointer; } .button[hidden] { display:none; } footer { margin-top:24px; color:var(--muted); font-size:12px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a class="back" href="./">← Volver al visor</a>
+      <div class="eyebrow">Biblioteca local · revisión interna</div>
+      <h1>Fuentes y documentos</h1>
+      <p class="intro">Cada ficha se abre localmente para que el visor no dependa de portales oficiales con bloqueos, enlaces caducados o respuestas inconsistentes. Las copias locales se identifican de forma explícita; las demás conservan su origen y quedan pendientes de una descarga reproducible.</p>
+      <div class="notice"><strong>Resultado de la auditoría inicial.</strong> Se corrigieron enlaces rotos y se verificaron documentos de Ley 368-22, Ley 176-07 y Ley 5852. Algunos portales oficiales siguen respondiendo 403, 406 o 500 desde navegadores embebidos; no se presentan como enlaces funcionales hasta obtener una copia local o una URL estable.</div>
+      <section id="records"></section>
+      <footer>Las copias locales son para consulta interna y conservan la URL oficial de origen en su ficha. La vigencia y eventuales modificaciones siempre deben verificarse antes de usar una disposición.</footer>
+    </main>
+    <script>
+      const records = [
+        ['RD-OT-001','Ley 368-22 de Ordenamiento Territorial','Copia local verificada','local','./library/ley-368-22.pdf','https://presidencia.gob.do/sites/default/files/laws/2022-12/Ley%20368-22.pdf','PDF oficial; primera página revisada visualmente.'],
+        ['RD-OT-002','Decreto 396-25: reglamento de la Ley 368-22','Portal oficial localizado; descarga pendiente','pending','','https://mivhed.gob.do/transparencia/base-legal-de-la-institucion/decretos-base-legal-de-la-institucion/','El PDF directo respondió 403 en la auditoría; la ficha institucional identifica el Decreto 396-25.'],
+        ['RD-OT-003','Ley 176-07 del Distrito Nacional y los Municipios','Copia local verificada','local','./library/ley-176-07.pdf','https://lmd.gob.do/transparencia/phocadownload/BaseLegal/Ley-municipal-176-07.pdf','Gaceta Oficial 10426; primera página revisada visualmente.'],
+        ['RD-OT-004','PMOT y ordenanzas locales','Registro interno','pending','../../docs/metodologia/04-puerto-plata-pasaporte-municipal.md','Portal municipal / acto competente','El estado jurídico y la cartografía se verifican municipio por municipio.'],
+        ['RD-OT-005','División Territorial 2020','Portal oficial localizado; copia pendiente','pending','','https://www.one.gob.do/publicaciones/2021/division-territorial-2020/','El portal respondió 403 en la auditoría automatizada; no se usa como enlace directo hasta estabilizarlo.'],
+        ['RD-AM-001','Ley 64-00 General de Medio Ambiente','Portal oficial localizado; copia pendiente','pending','','https://ambiente.gob.do/legislacion/','La página de legislación respondió 200; falta fijar una copia del texto legal y sus modificaciones.'],
+        ['RD-AM-002','Autorizaciones ambientales','Portal oficial verificado','pending','','https://ambiente.gob.do/autorizaciones-ambientales/servicios/autorizaciones-ambientales/','Servicio oficial; los requisitos aplican solo cuando el caso lo active.'],
+        ['RD-AM-003','Mapas de áreas protegidas','Portal oficial verificado','pending','','https://ambiente.gob.do/informacion-ambiental/areas-protegidas/mapas/','Es una fuente de localización; todavía se requiere acto y delimitación aplicable.'],
+        ['RD-RI-001','Ley 147-02 sobre gestión de riesgos','Repositorio documental localizado; copia pendiente','pending','','https://bvearmb.do/handle/123456789/694','El repositorio documenta un PDF completo; respondió 403 a la descarga automatizada.'],
+        ['RD-ED-001','Ley 160-21 / marco MIVHED','Portal oficial localizado; copia pendiente','pending','','https://mivhed.gob.do/transparencia/base-legal-de-la-institucion/leyes-base-legal-de-la-institucion/','La página de leyes respondió 200; falta fijar el archivo exacto de la ley.'],
+        ['RD-MOV-001','MOPC y red pública','Portal institucional verificado','pending','','https://map.gob.do/COEDOM/Home/Details/119?Ruta=2','Fuente institucional de competencias; el derecho de vía concreto exige fuente adicional.'],
+        ['RD-MOV-002','Estudios de impacto de tráfico','Portal oficial verificado','pending','','https://intrant.gob.do/servicios/certificacion-para-realizar-estudios-de-impacto-de-trafico-a-empresas-e-ingenieros-individuales/','El PDF previo devolvía 404; se sustituyó por la ficha vigente del servicio.'],
+        ['RD-AG-001','Ley 5852 sobre dominio de aguas','Copia local verificada','local','./library/ley-5852-62.pdf','https://transparencia.indrhi.gob.do/Descargar/1596/leyes-principales/11113/ley-5852-62-sobre-dominio-de-aguas-terrestres-y-distribucion-de-aguas-publicas.pdf','Texto oficial; primera página revisada visualmente.'],
+        ['RD-AG-002','Atlas y documentos de recursos hídricos','Portal oficial verificado','pending','','https://indrhi.gob.do/documentos/','Requiere seleccionar el documento por cuenca, obra o servicio.'],
+        ['RD-PAT-001','Dirección Nacional de Patrimonio Monumental','Fuente institucional actualizada localizada','pending','','https://cultura.gob.do/faqs/','El PDF antiguo devolvía 404; se requiere copiar el organigrama/ficha vigente antes de enlazarlo.'],
+        ['RD-TEN-001','Ley 108-05 y Registro Inmobiliario','Portal institucional localizado; copia pendiente','pending','','https://ri.gob.do/?page_id=606','El endpoint responde de forma inestable; se debe capturar una copia por normativa antes de usarlo.'],
+        ['RD-TEN-002','Reglamentos y disposiciones registrales','Portal institucional verificado','pending','','https://logros.ri.gob.do/index.php/descarga/','Repositorio de reglamentos y disposiciones; elegir siempre la versión vigente del trámite.'],
+        ['RD-DAT-001','SIGEO RD y datos ambientales','Portal oficial verificado','pending','','https://ambiente.gob.do/medio-ambiente-balance-gestion-proteccion-ambiental-2025-2026/','La nota confirma la plataforma; aún falta el servicio/dataset directo con metadatos.'],
+        ['RD-PAR-001','Participación territorial','Copia local de marco legal','local','./library/ley-368-22.pdf','https://presidencia.gob.do/sites/default/files/laws/2022-12/Ley%20368-22.pdf','Las actas y convocatorias se incorporan por cada proceso territorial.']
+      ];
+      const root = document.querySelector('#records');
+      root.innerHTML = records.map(r => `<article id="${r[0]}" class="record"><div class="top"><span class="id">${r[0]}</span><span class="tag ${r[3]}">${r[2]}</span></div><h2>${r[1]}</h2><p>${r[6]}</p><code>${r[5]}</code><div class="actions">${r[4] ? `<a class="button" href="${r[4]}" target="_blank" rel="noreferrer">Abrir documento o registro local</a>` : ''}<button class="button secondary" data-url="${r[5]}">Copiar URL de origen</button></div></article>`).join('');
+      root.querySelectorAll('[data-url]').forEach(button => button.onclick = async () => { await navigator.clipboard.writeText(button.dataset.url); const before = button.textContent; button.textContent = 'URL copiada'; setTimeout(() => button.textContent = before, 1400); });
+    </script>
+  </body>
+</html>

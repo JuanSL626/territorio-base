@@ -156,7 +156,7 @@
       }
       function renderCards() {
         const visible = instruments.filter(matches); countEl.textContent = `${visible.length} de ${instruments.length} registros`;
-        cardsEl.innerHTML = visible.length ? visible.map(i => `<article class="instrument"><div class="instrument-top"><span class="code">${i[0]}</span><span class="state ${i[7]}">${i[6]}</span></div><h3>${i[1]}</h3><p>${i[3]}</p><div class="meta"><span><b>Familia:</b> ${i[2]}</span><span><b>Actor:</b> ${i[4]}</span><span><b>Activación:</b> ${i[5]}</span></div><a class="source" href="${i[8]}" target="_blank" rel="noreferrer">Abrir fuente o registro →</a></article>`).join('') : '<div class="empty">No hay registros para este filtro.</div>';
+        cardsEl.innerHTML = visible.length ? visible.map(i => `<article class="instrument"><div class="instrument-top"><span class="code">${i[0]}</span><span class="state ${i[7]}">${i[6]}</span></div><h3>${i[1]}</h3><p>${i[3]}</p><div class="meta"><span><b>Familia:</b> ${i[2]}</span><span><b>Actor:</b> ${i[4]}</span><span><b>Activación:</b> ${i[5]}</span></div><a class="source" href="./sources.html#${i[0]}">Abrir ficha y documento local →</a></article>`).join('') : '<div class="empty">No hay registros para este filtro.</div>';
       }
       document.querySelectorAll('.filter').forEach(b => b.onclick = () => { filter = b.dataset.filter; document.querySelectorAll('.filter').forEach(x => x.classList.toggle('active', x === b)); renderCards(); });
       searchEl.oninput = renderCards; renderActors(); renderCards();
