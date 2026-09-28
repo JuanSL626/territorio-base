@@ -13,7 +13,6 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppFuentesRouteImport } from './routes/_app/fuentes'
-import { Route as AppNormativaRouteImport } from './routes/_app/normativa'
 import { Route as AuthConfirmRouteImport } from './routes/auth/confirm'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth/forgot-password'
 import { Route as AuthSetPasswordRouteImport } from './routes/auth/set-password'
@@ -42,11 +41,6 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppFuentesRoute = AppFuentesRouteImport.update({
   id: '/fuentes',
   path: '/fuentes',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppNormativaRoute = AppNormativaRouteImport.update({
-  id: '/normativa',
-  path: '/normativa',
   getParentRoute: () => AppRoute,
 } as any)
 const AuthConfirmRoute = AuthConfirmRouteImport.update({
@@ -109,7 +103,6 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/login': typeof LoginRoute
   '/fuentes': typeof AppFuentesRoute
-  '/normativa': typeof AppNormativaRoute
   '/auth/confirm': typeof AuthConfirmRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/set-password': typeof AuthSetPasswordRoute
@@ -124,7 +117,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/fuentes': typeof AppFuentesRoute
-  '/normativa': typeof AppNormativaRoute
   '/auth/confirm': typeof AuthConfirmRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/set-password': typeof AuthSetPasswordRoute
@@ -142,7 +134,6 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/_app/fuentes': typeof AppFuentesRoute
-  '/_app/normativa': typeof AppNormativaRoute
   '/auth/confirm': typeof AuthConfirmRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/set-password': typeof AuthSetPasswordRoute
@@ -161,7 +152,6 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/fuentes'
-    | '/normativa'
     | '/auth/confirm'
     | '/auth/forgot-password'
     | '/auth/set-password'
@@ -176,7 +166,6 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/fuentes'
-    | '/normativa'
     | '/auth/confirm'
     | '/auth/forgot-password'
     | '/auth/set-password'
@@ -193,7 +182,6 @@ export interface FileRouteTypes {
     | '/_app'
     | '/login'
     | '/_app/fuentes'
-    | '/_app/normativa'
     | '/auth/confirm'
     | '/auth/forgot-password'
     | '/auth/set-password'
@@ -246,13 +234,6 @@ declare module '@tanstack/react-router' {
       path: '/fuentes'
       fullPath: '/fuentes'
       preLoaderRoute: typeof AppFuentesRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/normativa': {
-      id: '/_app/normativa'
-      path: '/normativa'
-      fullPath: '/normativa'
-      preLoaderRoute: typeof AppNormativaRouteImport
       parentRoute: typeof AppRoute
     }
     '/auth/confirm': {
@@ -341,7 +322,6 @@ const AppDescargasJobIdRouteWithChildren =
 
 interface AppRouteChildren {
   AppFuentesRoute: typeof AppFuentesRoute
-  AppNormativaRoute: typeof AppNormativaRoute
   AppIndexRoute: typeof AppIndexRoute
   AppDescargasJobIdRoute: typeof AppDescargasJobIdRouteWithChildren
   AppReporteAnalysisIdImprimirRoute: typeof AppReporteAnalysisIdImprimirRoute
@@ -350,7 +330,6 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppFuentesRoute: AppFuentesRoute,
-  AppNormativaRoute: AppNormativaRoute,
   AppIndexRoute: AppIndexRoute,
   AppDescargasJobIdRoute: AppDescargasJobIdRouteWithChildren,
   AppReporteAnalysisIdImprimirRoute: AppReporteAnalysisIdImprimirRoute,
