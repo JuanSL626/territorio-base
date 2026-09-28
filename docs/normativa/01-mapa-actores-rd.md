@@ -8,6 +8,11 @@ identificar qué instituciones y fuentes intervienen en una prefactibilidad
 territorial, qué evidencia puede aportar cada una y qué puntos exigen revisión
 con la jurisdicción concreta.
 
+La arquitectura que separa actores, instrumentos, procesos y evidencia está en
+el [Sistema de normativa, planificación y gestión](02-sistema-normativo-y-de-gestion-rd.md).
+Esta ficha conserva el primer catálogo verificable que alimenta el explorador
+interno; no pretende reemplazar aquel mapa de sistema.
+
 ## Principio de producto
 
 Una respuesta normativa debe conservar cuatro piezas inseparables:

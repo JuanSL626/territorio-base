@@ -16,6 +16,11 @@ const CATEGORY_TONES: Record<RegulatoryActorCategory, BadgeTone> = {
   ambiental: 'success',
   infraestructura: 'accent',
   tenencia: 'neutral',
+  riesgo: 'warning',
+  'agua y saneamiento': 'info',
+  'patrimonio y turismo': 'accent',
+  'datos territoriales': 'neutral',
+  participación: 'success',
 };
 
 function evidenceTone(actor: RegulatoryActor): BadgeTone {
@@ -45,9 +50,9 @@ export function RegulatoryActorMap() {
             Mapa institucional
           </h2>
           <p className="text-13 text-fg-muted mt-1 max-w-3xl">
-            Seleccioná un actor para entender su rol, los documentos que conviene verificar y cómo
-            se conecta con los demás. El mapa representa una prefactibilidad, no una ruta legal
-            cerrada.
+            Seleccioná un actor para entender qué función cumple, cuándo se activa, qué evidencia
+            conviene verificar y cómo se conecta con los demás. No representa una ventanilla única
+            ni una ruta legal cerrada.
           </p>
         </div>
         <Badge tone="warning">Piloto: República Dominicana</Badge>
@@ -104,6 +109,25 @@ export function RegulatoryActorMap() {
           <section className="mt-4">
             <h4 className="text-13 text-fg font-semibold">Qué aporta a Tierra Base</h4>
             <p className="text-13 text-fg-muted mt-1">{selected.planningRole}</p>
+          </section>
+
+          <section className="mt-4">
+            <h4 className="text-13 text-fg font-semibold">Funciones dentro del sistema</h4>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {selected.roles.map((role) => (
+                <span
+                  key={role}
+                  className="rounded-chip border-border-base bg-surface-2 text-12 text-fg-muted border px-2 py-1"
+                >
+                  {role}
+                </span>
+              ))}
+            </div>
+          </section>
+
+          <section className="mt-4">
+            <h4 className="text-13 text-fg font-semibold">Cuándo entra al análisis</h4>
+            <p className="text-13 text-fg-muted mt-1">{selected.activation}</p>
           </section>
 
           <section className="mt-4">
