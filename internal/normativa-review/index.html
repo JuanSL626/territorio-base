@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Normativa RD · Revisión interna</title>
+    <style>
+      :root { --ink:#17211d; --muted:#65716a; --line:#d8e0da; --paper:#f7f8f4; --surface:#fff; --green:#136c4a; --lime:#e3f2df; --amber:#8e5b00; --amber-bg:#fff2cf; --blue:#195f83; --blue-bg:#e3f2f8; }
+      * { box-sizing:border-box; }
+      body { margin:0; background:var(--paper); color:var(--ink); font:15px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      a { color:inherit; }
+      .shell { max-width:1260px; margin:auto; padding:42px 28px 68px; }
+      .eyebrow { color:var(--green); font-size:12px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
+      h1 { max-width:760px; margin:8px 0 12px; font-size:clamp(32px,5vw,58px); line-height:1.05; letter-spacing:-.045em; }
+      h2 { margin:0; font-size:22px; letter-spacing:-.025em; }
+      .intro { max-width:780px; color:var(--muted); font-size:17px; }
+      .notice { margin:24px 0 36px; padding:14px 16px; border:1px solid #b8dcc9; border-radius:12px; background:var(--lime); color:#155436; }
+      .notice strong { display:block; }
+      .grid { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr); gap:22px; }
+      .panel { background:var(--surface); border:1px solid var(--line); border-radius:16px; overflow:hidden; }
+      .panel-head { padding:22px 22px 16px; border-bottom:1px solid var(--line); }
+      .panel-head p { margin:5px 0 0; color:var(--muted); font-size:13px; }
+      .actors { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; padding:16px; }
+      button { font:inherit; cursor:pointer; }
+      .actor { min-height:72px; padding:11px 12px; border:1px solid var(--line); border-radius:10px; background:var(--surface); text-align:left; transition:.15s; }
+      .actor:hover, .actor.selected { border-color:var(--green); background:#f1f8ef; }
+      .actor strong { display:block; font-size:14px; }
+      .actor span { color:var(--muted); font-size:12px; }
+      .detail { margin:0 16px 16px; padding:18px; border-radius:12px; background:#f3f6f1; }
+      .detail h3 { margin:0 0 3px; font-size:18px; }
+      .detail p { margin:8px 0; color:#405049; font-size:14px; }
+      .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+      .chip { border-radius:99px; background:var(--surface); border:1px solid var(--line); padding:3px 8px; color:#45574d; font-size:12px; }
+      .roles { margin:12px 0 0; padding:0; list-style:none; }
+      .roles li { display:inline-block; margin:4px 4px 0 0; padding:4px 8px; background:var(--blue-bg); border-radius:7px; color:var(--blue); font-size:12px; }
+      .legend { padding:20px 22px; }
+      .legend dl { display:grid; grid-template-columns:max-content 1fr; gap:9px 13px; margin:13px 0 0; font-size:13px; }
+      .legend dt { font-weight:800; color:var(--green); }
+      .legend dd { margin:0; color:var(--muted); }
+      .principles { padding:20px 22px; border-top:1px solid var(--line); }
+      .principles ol { margin:12px 0 0; padding-left:19px; color:var(--muted); font-size:13px; }
+      .instruments { margin-top:22px; }
+      .toolbar { display:flex; flex-wrap:wrap; gap:8px; margin:15px 0; }
+      .filter { border:1px solid var(--line); background:var(--surface); border-radius:99px; padding:7px 11px; color:#4f5e56; font-size:13px; }
+      .filter.active { color:var(--surface); background:var(--green); border-color:var(--green); }
+      .search { flex:1 1 220px; min-width:180px; border:1px solid var(--line); border-radius:9px; padding:8px 10px; background:var(--surface); font:inherit; }
+      .count { color:var(--muted); font-size:13px; align-self:center; }
+      .cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(285px,1fr)); gap:12px; }
+      .instrument { display:flex; flex-direction:column; min-height:222px; padding:17px; background:var(--surface); border:1px solid var(--line); border-radius:13px; }
+      .instrument-top { display:flex; align-items:flex-start; justify-content:space-between; gap:9px; }
+      .code { color:var(--muted); font-size:11px; font-weight:700; letter-spacing:.05em; }
+      .state { flex:0 0 auto; border-radius:99px; padding:3px 7px; background:var(--amber-bg); color:var(--amber); font-size:11px; font-weight:800; }
+      .state.primary { background:var(--lime); color:#17613f; }
+      .state.data { background:var(--blue-bg); color:var(--blue); }
+      .instrument h3 { margin:10px 0 5px; font-size:16px; line-height:1.25; }
+      .instrument p { margin:0; color:var(--muted); font-size:13px; }
+      .meta { margin-top:12px; display:grid; gap:5px; font-size:12px; }
+      .meta b { color:#405049; }
+      .source { margin-top:auto; padding-top:14px; color:var(--green); font-size:12px; font-weight:700; text-decoration:none; }
+      .empty { grid-column:1/-1; padding:32px; border:1px dashed var(--line); border-radius:13px; color:var(--muted); text-align:center; }
+      footer { margin-top:28px; color:var(--muted); font-size:12px; }
+      footer a { color:var(--green); font-weight:700; }
+      @media (max-width:820px) { .shell { padding:28px 16px 44px; } .grid { grid-template-columns:1fr; } }
+      @media (max-width:420px) { .actors { grid-template-columns:1fr; } }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <div class="eyebrow">República Dominicana · investigación</div>
+      <h1>Normativa, planificación y gestión</h1>
+      <p class="intro">Visor independiente para revisar actores, instrumentos y calidad de evidencia. No consulta datos de Territorio Base ni constituye una funcionalidad del producto.</p>
+      <div class="notice"><strong>Solo para revisión interna.</strong> No es dictamen legal, ruta de permisos ni determinación de edificabilidad. Cada entrada conserva qué se sabe y qué todavía debe verificarse.</div>
+
+      <section class="grid" aria-label="Mapa de actores y principios">
+        <article class="panel">
+          <div class="panel-head"><h2>Mapa de actores</h2><p>Selecciona un actor para ver su papel, activación y evidencia que debe revisarse.</p></div>
+          <div id="actors" class="actors"></div>
+          <div id="actor-detail" class="detail"></div>
+        </article>
+        <aside class="panel">
+          <div class="legend"><h2>Estados de evidencia</h2><dl><dt>P</dt><dd>Fuente normativa primaria localizada.</dd><dt>I</dt><dd>Fuente institucional localizada; falta el acto o requisito preciso.</dd><dt>M</dt><dd>Instrumento municipal, adopción o cartografía pendiente.</dd><dt>D</dt><dd>Dato de referencia; no equivale a norma de uso.</dd><dt>C</dt><dd>Solo se activa por ubicación, tipología o trámite.</dd></dl></div>
+          <div class="principles"><h2>Reglas del visor</h2><ol><li>Una capa no sustituye el acto que la sostiene.</li><li>Una intersección identifica una condición posible, no un permiso.</li><li>La falta de información se muestra como vacío, nunca como ausencia de restricción.</li><li>Las fuentes municipales se verifican municipio por municipio.</li></ol></div>
+        </aside>
+      </section>
+
+      <section class="instruments" aria-labelledby="instrument-title">
+        <div class="panel-head"><h2 id="instrument-title">Inventario priorizado</h2><p>Paquete mínimo de investigación nacional. Filtra para identificar qué requiere trabajo inmediato.</p></div>
+        <div class="toolbar">
+          <button class="filter active" data-filter="all">Todo</button>
+          <button class="filter" data-filter="nuclear">Nuclear</button>
+          <button class="filter" data-filter="conditional">Condicionado</button>
+          <button class="filter" data-filter="municipal">Municipal pendiente</button>
+          <button class="filter" data-filter="data">Datos de referencia</button>
+          <input id="search" class="search" type="search" placeholder="Buscar instrumento, actor o tema…" />
+          <span id="count" class="count"></span>
+        </div>
+        <div id="cards" class="cards"></div>
+      </section>
+
+      <footer>Registro canónico y fuentes detalladas: <a href="../../docs/normativa/README.md">documentación interna</a>. Esta visualización no debe publicarse ni enlazarse desde Territorio Base sin una decisión explícita del equipo.</footer>
+    </main>
+    <script>
+      const actors = [
+        ['marco','Marco jurídico','Nacional','Publica el marco jurídico y permite verificar el texto, versión y vigencia de una regla.','Nuclear: toda regla relevante necesita fuente primaria.',['publica marco jurídico','sostiene evidencia primaria']],
+        ['mepyd','MEPyD','Ordenamiento nacional','Coordina el marco nacional de ordenamiento y la articulación de instrumentos territoriales.','Nuclear para instrumentos de ordenamiento.',['planifica','coordina','revisa/valida cuando corresponda']],
+        ['ayuntamiento','Ayuntamiento','Municipal','Formula, gestiona o aplica instrumentos locales y sus trámites según su competencia.','Nuclear en el municipio del AOI.',['planifica','adopta/aplica','gestiona localmente']],
+        ['ambiente','Medio Ambiente','Ambiental','Aporta evaluación, autorización, conservación y datos sectoriales ambientales.','Por proyecto, ubicación o figura ambiental.',['autoriza','protege/controla','produce datos']],
+        ['riesgo','Gestión del riesgo','Multinivel','Coordina prevención, mitigación, respuesta y evidencia sobre amenazas.','Por amenaza, exposición o infraestructura crítica.',['coordina','previene/mitiga','aporta información']],
+        ['mived','MIVED','Edificación','Conecta proyecto, requisitos técnicos, licencia y profesionales habilitados.','Cuando se pasa de suelo a proyecto edificatorio.',['regula sectorialmente','autoriza','verifica requisitos']],
+        ['movilidad','MOPC + INTRANT','Infraestructura','Revisa red pública, acceso, movilidad e impactos de tráfico cuando sean pertinentes.','Por acceso, conexión, derecho de vía o intensidad de viajes.',['ejecuta infraestructura','regula movilidad','revisa impactos']],
+        ['agua','Agua y saneamiento','Sectorial','Investiga cuencas, cauces, recursos, drenaje, obras y disponibilidad de servicio.','Por agua, drenaje, descarga, captación o demanda de servicio.',['gestiona recursos','opera/coordina servicios','produce datos']],
+        ['patrimonio','Patrimonio','Cultural','Vincula declaratorias, inventarios y planes con intervenciones en bienes o entornos culturales.','Por declaración, inventario, centro histórico o entorno.',['protege/controla','autoriza/supervisa','produce inventario']],
+        ['turismo','Turismo','Sectorial','Distingue proyectos e instrumentos turísticos verificables de anuncios o expectativas.','Por proyecto o instrumento turístico identificado.',['planifica/promueve','coordina proyectos','aporta contexto']],
+        ['tenencia','Registro Inmobiliario','Tenencia','Aporta título, mensura y situación jurídica; no decide el uso de suelo.','Con predio identificable o trámite individual.',['registra','certifica situación jurídica']],
+        ['datos','ONE y datos territoriales','Datos','Ofrece referencia administrativa, estadística y metadatos para localizar un AOI.','Nuclear para ubicar jurisdicciones.',['produce datos','documenta división territorial']],
+        ['participacion','Participación','Territorial','Registra conocimiento local, intereses y conflictos sin reemplazar a la autoridad.','Transversal cuando exista evidencia participativa.',['participa/consulta','aporta evidencia local','ejecuta o es afectado']]
+      ];
+      const instruments = [
+        ['RD-OT-001','Ley 368-22','Ordenamiento','Marco de ordenamiento, uso de suelo y asentamientos humanos.','MEPyD y gobiernos locales','Nuclear','P','primary','https://www.consultoria.gov.do/Consulta/Home/FileManagement?documentId=3400549&managementType=1'],
+        ['RD-OT-002','Reglamento Ley 368-22','Ordenamiento','Desarrollo operativo de instrumentos, actores y procesos.','MEPyD y ayuntamientos','Nuclear','I','', 'https://mepyd.gob.do/publicacion/reglamento-de-aplicacion-ley-no-368-22-de-ordenamiento-territorial'],
+        ['RD-OT-003','Ley 176-07','Gobierno local','Competencias, organización y gestión municipal.','Ayuntamiento y concejo','Nuclear','P','primary','https://consultoria.gov.do/Consulta/Home/FileManagement?documentId=3345180&managementType=1'],
+        ['RD-OT-004','PMOT y ordenanzas locales','Plan municipal','Modelo local, unidades, usos y parámetros si han sido adoptados.','Ayuntamiento','Nuclear','M','municipal','../../docs/metodologia/04-puerto-plata-pasaporte-municipal.md'],
+        ['RD-OT-005','División Territorial ONE','Datos territoriales','Ubica jurisdicciones administrativas de referencia.','ONE','Nuclear','D','data','https://www.one.gob.do/publicaciones/2021/division-territorial-2020/'],
+        ['RD-AM-001','Ley 64-00','Ambiental','Marco ambiental y de recursos naturales.','Medio Ambiente','Condicionado','P','primary','https://www.consultoria.gov.do/Consulta/Home/FileManagement?documentId=3334621&managementType=1'],
+        ['RD-AM-002','Autorizaciones ambientales','Ambiental','Ruta, requisitos y estudios ambientales potenciales.','Medio Ambiente','Condicionado','I/C','','https://ambiente.gob.do/autorizaciones-ambientales/servicios/autorizaciones-ambientales/'],
+        ['RD-AM-003','Áreas protegidas','Ambiental','Localiza figuras publicadas y exige buscar su acto y régimen.','Medio Ambiente','Condicionado','I/C','','https://ambiente.gob.do/informacion-ambiental/areas-protegidas/mapas/'],
+        ['RD-RI-001','Gestión del riesgo','Riesgo','Planes, coordinación e información para prevención y respuesta.','CNE, Defensa Civil, municipio','Condicionado','I/C','','https://defensacivil.gob.do/transparencia/index.php/organigrama/organigrama-dinamico'],
+        ['RD-ED-001','Ley 160-21 / MIVED','Edificación','Rectoría de vivienda, hábitat y edificaciones.','MIVED','Condicionado','P/C','primary','https://www.consultoria.gov.do/Consulta/Home/FileManagement?documentId=3398300&managementType=1'],
+        ['RD-MOV-001','MOPC y red pública','Movilidad','Acceso, conexión, derecho de vía e infraestructura pública.','MOPC y ayuntamiento','Condicionado','I/C','','https://map.gob.do/COEDOM/Home/Details/119?Ruta=2'],
+        ['RD-MOV-002','Impacto de tráfico','Movilidad','Estudios y evaluación de impacto de tráfico.','INTRANT','Condicionado','I/C','','https://intrant.gob.do/movilidad/index.php/estudios/impacto-de-trafico/item/download/13_e72c806e07c6ee9073e80ce56cfca0f1'],
+        ['RD-AG-001','Ley 5852','Agua','Referencia sobre aguas públicas y aprovechamientos.','INDRHI','Condicionado','P/C','primary','https://transparencia.indrhi.gob.do/Descargar/1596/leyes-principales/11113/ley-5852-62-sobre-dominio-de-aguas-terrestres-y-distribucion-de-aguas-publicas.pdf'],
+        ['RD-AG-002','Recursos hídricos','Agua','Cuencas, obras y datos para buscar condiciones sectoriales.','INDRHI y prestador competente','Condicionado','I/C','','https://indrhi.gob.do/documentos/'],
+        ['RD-PAT-001','Patrimonio monumental','Patrimonio','Protección, planes e intervenciones en bienes culturales.','DNPM y ayuntamiento','Condicionado','I/C','','https://www.cultura.gob.do/transparencia/phocadownload/Organigrama2021/new/DIRECCIN_NACIONALDE_PATRIOMONIO_MONUMENTAL.pdf'],
+        ['RD-TEN-001','Ley 108-05 / Registro','Tenencia','Registro, títulos y mensuras; no define uso permitido.','Registro Inmobiliario','Condicionado','P/C','primary','https://ri.gob.do/?page_id=606'],
+        ['RD-TEN-002','Reglamentos registrales','Tenencia','Requisitos técnicos de mensuras y actuaciones registrales.','Registro Inmobiliario','Condicionado','I/C','','https://logros.ri.gob.do/index.php/descarga/'],
+        ['RD-DAT-001','SIGEO RD','Datos','Posible fuente de datos ambientales georreferenciados.','Medio Ambiente','Datos de referencia','I/D','data','https://ambiente.gob.do/medio-ambiente-balance-gestion-proteccion-ambiental-2025-2026/'],
+        ['RD-PAR-001','Participación territorial','Participación','Observaciones, conflictos y acuerdos en procesos territoriales.','Ayuntamiento, comunidades y sectores','Nuclear','P','primary','https://www.consultoria.gov.do/Consulta/Home/FileManagement?documentId=3400549&managementType=1']
+      ];
+      let selected = 1, filter = 'all';
+      const actorEl = document.querySelector('#actors'), detailEl = document.querySelector('#actor-detail'), cardsEl = document.querySelector('#cards'), countEl = document.querySelector('#count'), searchEl = document.querySelector('#search');
+      function renderActors() {
+        actorEl.innerHTML = actors.map((a,i) => `<button class="actor ${i===selected?'selected':''}" data-actor="${i}"><strong>${a[1]}</strong><span>${a[2]}</span></button>`).join('');
+        actorEl.querySelectorAll('[data-actor]').forEach(b => b.onclick = () => { selected = Number(b.dataset.actor); renderActors(); });
+        const a = actors[selected];
+        detailEl.innerHTML = `<h3>${a[1]}</h3><div class="chips"><span class="chip">${a[2]}</span><span class="chip">${a[4]}</span></div><p>${a[3]}</p><ul class="roles">${a[5].map(r=>`<li>${r}</li>`).join('')}</ul>`;
+      }
+      function matches(item) {
+        const text = `${item[0]} ${item[1]} ${item[2]} ${item[3]} ${item[4]}`.toLowerCase();
+        const q = searchEl.value.trim().toLowerCase();
+        if (q && !text.includes(q)) return false;
+        if (filter === 'nuclear') return item[5] === 'Nuclear';
+        if (filter === 'conditional') return item[5] === 'Condicionado';
+        if (filter === 'municipal') return item[6].includes('M');
+        if (filter === 'data') return item[5] === 'Datos de referencia';
+        return true;
+      }
+      function renderCards() {
+        const visible = instruments.filter(matches); countEl.textContent = `${visible.length} de ${instruments.length} registros`;
+        cardsEl.innerHTML = visible.length ? visible.map(i => `<article class="instrument"><div class="instrument-top"><span class="code">${i[0]}</span><span class="state ${i[7]}">${i[6]}</span></div><h3>${i[1]}</h3><p>${i[3]}</p><div class="meta"><span><b>Familia:</b> ${i[2]}</span><span><b>Actor:</b> ${i[4]}</span><span><b>Activación:</b> ${i[5]}</span></div><a class="source" href="./sources.html#${i[0]}">Abrir ficha y documento local →</a></article>`).join('') : '<div class="empty">No hay registros para este filtro.</div>';
+      }
+      document.querySelectorAll('.filter').forEach(b => b.onclick = () => { filter = b.dataset.filter; document.querySelectorAll('.filter').forEach(x => x.classList.toggle('active', x === b)); renderCards(); });
+      searchEl.oninput = renderCards; renderActors(); renderCards();
+    </script>
+  </body>
+</html>
