@@ -3,6 +3,9 @@
 **Estado:** mapa base v0.1 · **Fecha de corte:** 2026-09-28  
 **Complementa:** [Mapa de actores](01-mapa-actores-rd.md) y [Marco Metodológico Base](../metodologia/01-marco-metodologico-base.md)
 
+El catálogo que convierte esta arquitectura en registros de investigación está
+en el [Inventario priorizado de instrumentos](03-inventario-instrumentos-prioritarios-rd.md).
+
 ## 1. Para qué sirve este mapa
 
 Este es el mapa operativo del sistema que Tierra Base debe investigar en
