@@ -407,6 +407,7 @@ Límites que **ya no aplican** y por qué, para quien venga del README viejo:
 | [`docs/migration/01-engine-decision-memo.md`](docs/migration/01-engine-decision-memo.md) | Por qué la arquitectura es híbrida y dónde va exactamente la costura |
 | [`docs/migration/02-design-brief.md`](docs/migration/02-design-brief.md) | Especificación de la UI: rutas, vistas, panel de capas, reporte, exports |
 | [`docs/migration/04-correctness-fixes.md`](docs/migration/04-correctness-fixes.md) | H1 (offset BOA de Sentinel-2), H2 (época de WorldCover), H3 (máscara compartida elevación/pendiente) |
+| [`docs/roadmap-colombia.md`](docs/roadmap-colombia.md) | Decisiones, fuentes nacionales comprobadas y hoja de ruta de datos para Colombia |
 | [`docs/supabase/01-tanstack-ssr.md`](docs/supabase/01-tanstack-ssr.md) | Patrón de `@supabase/ssr` con TanStack Start: cliente por request, cookies, `staleTime` del guard SSR |
 | [`docs/supabase/02-auth-invitaciones.md`](docs/supabase/02-auth-invitaciones.md) | Por qué `inviteUserByEmail`, cómo se cierra el registro público, rate limiting propio vs. el de Supabase |
 | [`docs/supabase/03-datos-migracion.md`](docs/supabase/03-datos-migracion.md) | Por qué Drizzle + `postgres-js` (no `supabase-js`) para datos, mapeo de esquema SQLite → Postgres, pooling |
