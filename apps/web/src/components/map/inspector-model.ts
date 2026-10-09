@@ -51,8 +51,11 @@ function isEmpty(value: unknown): boolean {
 export function formatFieldValue(value: unknown, field?: PopupField): string {
   if (isEmpty(value)) return EMPTY_VALUE;
 
-  if (field?.valueLabels !== undefined && typeof value === 'string') {
-    const label = field.valueLabels[value];
+  if (
+    field?.valueLabels !== undefined &&
+    (typeof value === 'string' || typeof value === 'number')
+  ) {
+    const label = field.valueLabels[String(value)];
     if (label !== undefined) return label;
   }
 

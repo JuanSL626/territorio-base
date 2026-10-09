@@ -111,7 +111,7 @@ export function colorExpression(layer: LayerDef): DataDrivenPropertyValueSpecifi
  * 0,34 que producía el blob.
  */
 function fillFactorOf(legend: LegendSpec): number {
-  if (legend.type === 'swatch') return legend.fillFactor ?? 0.12;
+  if (legend.type === 'swatch' || legend.type === 'classes') return legend.fillFactor ?? 0.12;
   return 0.12;
 }
 

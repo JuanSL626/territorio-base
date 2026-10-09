@@ -153,6 +153,28 @@ describe('colorExpression', () => {
   it('una capa de color plano devuelve el literal del registro', () => {
     expect(colorExpression(layer('wdpa'))).toBe('#d95f02');
   });
+
+  it('áreas POT usan la clasificación y colores de la cartografía oficial', () => {
+    expect(colorExpression(layer('idesc-pot-activity'))).toEqual([
+      'match',
+      ['get', 'pot_class'],
+      'Industrial',
+      '#C500FF',
+      'Mixta',
+      '#FF0000',
+      'Residencial neta',
+      '#FFFF00',
+      'Residencial predominante',
+      '#FFAA00',
+      'Dotacional',
+      '#0070FF',
+      'Espacio público',
+      '#38A800',
+      'Sin área de actividad',
+      '#B2B2B2',
+      '#C500FF',
+    ]);
+  });
 });
 
 describe('highlightSpecs', () => {

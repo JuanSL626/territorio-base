@@ -180,4 +180,15 @@ describe('formatFieldValue', () => {
     expect(formatFieldValue(1240.5)).toBe('1\u202f240,50');
     expect(formatFieldValue(7)).toBe('7');
   });
+
+  it('traduce códigos numéricos declarados por la fuente', () => {
+    expect(
+      formatFieldValue(0, {
+        key: 'npisos',
+        alias: 'Pisos',
+        format: 'number',
+        valueLabels: { '0': 'No informado por IDESC' },
+      }),
+    ).toBe('No informado por IDESC');
+  });
 });

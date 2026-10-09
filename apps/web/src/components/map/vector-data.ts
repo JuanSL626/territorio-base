@@ -151,10 +151,34 @@ function idescData(analysis: TerritorioAnalysis): VectorLayerData[] {
   return (analysis.colombia.idesc_layers ?? []).map((layer) => ({
     layerId: layer.layerId,
     data: collection(
-      layer.features.map((item) => feature(`idesc-${item.id}`, item.geometry, item.properties)),
+      layer.features.map((item) =>
+        feature(`idesc-${item.id}`, item.geometry, {
+          ...item.properties,
+          ...(layer.layerId === 'idesc-pot-activity'
+            ? { pot_class: potActivityClass(item.properties) }
+            : {}),
+        }),
+      ),
     ),
     count: layer.count,
   }));
+}
+
+function potActivityClass(properties: Record<string, unknown>): string {
+  if (properties.tipo_activ === 'ESPACIO PUBLICO') return 'Espacio público';
+  if (properties.tipo_activ === 'EQUIPAMIENTOS') return 'Dotacional';
+  switch (properties.area_de_ac) {
+    case 'AREA DE ACTIVIDAD INDUSTRIAL':
+      return 'Industrial';
+    case 'AREA DE ACTIVIDAD MIXTA':
+      return 'Mixta';
+    case 'AREA DE ACTIVIDAD RESIDENCIAL NETA':
+      return 'Residencial neta';
+    case 'AREA DE ACTIVIDAD RESIDENCIAL PREDOMINANTE':
+      return 'Residencial predominante';
+    default:
+      return 'Sin área de actividad';
+  }
 }
 
 /**

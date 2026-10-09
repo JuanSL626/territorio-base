@@ -282,7 +282,11 @@ describe('buildVectorData', () => {
         features: [
           {
             id: 'pot.1',
-            properties: { area_de_ac: 'AREA RESIDENCIAL', barrio: 'Ciudad Capri' },
+            properties: {
+              area_de_ac: 'AREA DE ACTIVIDAD RESIDENCIAL NETA',
+              tipo_activ: 'AREA RESIDENCIAL NETA',
+              barrio: 'Ciudad Capri',
+            },
             geometry: AOI_GEOMETRY,
           },
         ],
@@ -292,8 +296,9 @@ describe('buildVectorData', () => {
     const entry = buildVectorData(analysis).get('idesc-pot-activity');
     expect(entry?.count).toBe(1);
     expect(entry?.data.features[0]?.properties).toMatchObject({
-      area_de_ac: 'AREA RESIDENCIAL',
+      area_de_ac: 'AREA DE ACTIVIDAD RESIDENCIAL NETA',
       barrio: 'Ciudad Capri',
+      pot_class: 'Residencial neta',
       [FEATURE_ID_KEY]: 'idesc-pot.1',
     });
   });

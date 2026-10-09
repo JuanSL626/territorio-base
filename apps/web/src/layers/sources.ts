@@ -189,7 +189,7 @@ export const SRC_IDESC: SourceRef = {
   method:
     'Consulta WFS 2.0 por el bbox del AOI, paginada y filtrada después por intersección geométrica exacta.',
   caveat:
-    'Las capas POT son históricas y no sustituyen un concepto de uso del suelo, certificado catastral o estudio de riesgo vigente.',
+    'Las capas POT son históricas y no sustituyen un concepto de uso del suelo, certificado catastral o estudio de riesgo vigente. En construcciones, IDESC publica numerosos registros con 0 pisos; Territorio Base los presenta como no informados.',
 };
 
 export const SRC_AOI: SourceRef = {

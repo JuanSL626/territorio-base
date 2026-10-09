@@ -58,6 +58,7 @@ export type LegendClass = {
 export type ClassLegend = {
   type: 'classes';
   classes: LegendClass[];
+  fillFactor?: number;
   /** WorldCover es disperso: sólo se listan las clases presentes en el AOI. */
   sparse: boolean;
 };
