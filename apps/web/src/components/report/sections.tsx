@@ -183,9 +183,11 @@ export function PortadaSection({ analysis, section, inlineMap }: SectionProps) {
     segundo caso también mostraba "Fuera de República Dominicana" — un dato
     inventado, no una ausencia.
   */
-  const locationText = !analysis.mepyd_rd.in_rd
-    ? 'Fuera de República Dominicana'
-    : (location ?? 'Dentro de RD — municipio no determinado');
+  const locationText = analysis.colombia.in_colombia
+    ? (location ?? 'Dentro de Colombia — municipio no determinado')
+    : !analysis.mepyd_rd.in_rd
+      ? 'Fuera de República Dominicana y Colombia'
+      : (location ?? 'Dentro de RD — municipio no determinado');
 
   return (
     <SectionShell section={section} inlineMap={inlineMap}>
@@ -769,6 +771,136 @@ export function AreasProtegidasSection({
           )}
         </MetricCard>
       ) : null}
+    </SectionShell>
+  );
+}
+
+export function ColombiaSection({
+  analysis,
+  section,
+  print,
+  onShowOnMap,
+  inlineMap,
+}: SectionProps) {
+  const { municipalities, parcels, cadastre_truncated: truncated, evidence } = analysis.colombia;
+  const igacStatus = analysis.sources.find((source) => source.id === 'igac');
+
+  return (
+    <SectionShell section={section} inlineMap={inlineMap}>
+      {municipalities.length === 0 ? (
+        <NoDataCard
+          title="Municipio no determinado"
+          reason="DANE no devolvió un municipio DIVIPOLA para el área."
+          service="DANE — DIVIPOLA"
+        />
+      ) : (
+        municipalities.map((municipality) => {
+          const census = municipality.census2018;
+          return (
+            <div
+              key={municipality.code}
+              className="rounded-panel border-border-base bg-surface print-card border p-4"
+            >
+              <h3 className="text-15 text-fg font-semibold">
+                {municipality.name}, {municipality.departmentName}
+              </h3>
+              <p className="text-11 text-fg-subtle mt-0.5">
+                DIVIPOLA {municipality.code} · CNPV 2018
+              </p>
+              {census === null ? (
+                <p className="text-12 text-fg-muted mt-3">Sin indicadores CNPV 2018.</p>
+              ) : (
+                <div className="mt-3">
+                  <StatList
+                    stats={[
+                      {
+                        label: 'Población',
+                        value: census.population == null ? '—' : formatNumber(census.population, 0),
+                      },
+                      {
+                        label: 'Hogares',
+                        value: census.households == null ? '—' : formatNumber(census.households, 0),
+                      },
+                      {
+                        label: 'Viviendas',
+                        value: census.dwellings == null ? '—' : formatNumber(census.dwellings, 0),
+                      },
+                      {
+                        label: 'Acceso a acueducto',
+                        value:
+                          census.aqueductAccessPct == null
+                            ? '—'
+                            : formatPercent(census.aqueductAccessPct),
+                      },
+                      {
+                        label: 'Acceso a alcantarillado',
+                        value:
+                          census.sewerAccessPct == null
+                            ? '—'
+                            : formatPercent(census.sewerAccessPct),
+                      },
+                      {
+                        label: 'Acceso a internet',
+                        value:
+                          census.internetAccessPct == null
+                            ? '—'
+                            : formatPercent(census.internetAccessPct),
+                      },
+                    ]}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })
+      )}
+
+      {igacStatus?.state === 'not_covered' ? (
+        <NoDataCard
+          title="Fuera de cobertura del gestor IGAC"
+          reason="El municipio usa un gestor catastral distinto del IGAC; no se interpreta como ausencia de predios."
+          service="IGAC — Base Catastral Pública"
+        />
+      ) : (
+        <MetricCard
+          title="Predios de la base catastral pública"
+          layerId="igac-parcels"
+          print={print}
+          onShowOnMap={() => {
+            onShowOnMap(section.id);
+          }}
+          download={downloadForLayer(analysis, 'igac-parcels')}
+          footnote={`${truncated ? 'Resultado parcial por límite de consulta. ' : ''}No incluye propietarios ni garantiza avalúo individual vigente.`}
+        >
+          <StatList
+            stats={[{ label: 'Predios encontrados', value: formatNumber(parcels.length, 0) }]}
+          />
+          {parcels.length === 0 ? (
+            <p className="text-12 text-fg-muted mt-3">IGAC respondió sin predios para este AOI.</p>
+          ) : (
+            <ul className="mt-3 flex flex-col gap-1">
+              {parcels.slice(0, 20).map((parcel) => (
+                <li key={parcel.code} className="text-11 text-fg-muted">
+                  <span className="text-fg font-medium">{parcel.address ?? 'Sin dirección'}</span>
+                  {' · '}
+                  {parcel.code}
+                  {parcel.landAreaM2 == null ? '' : ` · ${formatNumber(parcel.landAreaM2, 1)} m²`}
+                </li>
+              ))}
+            </ul>
+          )}
+        </MetricCard>
+      )}
+
+      <p className="text-11 text-fg-subtle">
+        Evidencia:{' '}
+        {evidence.length > 0
+          ? evidence
+              .map((item) => `${item.sourceVersion} · ${item.payloadHash.slice(0, 12)}`)
+              .join(' | ')
+          : 'sin respuestas conservadas'}
+        .
+      </p>
     </SectionShell>
   );
 }

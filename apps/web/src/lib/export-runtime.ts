@@ -202,8 +202,7 @@ function snapshot(job: ExportJob): ExportJobSnapshot {
     error: job.error,
     // `generando` excluye porque `openExportBundle` responde 409 mientras el job
     // corre; el estado del botón tiene que coincidir con lo que la ruta del ZIP hace.
-    downloadable:
-      job.status !== 'expirado' && job.status !== 'generando' && ready.length > 0,
+    downloadable: job.status !== 'expirado' && job.status !== 'generando' && ready.length > 0,
   };
 }
 
@@ -351,6 +350,25 @@ function vectorSourceFor(
   }
   if (artifactId === 'vector:wdpa') {
     return { base: 'wdpa', features: protectedAreaFeatures(analysis) };
+  }
+  if (artifactId === 'vector:igac') {
+    return {
+      base: 'predios_igac',
+      features: analysis.colombia.parcels.map((parcel) => ({
+        type: 'Feature',
+        geometry: parcel.geometry,
+        properties: {
+          codigo_predial: parcel.code,
+          codigo_anterior: parcel.previousCode,
+          codigo_municipio: parcel.municipalityCode,
+          direccion: parcel.address,
+          destino_economico: parcel.economicDestination,
+          area_terreno_m2: parcel.landAreaM2,
+          area_construida_m2: parcel.builtAreaM2,
+          zona: parcel.zone,
+        },
+      })),
+    };
   }
   if (artifactId.startsWith('mepyd:')) {
     const layerId = artifactId.slice('mepyd:'.length);
@@ -561,6 +579,10 @@ async function writeDocuments(job: ExportJob): Promise<void> {
     if (artifact?.status === 'listo' && artifact.plan.datasetId !== null) {
       datasetIds.add(artifact.plan.datasetId);
     }
+  }
+  if (job.analysis.colombia.in_colombia) {
+    datasetIds.add('dane');
+    datasetIds.add('igac');
   }
 
   const planned = omissions(job.plan, job.selectedIds);

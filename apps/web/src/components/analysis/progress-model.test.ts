@@ -15,6 +15,8 @@ function snapshot(overrides: Partial<LiveRunSnapshot> = {}): LiveRunSnapshot {
       hidrologia: 'pending',
       'areas-protegidas': 'pending',
       mepyd: 'pending',
+      dane: 'pending',
+      igac: 'pending',
     },
     error: null,
     finished: false,
@@ -31,9 +33,10 @@ describe('stepStateOf', () => {
     expect(stepStateOf('pending', true)).toBe('pending');
   });
 
-  it('cierra `ok`, `empty` y `skipped` como pasos cumplidos', () => {
+  it('cierra estados terminales sin error como pasos cumplidos', () => {
     expect(stepStateOf('ok', false)).toBe('done');
     expect(stepStateOf('empty', false)).toBe('done');
+    expect(stepStateOf('not_covered', false)).toBe('done');
     expect(stepStateOf('skipped', false)).toBe('done');
   });
 
@@ -47,13 +50,15 @@ describe('stepStateOf', () => {
 });
 
 describe('analysisThemeProgress', () => {
-  it('sin snapshot devuelve las cuatro tarjetas, todas en curso', () => {
+  it('sin snapshot devuelve todas las fuentes, en curso', () => {
     const themes = analysisThemeProgress(null);
     expect(themes.map((theme) => theme.id)).toEqual([
       'raster',
       'hidrologia',
       'areas-protegidas',
       'mepyd',
+      'dane',
+      'igac',
     ]);
     expect(themes.every((theme) => theme.steps.every((step) => step.state === 'running'))).toBe(
       true,
@@ -91,6 +96,8 @@ describe('analysisThemeProgress', () => {
           hidrologia: 'ok',
           'areas-protegidas': 'ok',
           mepyd: 'ok',
+          dane: 'ok',
+          igac: 'ok',
         },
       }),
     );
@@ -105,6 +112,8 @@ describe('analysisThemeProgress', () => {
           hidrologia: 'ok',
           'areas-protegidas': 'error',
           mepyd: 'pending',
+          dane: 'ok',
+          igac: 'not_covered',
         },
       }),
     );
@@ -113,6 +122,8 @@ describe('analysisThemeProgress', () => {
     expect(byId.get('hidrologia')).toBe('done');
     expect(byId.get('areas-protegidas')).toBe('error');
     expect(byId.get('mepyd')).toBe('running');
+    expect(byId.get('dane')).toBe('done');
+    expect(byId.get('igac')).toBe('done');
     expect(byId.get('raster')).toBe('running');
   });
 });

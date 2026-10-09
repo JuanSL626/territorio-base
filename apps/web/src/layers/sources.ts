@@ -159,6 +159,21 @@ export const SRC_MEPYD: SourceRef = {
     'Sólo se consulta si el AOI intersecta el bbox de República Dominicana. Una capa que falla se omite; una capa sin resultados no aparece.',
 };
 
+export const SRC_IGAC: SourceRef = {
+  name: 'Base Catastral Pública del Gestor IGAC',
+  provider: 'Instituto Geográfico Agustín Codazzi (IGAC)',
+  url: 'https://www.datos.gov.co/d/ny62-ftfh',
+  vintage: '08-2026; actualizado 01-10-2026',
+  resolution: 'Vectorial predial',
+  coverage: 'Municipios bajo gestión catastral del IGAC',
+  license: 'CC BY 4.0',
+  citation: 'IGAC. Base Catastral Pública del Gestor IGAC 08-2026.',
+  method:
+    'Intersección del AOI con terrenos urbanos y rurales; atributos enlazados con Registro 1 por número predial.',
+  caveat:
+    'No cubre gestores catastrales descentralizados ni garantiza avalúo catastral individual vigente.',
+};
+
 export const SRC_AOI: SourceRef = {
   name: 'AOI del usuario',
   provider: 'Territorio Base',

@@ -20,11 +20,15 @@
  */
 import {
   fetchAllMepyd,
+  fetchDaneContext,
+  fetchIgacCadastre,
   fetchNasaPowerSolar,
   fetchOsmBundle,
   fetchProtectedAreas,
   type Aoi,
+  type DaneContext,
   type HydrologyFeature,
+  type IgacCadastre,
   type MepydResult,
   type NasaPowerSolarResource,
   type OsmContextFeature,
@@ -46,6 +50,8 @@ export type RunVectorSourcesOptions = {
     protectedAreas: () => Promise<readonly ProtectedAreaFeature[]>;
     mepyd: () => Promise<MepydResult>;
     solar: () => Promise<NasaPowerSolarResource>;
+    dane: () => Promise<DaneContext>;
+    igac: () => Promise<IgacCadastre>;
   }>;
 };
 
@@ -73,7 +79,7 @@ export async function runVectorSources(
   const overrides = options.overrides ?? {};
 
   const useBundle = overrides.hydrology === undefined && overrides.osmContext === undefined;
-  const [osm, solar, protectedAreas, mepyd] = await Promise.all([
+  const [osm, solar, protectedAreas, mepyd, dane, igac] = await Promise.all([
     useBundle ? isolate(async () => await fetchOsmBundle(aoi, { signal })) : Promise.resolve(null),
     isolate(async () =>
       overrides.solar === undefined
@@ -90,6 +96,16 @@ export async function runVectorSources(
         ? await fetchAllMepyd(aoi, { signal })
         : await overrides.mepyd(),
     ),
+    isolate(async () =>
+      overrides.dane === undefined
+        ? await fetchDaneContext(aoi, { signal })
+        : await overrides.dane(),
+    ),
+    isolate(async () =>
+      overrides.igac === undefined
+        ? await fetchIgacCadastre(aoi, { signal })
+        : await overrides.igac(),
+    ),
   ]);
 
   if (osm !== null) {
@@ -102,7 +118,7 @@ export async function runVectorSources(
           data: { features: osm.data.context, truncated: osm.data.truncated },
         }
       : { available: false as const, error: osm.error };
-    return { hydrology, osmContext, solar, protectedAreas, mepyd };
+    return { hydrology, osmContext, solar, protectedAreas, mepyd, dane, igac };
   }
 
   const [hydrology, osmContext] = await Promise.all([
@@ -114,5 +130,5 @@ export async function runVectorSources(
     ),
   ]);
 
-  return { hydrology, osmContext, solar, protectedAreas, mepyd };
+  return { hydrology, osmContext, solar, protectedAreas, mepyd, dane, igac };
 }

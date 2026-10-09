@@ -26,6 +26,7 @@ import {
 import type { HydrologySummary, ProtectedAreasSummary } from '@territorio/geo';
 
 import {
+  EMPTY_COLOMBIA,
   SOURCE_DOWN_MESSAGES,
   type TerritorioAnalysisSummary,
 } from '~/lib/analysis-contract';
@@ -105,6 +106,7 @@ function analysis(overrides: Partial<TerritorioAnalysisSummary> = {}): Territori
     hydrology: { summary: hydrology() },
     protected_areas: { summary: protectedAreas() },
     mepyd_rd: { in_rd: false, summary: {}, failures: [] },
+    colombia: EMPTY_COLOMBIA,
     provenance: {},
     layers: [],
     sources: [],
@@ -141,13 +143,17 @@ describe('banner de hidrología — strings exactos (TC-11..TC-14)', () => {
       hydrology({ intersects_aoi: true, features_found: 2, nearest_distance_m: 0 }),
     );
     expect(banner.tone).toBe('warning');
-    expect(banner.headline).toBe('⚠️ Hay un curso/cuerpo de agua de OSM que intersecta el polígono.');
+    expect(banner.headline).toBe(
+      '⚠️ Hay un curso/cuerpo de agua de OSM que intersecta el polígono.',
+    );
   });
 
   it('cerca sin intersección', () => {
     const banner = hydrologyBanner(hydrology({ features_found: 3, nearest_distance_m: 240 }));
     expect(banner.tone).toBe('info');
-    expect(banner.headline).toBe('No hay intersección, pero hay 3 elemento(s) de hidrología a 240 m.');
+    expect(banner.headline).toBe(
+      'No hay intersección, pero hay 3 elemento(s) de hidrología a 240 m.',
+    );
   });
 
   it('sin elementos', () => {
@@ -173,7 +179,9 @@ describe('banner de áreas protegidas — strings exactos (TC-07..TC-10)', () =>
   it('cerca sin intersección', () => {
     const banner = protectedBanner(protectedAreas({ areas_found: 2, nearest_distance_m: 815 }));
     expect(banner.tone).toBe('info');
-    expect(banner.headline).toBe('No hay intersección, pero hay 2 área(s) WDPA a 815 m del polígono.');
+    expect(banner.headline).toBe(
+      'No hay intersección, pero hay 2 área(s) WDPA a 815 m del polígono.',
+    );
   });
 
   it('sin áreas', () => {
@@ -267,7 +275,9 @@ describe('conclusiones de topografía', () => {
 
 describe('conclusiones de vegetación', () => {
   it('dosel denso: lo nombra y cuantifica la cobertura arbórea', () => {
-    const texts = vegetationConclusions(analysis().vegetation).map((item) => item.text).join(' ');
+    const texts = vegetationConclusions(analysis().vegetation)
+      .map((item) => item.text)
+      .join(' ');
     expect(texts).toContain('Vegetación muy densa / dosel maduro');
     expect(texts).toContain('71,2\u202f%');
   });

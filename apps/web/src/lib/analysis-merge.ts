@@ -17,12 +17,15 @@
  * fallado.
  */
 import {
+  isInColombia,
   isInRd,
   summarizeHydrology,
   summarizeMepyd,
   summarizeProtectedAreas,
   type Aoi,
+  type DaneContext,
   type HydrologyFeature,
+  type IgacCadastre,
   type MepydResult,
   type NasaPowerSolarResource,
   type OsmContextFeature,
@@ -35,6 +38,7 @@ import {
   SOURCE_DOWN_MESSAGES,
   SOURCE_SERVICE_NAMES,
   toMepydAttributes,
+  type AnalysisColombia,
   type AnalysisMepydSummary,
   type AnalysisParams,
   type AnalysisSourceId,
@@ -70,6 +74,8 @@ export type VectorOutcomes = {
   protectedAreas: SourceOutcome<readonly ProtectedAreaFeature[]>;
   /** `fetchAllMepyd` no lanza por capa; `available: false` = falló la llamada entera. */
   mepyd: SourceOutcome<MepydResult>;
+  dane: SourceOutcome<DaneContext>;
+  igac: SourceOutcome<IgacCadastre>;
 };
 
 function mapSolar(resource: NasaPowerSolarResource): SolarResource {
@@ -447,6 +453,59 @@ function buildMepyd(
   };
 }
 
+// ponytail: lista mínima comprobada; ampliar cuando IGAC publique un contrato
+// nacional legible por máquina de gestores catastrales descentralizados.
+const KNOWN_NON_IGAC_MUNICIPALITIES = new Set(['11001']);
+
+function buildColombia(
+  aoi: Aoi,
+  daneOutcome: SourceOutcome<DaneContext>,
+  igacOutcome: SourceOutcome<IgacCadastre>,
+): { block: AnalysisColombia; statuses: [SourceStatus, SourceStatus] } {
+  const inColombia = isInColombia(aoi.bbox);
+  const dane = daneOutcome.available ? daneOutcome.data : null;
+  const igac = igacOutcome.available ? igacOutcome.data : null;
+  const municipalities = dane?.municipalities ?? [];
+  const parcels = igac?.parcels ?? [];
+
+  const daneStatus = !inColombia
+    ? sourceStatus('dane', 'skipped', 0, null)
+    : daneOutcome.available
+      ? sourceStatus(
+          'dane',
+          municipalities.length === 0 ? 'empty' : 'ok',
+          municipalities.length,
+          null,
+        )
+      : sourceStatus('dane', 'error', 0, reasonText(daneOutcome.error, SOURCE_DOWN_MESSAGES.dane));
+
+  const outsideIgacCoverage =
+    parcels.length === 0 &&
+    municipalities.length > 0 &&
+    municipalities.every((municipality) => KNOWN_NON_IGAC_MUNICIPALITIES.has(municipality.code));
+  const igacStatus = !inColombia
+    ? sourceStatus('igac', 'skipped', 0, null)
+    : !igacOutcome.available
+      ? sourceStatus('igac', 'error', 0, reasonText(igacOutcome.error, SOURCE_DOWN_MESSAGES.igac))
+      : sourceStatus(
+          'igac',
+          outsideIgacCoverage ? 'not_covered' : parcels.length === 0 ? 'empty' : 'ok',
+          parcels.length,
+          null,
+        );
+
+  return {
+    block: {
+      in_colombia: inColombia,
+      municipalities,
+      parcels,
+      cadastre_truncated: igac?.truncated ?? false,
+      evidence: [...(dane?.evidence ?? []), ...(igac?.evidence ?? [])],
+    },
+    statuses: [daneStatus, igacStatus],
+  };
+}
+
 /**
  * `ok` sólo si todo lo consultado respondió; `error` sólo si nada respondió;
  * `partial` en el medio — que es el caso interesante y el que el legacy no
@@ -495,6 +554,7 @@ export function mergeAnalysis(input: MergeAnalysisInput): TerritorioAnalysis {
     ? input.vector.mepyd.data.inRd
     : isInRd(input.aoi.bbox);
   const mepyd = buildMepyd(inRdByBbox, input.vector.mepyd);
+  const colombia = buildColombia(input.aoi, input.vector.dane, input.vector.igac);
 
   // El ORDEN es el del §1.4 y el de las tarjetas del reporte.
   const sources: SourceStatus[] = [
@@ -503,6 +563,7 @@ export function mergeAnalysis(input: MergeAnalysisInput): TerritorioAnalysis {
     hydrology.status,
     protectedAreas.status,
     mepyd.status,
+    ...colombia.statuses,
   ];
 
   return {
@@ -546,6 +607,7 @@ export function mergeAnalysis(input: MergeAnalysisInput): TerritorioAnalysis {
       : { features: [], truncated: false },
     protected_areas: protectedAreas.block,
     mepyd_rd: mepyd.block,
+    colombia: colombia.block,
 
     provenance: raster.provenance,
     layers: raster.layers,
@@ -553,5 +615,5 @@ export function mergeAnalysis(input: MergeAnalysisInput): TerritorioAnalysis {
     coastal: input.coastal ?? null,
   };
 }
-/** Las cuatro fuentes, para tests y para pintar el estado inicial. */
+/** Todas las fuentes, para tests y para pintar el estado inicial. */
 export const ALL_SOURCE_IDS = ANALYSIS_SOURCE_IDS;

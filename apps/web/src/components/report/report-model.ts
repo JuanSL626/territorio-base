@@ -31,6 +31,7 @@ export type ReportSectionId =
   | 'vegetacion'
   | 'hidrologia'
   | 'areas-protegidas'
+  | 'colombia'
   | 'riesgo-costero'
   | 'contexto-rd'
   | 'fuentes';
@@ -269,6 +270,25 @@ export function buildSections(
     }),
   });
 
+  if (analysis.colombia.in_colombia) {
+    sections.push({
+      id: 'colombia',
+      eyebrow: 'Colombia',
+      title: 'Catastro y contexto socioeconómico',
+      citedLayerIds: analysis.colombia.parcels.length > 0 ? ['igac-parcels'] : [],
+      map: mapState({
+        layers: analysis.colombia.parcels.length > 0 ? ['igac-parcels'] : [],
+        bounds: base,
+        basemap: 'light',
+        caption:
+          analysis.colombia.parcels.length > 0
+            ? 'Predios de la base catastral pública del gestor IGAC dentro del AOI.'
+            : 'DANE resolvió el territorio; IGAC no devolvió predios para este AOI.',
+        fly,
+      }),
+    });
+  }
+
   if (analysis.coastal != null) {
     sections.push({
       id: 'riesgo-costero',
@@ -487,6 +507,12 @@ function firstStringField(
  * dato verdadero, en vez de inventar una ubicación administrativa.
  */
 export function locationLabel(analysis: TerritorioAnalysisSummary): string | null {
+  if (analysis.colombia.in_colombia) {
+    const labels = analysis.colombia.municipalities.map(
+      (municipality) => `${municipality.name}, ${municipality.departmentName}`,
+    );
+    return labels.slice(0, 3).join(' / ') || 'Colombia — municipio no determinado';
+  }
   if (!analysis.mepyd_rd.in_rd) return null;
   const entry = analysis.mepyd_rd.summary[DPA_GROUP]?.[DPA_LAYER];
   if (entry === undefined) return null;

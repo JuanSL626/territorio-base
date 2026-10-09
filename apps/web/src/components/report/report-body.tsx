@@ -14,6 +14,7 @@ import {
 } from './report-model';
 import {
   AreasProtegidasSection,
+  ColombiaSection,
   ContextoRdSection,
   HidrologiaSection,
   PortadaSection,
@@ -276,6 +277,8 @@ export function ReportBody({ analysisId, print = false }: ReportBodyProps) {
             }}
           />
         );
+      case 'colombia':
+        return <ColombiaSection key={section.id} {...common} />;
       case 'riesgo-costero':
         return <RiesgoCosteroSection key={section.id} {...common} />;
       case 'contexto-rd':

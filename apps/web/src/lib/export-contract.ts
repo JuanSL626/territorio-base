@@ -102,6 +102,7 @@ export const REPORT_SECTION_IDS = [
   'vegetacion',
   'hidrologia',
   'areas-protegidas',
+  'colombia',
   'riesgo-costero',
   'contexto-rd',
   'fuentes',
@@ -115,6 +116,7 @@ export const REPORT_SECTION_LABELS: Record<ReportSectionId, string> = {
   vegetacion: 'Vegetación',
   hidrologia: 'Hidrología',
   'areas-protegidas': 'Áreas protegidas',
+  colombia: 'Colombia — catastro y contexto socioeconómico',
   'riesgo-costero': 'Riesgo costero',
   'contexto-rd': 'Contexto RD (MEPyD)',
   fuentes: 'Fuentes y licencias',
@@ -133,6 +135,7 @@ export const EXPORT_GROUP_ORDER = [
   'Hidrología',
   'Áreas protegidas',
   'Riesgo costero',
+  'Catastro Colombia',
   'Contexto RD (MEPyD)',
 ] as const;
 
@@ -257,6 +260,7 @@ export function totalEstimatedBytes(plan: ExportPlan, selectedIds: ReadonlySet<s
 function sourceReason(status: SourceStatus | undefined, id: AnalysisSourceId): string | null {
   if (status === undefined) return SOURCE_DOWN_MESSAGES[id];
   if (status.state === 'error') return status.error ?? SOURCE_DOWN_MESSAGES[id];
+  if (status.state === 'not_covered') return 'El municipio usa un gestor catastral distinto.';
   if (status.state === 'skipped') return 'No se consultó para este AOI.';
   return null;
 }
@@ -500,6 +504,25 @@ export function buildExportPlan(options: BuildExportPlanOptions): ExportPlan {
     estimatedBytes: estimateVectorBytes(wdpaCount),
     datasetId: 'wdpa',
     featureCount: wdpaCount,
+  });
+
+  const igacReason = sourceReason(bySource.get('igac'), 'igac');
+  const parcelCount = analysis.colombia.parcels.length;
+  artifacts.push({
+    id: 'vector:igac',
+    kind: 'vector',
+    label: 'Predios (IGAC)',
+    group: 'Catastro Colombia',
+    formats: 'Shapefile + GeoJSON',
+    selectable: igacReason === null && parcelCount > 0,
+    reason:
+      igacReason ??
+      (parcelCount === 0 ? 'Se consultó IGAC y no hay predios dentro del AOI.' : null),
+    defaultSelected: igacReason === null && parcelCount > 0,
+    mandatory: false,
+    estimatedBytes: estimateVectorBytes(parcelCount),
+    datasetId: 'igac',
+    featureCount: parcelCount,
   });
 
   artifacts.push(...mepydArtifacts(analysis, bySource.get('mepyd')));

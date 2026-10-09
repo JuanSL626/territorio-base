@@ -101,6 +101,29 @@ export const DATASET_CITATIONS: readonly DatasetCitation[] = [
       'responde se omite del resultado: la ausencia de una capa en este ZIP no significa ausencia ' +
       'de datos en el territorio.',
   },
+  {
+    id: 'dane',
+    layer: 'DIVIPOLA e indicadores municipales CNPV 2018',
+    officialName: 'DIVIPOLA MGN 2025 y Datos CNPV 2018 integrados',
+    provider: 'Departamento Administrativo Nacional de Estadística (DANE)',
+    endpoint: 'https://geoportal.dane.gov.co/',
+    resolution: 'Municipal',
+    license: 'Datos abiertos de Colombia',
+    caveats:
+      'Los indicadores corresponden al CNPV 2018; no representan estimaciones demográficas actuales.',
+  },
+  {
+    id: 'igac',
+    layer: 'Predios de la base catastral pública',
+    officialName: 'Base Catastral Pública del Gestor IGAC 08-2026',
+    provider: 'Instituto Geográfico Agustín Codazzi (IGAC)',
+    endpoint:
+      'https://services2.arcgis.com/RVvWzU3lgJISqdke/arcgis/rest/services/CATASTRO_PUBLICO_31082026/FeatureServer',
+    resolution: 'Vectorial predial',
+    license: 'CC BY 4.0',
+    caveats:
+      'Cobertura parcial: sólo municipios bajo gestión catastral del IGAC. No incluye propietarios ni garantiza avalúo individual vigente.',
+  },
 ];
 
 export type ReadmeOptions = {

@@ -4,8 +4,10 @@ import {
   createAoi,
   MEPYD_LAYERS_FLAT,
   type AreaGeometry,
+  type DaneContext,
   type Geometry,
   type HydrologyFeature,
+  type IgacCadastre,
   type MepydResult,
   type OsmContextFeature,
   type ProtectedAreaFeature,
@@ -169,6 +171,8 @@ function analysisWith(overrides: {
       osmContext: overrides.osmContext ?? up({ features: OSM_CONTEXT, truncated: false }),
       protectedAreas: overrides.protectedAreas ?? up(PROTECTED),
       mepyd: overrides.mepyd ?? up(MEPYD),
+      dane: up<DaneContext>({ inColombia: false, municipalities: [], evidence: [] }),
+      igac: up<IgacCadastre>({ inColombia: false, parcels: [], truncated: false, evidence: [] }),
     },
   });
 }

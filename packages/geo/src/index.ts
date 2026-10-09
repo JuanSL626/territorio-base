@@ -28,6 +28,7 @@ export * from './sources/overpass';
 export * from './sources/wdpa';
 export * from './sources/mepyd';
 export * from './sources/nasa-power';
+export * from './sources/colombia';
 export * from './export/dbf-fields';
 export * from './export/shapefile';
 export * from './export/sources';

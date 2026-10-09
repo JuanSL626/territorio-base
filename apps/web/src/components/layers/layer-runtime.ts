@@ -35,6 +35,8 @@ const DOWN_REASON: Record<AnalysisSourceId, string> = {
   hidrologia: 'Overpass caído',
   'areas-protegidas': 'WDPA caído',
   mepyd: 'MEPyD caído',
+  dane: 'DANE caído',
+  igac: 'IGAC caído',
 };
 
 const DOWN_DETAIL: Record<AnalysisSourceId, string> = {
@@ -43,6 +45,8 @@ const DOWN_DETAIL: Record<AnalysisSourceId, string> = {
   hidrologia: SOURCE_DOWN_MESSAGES.hidrologia,
   'areas-protegidas': SOURCE_DOWN_MESSAGES['areas-protegidas'],
   mepyd: SOURCE_DOWN_MESSAGES.mepyd,
+  dane: SOURCE_DOWN_MESSAGES.dane,
+  igac: SOURCE_DOWN_MESSAGES.igac,
 };
 
 /** "consulté y no hay nada" — la mitad BUENA de la regresión #3. */
@@ -55,6 +59,7 @@ const EMPTY_RUNTIME: LayerRuntime = {
 function sourceOf(layer: LayerDef): AnalysisSourceId {
   if (layer.id.startsWith('osm-')) return 'hidrologia';
   if (layer.id === 'wdpa') return 'areas-protegidas';
+  if (layer.id === 'igac-parcels') return 'igac';
   if (layer.id.startsWith('mepyd:')) return 'mepyd';
   return 'raster';
 }
@@ -132,8 +137,22 @@ function vectorRuntime(
       detail: 'Contexto RD no aplica: el AOI está fuera de República Dominicana.',
     };
   }
+  if (source === 'igac' && !analysis.colombia.in_colombia) {
+    return {
+      status: 'skipped',
+      reason: 'fuera de Colombia',
+      detail: 'La base catastral del IGAC sólo se consulta para AOI en Colombia.',
+    };
+  }
   if (status?.state === 'error') {
     return { status: 'error', reason: DOWN_REASON[source], detail: DOWN_DETAIL[source] };
+  }
+  if (status?.state === 'not_covered') {
+    return {
+      status: 'skipped',
+      reason: 'otro gestor',
+      detail: 'El municipio usa un gestor catastral distinto del IGAC.',
+    };
   }
 
   const count = input.featureCounts.get(layer.id);
