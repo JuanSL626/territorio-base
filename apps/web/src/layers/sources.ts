@@ -177,19 +177,19 @@ export const SRC_IGAC: SourceRef = {
 export const SRC_IDESC: SourceRef = {
   name: 'Contexto territorial oficial de Santiago de Cali',
   provider: 'Infraestructura de Datos Espaciales de Santiago de Cali (IDESC)',
-  url: 'https://ws-idesc.cali.gov.co/geoserver/wfs',
-  acquisition: 'Consulta WFS realizada al ejecutar el análisis',
+  url: 'https://www.cali.gov.co/hacienda/publicaciones/147969/geoportal-catastral/',
+  acquisition: 'Consulta WFS al ejecutar el análisis; respaldo catastral con corte a enero de 2024',
   vintage:
-    'Catastro según edición de la entidad; normativa POT 2014; demás capas según metadatos IDESC',
+    'Construcciones: servicio IDESC y Geodatabase catastral 2024; normativa POT 2014; demás capas según metadatos IDESC',
   resolution: 'Vectorial',
   coverage: 'Distrito de Santiago de Cali',
   license: 'No publicada en el servicio WFS',
   citation:
     'Distrito de Santiago de Cali. Infraestructura de Datos Espaciales de Santiago de Cali.',
   method:
-    'Consulta WFS 2.0 por el bbox del AOI, paginada y filtrada después por intersección geométrica exacta.',
+    'Consulta WFS 2.0 por el bbox del AOI. Cuando el servicio publica 0 pisos, se usa el valor positivo de la Geodatabase 2024 sólo si coinciden el terreno y el área geométrica (tolerancia 0,1 %).',
   caveat:
-    'Las capas POT son históricas y no sustituyen un concepto de uso del suelo, certificado catastral o estudio de riesgo vigente. En construcciones, IDESC publica numerosos registros con 0 pisos; Territorio Base los presenta como no informados.',
+    'Las capas POT son históricas y no sustituyen un concepto de uso del suelo, certificado catastral o estudio de riesgo vigente. Los pisos sin coincidencia documental permanecen como no informados; no se estiman.',
 };
 
 export const SRC_AOI: SourceRef = {

@@ -36,6 +36,8 @@ import {
   type SourceOutcome,
 } from '@territorio/geo';
 
+import { enrichCaliContextSources } from './cali-floor-snapshot';
+
 import type { VectorOutcomes } from './analysis-merge';
 
 export type RunVectorSourcesOptions = {
@@ -103,7 +105,7 @@ export async function runVectorSources(
     ),
     isolate(async () =>
       overrides.igac === undefined
-        ? await fetchIgacCadastre(aoi, { signal })
+        ? await enrichCaliContextSources(await fetchIgacCadastre(aoi, { signal }))
         : await overrides.igac(),
     ),
   ]);

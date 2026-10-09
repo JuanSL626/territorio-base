@@ -50,6 +50,14 @@ describe('registro de capas', () => {
     ]);
   });
 
+  it('muestra fuente y año en cada capa oficial de IDESC', () => {
+    for (const id of ['idesc-constructions', 'idesc-pot-activity', 'idesc-seismic-microzonation']) {
+      const keys = getLayer(id)?.popup?.fields.map((field) => field.key);
+      expect(keys, `${id} sin fuente visible`).toContain('data_source');
+      expect(keys, `${id} sin año visible`).toContain('source_year');
+    }
+  });
+
   it('mantiene la opacidad por defecto entre 0 y 1', () => {
     for (const layer of LAYER_REGISTRY) {
       expect(layer.defaultOpacity).toBeGreaterThanOrEqual(0);
