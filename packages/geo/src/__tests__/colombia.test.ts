@@ -27,6 +27,7 @@ function squareAoi(lon: number, lat: number): Aoi {
 }
 
 const AGUADAS = squareAoi(-75.4557, 5.6096);
+const JAMUNDI = squareAoi(-76.57002, 3.25446);
 const COSTA_RICA = squareAoi(-84.1, 9.9);
 
 async function jsonResponse(value: unknown): Promise<Response> {
@@ -305,5 +306,66 @@ describe('IGAC — base catastral pública', () => {
     expect(result.evidence[0]?.warnings).toContain(
       'La consulta catastral alcanzó el límite de seguridad; el resultado es parcial.',
     );
+  });
+
+  it('usa el dato fundamental nacional cuando la base del gestor IGAC no cubre el municipio', async () => {
+    const code = '763640100000007640803800000008';
+    const fetchImpl: FetchLike = async (url, init) => {
+      if (url.includes('CATASTRO_PUBLICO_31082026')) {
+        return await jsonResponse({
+          type: 'FeatureCollection',
+          properties: { exceededTransferLimit: false },
+          features: [],
+        });
+      }
+      if (url.includes('Dato_Fundamental_Catastro/MapServer/4/query')) {
+        expect(form(init).has('resultRecordCount')).toBe(false);
+        return await jsonResponse({
+          type: 'FeatureCollection',
+          properties: { exceededTransferLimit: false },
+          features: [
+            {
+              type: 'Feature',
+              properties: { CODIGO: code, CODIGO_ANT: '76364010007640008803' },
+              geometry: {
+                type: 'Polygon',
+                coordinates: [
+                  [
+                    [-76.57003, 3.25445],
+                    [-76.56951, 3.2541],
+                    [-76.56986, 3.25368],
+                    [-76.57003, 3.25445],
+                  ],
+                ],
+              },
+            },
+          ],
+        });
+      }
+      if (url.includes('Dato_Fundamental_Catastro/MapServer/1/query')) {
+        return await jsonResponse({
+          type: 'FeatureCollection',
+          properties: { exceededTransferLimit: false },
+          features: [],
+        });
+      }
+      throw new Error(`Consulta inesperada: ${url}`);
+    };
+
+    const result = await fetchIgacCadastre(JAMUNDI, { fetchImpl });
+
+    expect(result.parcels).toHaveLength(1);
+    expect(result.parcels[0]).toMatchObject({
+      code,
+      previousCode: '76364010007640008803',
+      municipalityCode: '76364',
+      landAreaM2: null,
+      zone: 'urban',
+    });
+    expect(result.evidence[0]).toMatchObject({
+      sourceId: 'igac-dato-fundamental-catastro',
+      coverage: 'national',
+      query: { layers: '1,4' },
+    });
   });
 });

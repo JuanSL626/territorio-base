@@ -14,6 +14,8 @@ export const DANE_CNPV_QUERY_URL =
   'https://geoportal.dane.gov.co/mparcgis/rest/services/MARCO_INTEGRADO/Serv_DatosCNPV2018_Integrados_MGN2018/MapServer/800/query';
 export const IGAC_CADASTRE_URL =
   'https://services2.arcgis.com/RVvWzU3lgJISqdke/arcgis/rest/services/CATASTRO_PUBLICO_31082026/FeatureServer';
+export const IGAC_NATIONAL_CADASTRE_URL =
+  'https://mapas.igac.gov.co/server/rest/services/Dato_Fundamental_Catastro/MapServer';
 
 const IGAC_MAX_PARCELS = 500;
 const IGAC_RECORD_BATCH = 100;
@@ -364,25 +366,43 @@ function numberProperty(properties: Record<string, unknown>, key: string): numbe
 
 async function fetchTerrainLayer(
   aoi: Aoi,
-  layerId: 7 | 14,
+  layerId: number,
   zone: 'urban' | 'rural',
   options: ColombiaRequestOptions,
+  source: {
+    url: string;
+    outFields: string;
+    previousCodeField: string;
+    municipalityCodeField: string | null;
+    shapeAreaField: string | null;
+    resultRecordCount?: string;
+  } = {
+    url: IGAC_CADASTRE_URL,
+    outFields: 'CODIGO,CODIGO_ANTERIOR,codigo_municipio,Shape__Area',
+    previousCodeField: 'CODIGO_ANTERIOR',
+    municipalityCodeField: 'codigo_municipio',
+    shapeAreaField: 'Shape__Area',
+    resultRecordCount: String(IGAC_MAX_PARCELS),
+  },
 ): Promise<{ payload: unknown; features: TerrainFeature[]; truncated: boolean }> {
   const payload = await postFormJson(
-    `${IGAC_CADASTRE_URL}/${String(layerId)}/query`,
+    `${source.url}/${String(layerId)}/query`,
     {
       geometry: arcgisGeometry(aoi),
       geometryType: 'esriGeometryPolygon',
       inSR: '4326',
       spatialRel: 'esriSpatialRelIntersects',
-      outFields: 'CODIGO,CODIGO_ANTERIOR,codigo_municipio,Shape__Area',
+      outFields: source.outFields,
       returnGeometry: 'true',
       outSR: '4326',
-      resultRecordCount: String(IGAC_MAX_PARCELS),
+      ...(source.resultRecordCount === undefined
+        ? {}
+        : { resultRecordCount: source.resultRecordCount }),
       f: 'geojson',
     },
     options,
   );
+  assertArcgisResponse(payload, `IGAC ${zone}`);
   const parsed = igacGeoJsonSchema.safeParse(payload);
   if (!parsed.success) throw new Error(`IGAC ${zone} devolvió una respuesta inválida.`);
 
@@ -394,9 +414,15 @@ async function fetchTerrainLayer(
     if (code === null || !isGeometry(geometry)) continue;
     features.push({
       code,
-      previousCode: stringProperty(properties, 'CODIGO_ANTERIOR'),
-      municipalityCode: stringProperty(properties, 'codigo_municipio'),
-      shapeAreaM2: numberProperty(properties, 'Shape__Area'),
+      previousCode: stringProperty(properties, source.previousCodeField),
+      municipalityCode:
+        source.municipalityCodeField === null
+          ? code.length >= 5
+            ? code.slice(0, 5)
+            : null
+          : stringProperty(properties, source.municipalityCodeField),
+      shapeAreaM2:
+        source.shapeAreaField === null ? null : numberProperty(properties, source.shapeAreaField),
       zone,
       geometry,
     });
@@ -461,16 +487,35 @@ export async function fetchIgacCadastre(
     return { inColombia: false, parcels: [], truncated: false, evidence: [] };
   }
 
-  const [urban, rural] = await Promise.all([
+  const [igacUrban, igacRural] = await Promise.all([
     fetchTerrainLayer(aoi, 7, 'urban', options),
     fetchTerrainLayer(aoi, 14, 'rural', options),
   ]);
+  const useNationalFallback = igacUrban.features.length + igacRural.features.length === 0;
+  const [urban, rural] = useNationalFallback
+    ? await Promise.all([
+        fetchTerrainLayer(aoi, 4, 'urban', options, {
+          url: IGAC_NATIONAL_CADASTRE_URL,
+          outFields: 'CODIGO,CODIGO_ANT',
+          previousCodeField: 'CODIGO_ANT',
+          municipalityCodeField: null,
+          shapeAreaField: null,
+        }),
+        fetchTerrainLayer(aoi, 1, 'rural', options, {
+          url: IGAC_NATIONAL_CADASTRE_URL,
+          outFields: 'CODIGO,CODIGO_ANT',
+          previousCodeField: 'CODIGO_ANT',
+          municipalityCodeField: null,
+          shapeAreaField: null,
+        }),
+      ])
+    : [igacUrban, igacRural];
   const allTerrain = [...urban.features, ...rural.features];
   const unique = new Map(allTerrain.map((feature) => [feature.code, feature]));
   const truncated = urban.truncated || rural.truncated || unique.size > IGAC_MAX_PARCELS;
   const terrain = [...unique.values()].slice(0, IGAC_MAX_PARCELS);
   const { payloads: recordPayloads, records } =
-    terrain.length === 0
+    terrain.length === 0 || useNationalFallback
       ? { payloads: [], records: new Map<string, z.infer<typeof igacRecordAttributesSchema>>() }
       : await fetchRecords(
           terrain.map((feature) => feature.code),
@@ -492,9 +537,18 @@ export async function fetchIgacCadastre(
     };
   });
 
-  const warnings = truncated
-    ? ['La consulta catastral alcanzó el límite de seguridad; el resultado es parcial.']
-    : [];
+  const warnings = [
+    ...(useNationalFallback && terrain.length > 0
+      ? [
+          'La Base Catastral Pública del Gestor IGAC no cubrió el AOI; se usó el Dato Fundamental Catastro del IGAC.',
+          'El Dato Fundamental Catastro no publica atributos de Registro 1; se entregan geometrías y códigos prediales.',
+        ]
+      : []),
+    ...(truncated
+      ? ['La consulta catastral alcanzó el límite de seguridad; el resultado es parcial.']
+      : []),
+  ];
+  const evidenceEndpoint = useNationalFallback ? IGAC_NATIONAL_CADASTRE_URL : IGAC_CADASTRE_URL;
 
   return {
     inColombia: true,
@@ -503,23 +557,34 @@ export async function fetchIgacCadastre(
     evidence: [
       {
         authority: 'Instituto Geográfico Agustín Codazzi (IGAC)',
-        accessProvider: 'ArcGIS Online del IGAC',
-        sourceId: 'igac-base-catastral-publica-2026-08-31',
-        endpoint: IGAC_CADASTRE_URL,
-        sourceVersion: 'Base Catastral Pública del Gestor IGAC 08-2026',
+        accessProvider: useNationalFallback
+          ? 'Servidor de mapas IGAC (ArcGIS REST)'
+          : 'ArcGIS Online del IGAC',
+        sourceId: useNationalFallback
+          ? 'igac-dato-fundamental-catastro'
+          : 'igac-base-catastral-publica-2026-08-31',
+        endpoint: evidenceEndpoint,
+        sourceVersion: useNationalFallback
+          ? 'Dato Fundamental Catastro; item modificado 2026-09-09'
+          : 'Base Catastral Pública del Gestor IGAC 08-2026',
         queriedAt: queriedAt(options),
-        sourceUpdatedAt: '2026-10-01',
-        coverage: 'partial',
-        license: 'CC BY 4.0',
+        sourceUpdatedAt: useNationalFallback ? '2026-09-09' : '2026-10-01',
+        coverage: useNationalFallback ? 'national' : 'partial',
+        license: useNationalFallback ? null : 'CC BY 4.0',
         crs: 'EPSG:4326',
         query: {
           method: 'POST',
-          layers: '7,14,17',
+          layers: useNationalFallback ? '1,4' : '7,14,17',
           geometryType: 'esriGeometryPolygon',
           spatialRelationship: 'esriSpatialRelIntersects',
           resultRecordCount: String(IGAC_MAX_PARCELS),
         },
-        payloadHash: await sha256Json([urban.payload, rural.payload, ...recordPayloads]),
+        payloadHash: await sha256Json([
+          igacUrban.payload,
+          igacRural.payload,
+          ...(useNationalFallback ? [urban.payload, rural.payload] : []),
+          ...recordPayloads,
+        ]),
         warnings,
       },
     ],

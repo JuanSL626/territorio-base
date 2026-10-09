@@ -160,18 +160,18 @@ export const SRC_MEPYD: SourceRef = {
 };
 
 export const SRC_IGAC: SourceRef = {
-  name: 'Base Catastral Pública del Gestor IGAC',
+  name: 'Datos catastrales públicos del IGAC',
   provider: 'Instituto Geográfico Agustín Codazzi (IGAC)',
-  url: 'https://www.datos.gov.co/d/ny62-ftfh',
-  vintage: '08-2026; actualizado 01-10-2026',
+  url: 'https://mapas.igac.gov.co/server/rest/services/Dato_Fundamental_Catastro/MapServer',
+  vintage: 'Dato Fundamental modificado 09-09-2026; base Gestor 08-2026',
   resolution: 'Vectorial predial',
-  coverage: 'Municipios bajo gestión catastral del IGAC',
-  license: 'CC BY 4.0',
-  citation: 'IGAC. Base Catastral Pública del Gestor IGAC 08-2026.',
+  coverage: 'Colombia; según cobertura de los servicios publicados',
+  license: 'Dato Fundamental: no publicada; base Gestor IGAC: CC BY 4.0',
+  citation: 'IGAC. Dato Fundamental Catastro y Base Catastral Pública del Gestor IGAC.',
   method:
-    'Intersección del AOI con terrenos urbanos y rurales; atributos enlazados con Registro 1 por número predial.',
+    'Intersección del AOI con terrenos urbanos y rurales. Si la base del Gestor IGAC no cubre el AOI, se consulta el Dato Fundamental Catastro nacional.',
   caveat:
-    'No cubre gestores catastrales descentralizados ni garantiza avalúo catastral individual vigente.',
+    'El Dato Fundamental no publica Registro 1: en esas zonas sólo se entregan geometrías y códigos prediales. No incluye propietarios ni garantiza avalúo vigente.',
 };
 
 export const SRC_AOI: SourceRef = {
