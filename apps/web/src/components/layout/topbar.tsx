@@ -89,15 +89,20 @@ export function Topbar({
       : `AOI: ${formatHectares(areaHa)}`;
 
   return (
-    <header className="border-border-base bg-surface flex h-12 shrink-0 items-center gap-3 border-b px-3">
-      <span className="text-13 text-fg w-40 shrink-0 truncate font-semibold">Territorio Base</span>
+    <header className="border-border-base bg-surface flex h-12 shrink-0 items-center gap-1 border-b px-2 lg:gap-3 lg:px-3">
+      <span className="text-13 text-fg w-7 shrink-0 font-semibold lg:w-40">
+        <span className="lg:hidden">TB</span>
+        <span className="hidden lg:inline">Territorio Base</span>
+      </span>
 
-      <div className="flex flex-1 justify-center">
+      <div className="flex min-w-0 flex-1 justify-center">
         {compactVistas ? (
-          <label className="text-12 text-fg-muted flex items-center gap-2">
-            Vista:
+          <label className="text-12 text-fg-muted flex min-w-0 flex-1 items-center justify-center gap-2">
+            <span className="sr-only">Vista:</span>
             <Select
               value={theme}
+              aria-label="Vista"
+              className="max-w-44 min-w-0 flex-1"
               onChange={(event) => {
                 onThemeChange(event.target.value as ThemeId);
               }}
@@ -119,7 +124,7 @@ export function Topbar({
         )}
       </div>
 
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1 lg:gap-2">
         <Popover
           title="Acciones del AOI"
           width={220}
@@ -128,10 +133,11 @@ export function Topbar({
               type="button"
               disabled={!hasAoi}
               data-testid="aoi-chip"
-              className="tabular rounded-btn border-border-base text-12 text-fg flex h-8 items-center gap-1 border px-2 disabled:cursor-not-allowed disabled:opacity-45"
+              className="tabular rounded-btn border-border-base text-12 text-fg flex h-8 items-center gap-1 border px-2 disabled:cursor-not-allowed disabled:opacity-45 [@media(pointer:coarse)]:h-11"
               {...triggerProps}
             >
-              {aoiLabel}
+              <span className="lg:hidden">AOI</span>
+              <span className="hidden lg:inline">{aoiLabel}</span>
               <ChevronDown size={13} />
             </button>
           )}
@@ -162,12 +168,14 @@ export function Topbar({
 
         <Button
           variant="secondary"
+          aria-label="Abrir reporte"
           disabled={blocked}
           title={blocked ? blockedTooltip : undefined}
           leadingIcon={<ReportIcon size={14} />}
+          className="hidden px-2 sm:inline-flex lg:px-3 [@media(pointer:coarse)]:h-11"
           onClick={onReport}
         >
-          Reporte
+          <span className="hidden lg:inline">Reporte</span>
         </Button>
 
         {exportJob === null ? (
@@ -175,18 +183,28 @@ export function Topbar({
             variant="primary"
             disabled={blocked}
             title={blocked ? blockedTooltip : undefined}
+            aria-label="Exportar"
             leadingIcon={<DownloadIcon size={14} />}
+            className="px-2 lg:px-3 [@media(pointer:coarse)]:h-11"
             onClick={onExport}
           >
-            Exportar
+            <span className="hidden lg:inline">Exportar</span>
           </Button>
         ) : (
           /* §7.1 — el botón se vuelve un chip de progreso; el trabajo sobrevive
              navegación y recarga, así que nunca bloquea la UI. */
-          <Button variant="primary" onClick={onExport} className="tabular">
-            {exportJob.sizeBytes == null
-              ? `Exportando… ${String(exportJob.done)}/${String(exportJob.total)}`
-              : `Descargar (${formatBytes(exportJob.sizeBytes)})`}
+          <Button
+            variant="primary"
+            aria-label="Ver exportación"
+            leadingIcon={<DownloadIcon size={14} />}
+            onClick={onExport}
+            className="tabular px-2 lg:px-3 [@media(pointer:coarse)]:h-11"
+          >
+            <span className="hidden lg:inline">
+              {exportJob.sizeBytes == null
+                ? `Exportando… ${String(exportJob.done)}/${String(exportJob.total)}`
+                : `Descargar (${formatBytes(exportJob.sizeBytes)})`}
+            </span>
           </Button>
         )}
 
@@ -202,6 +220,7 @@ export function Topbar({
                 label="Cuenta"
                 variant="secondary"
                 icon={<UserIcon size={15} />}
+                className="[@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11"
                 data-testid="user-menu"
                 {...triggerProps}
               />

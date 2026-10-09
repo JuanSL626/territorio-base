@@ -13,6 +13,7 @@ export function Input({ className, invalid = false, leadingIcon, ...props }: Inp
       aria-invalid={invalid ? true : undefined}
       className={cn(
         'rounded-btn bg-surface text-13 text-fg h-9 w-full border px-2.5',
+        '[@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:text-base',
         'placeholder:text-fg-subtle disabled:cursor-not-allowed disabled:opacity-55',
         invalid ? 'border-danger' : 'border-border-base',
         leadingIcon != null ? 'pl-8' : null,

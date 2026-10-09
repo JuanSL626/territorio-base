@@ -65,7 +65,9 @@ export function Dialog({
         <div className="min-h-0 flex-1 overflow-y-auto p-4">{children}</div>
 
         {footer != null ? (
-          <footer className={cn('border-border-base flex items-center gap-2 border-t p-4')}>
+          <footer
+            className={cn('border-border-base flex flex-wrap items-center gap-2 border-t p-4')}
+          >
             {footer}
           </footer>
         ) : null}

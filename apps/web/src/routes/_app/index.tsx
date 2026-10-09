@@ -11,7 +11,7 @@ import { DownloadModal } from '~/components/download/download-modal';
 import { CoastalControl } from '~/components/layers/coastal-control';
 import { COASTAL_LAYER_ID, LayerPanel } from '~/components/layers/layer-panel';
 import { LayerTableDialog, LAYER_TABLE_LIMIT } from '~/components/layers/layer-table';
-import { AppShell } from '~/components/layout/app-shell';
+import { AppShell, mapPaddingForBreakpoint } from '~/components/layout/app-shell';
 import { BottomCluster } from '~/components/layout/bottom-cluster';
 import { Inspector } from '~/components/layout/inspector';
 import { MapToolbar, type MapTool } from '~/components/layout/map-toolbar';
@@ -562,12 +562,7 @@ function MapWorkspace() {
               drawing={activeTool === 'dibujar'}
               tool={activeTool}
               compact={breakpoint === 'mobile'}
-              padding={{
-                top: 48 + 24,
-                right: inspectorOpen ? 380 + 24 : 24,
-                bottom: 24,
-                left: 360 + 24,
-              }}
+              padding={mapPaddingForBreakpoint(breakpoint, inspectorOpen)}
               onSelect={(next) => {
                 setSelection(serializeSelection(next));
               }}

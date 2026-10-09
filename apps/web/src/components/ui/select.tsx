@@ -9,6 +9,7 @@ export function Select({ className, children, ...props }: SelectProps) {
     <select
       className={cn(
         'rounded-btn border-border-base bg-surface text-12 text-fg h-8 border px-2',
+        '[@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:text-base',
         'disabled:cursor-not-allowed disabled:opacity-55',
         className,
       )}

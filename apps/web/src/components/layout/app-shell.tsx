@@ -4,7 +4,21 @@ import { LeftPanel, type LeftPanelTab } from './left-panel';
 import { MobileTabBar, type MobileTab } from './mobile-tab-bar';
 
 import { BottomSheet, SideDrawer } from '~/components/ui/sheet';
-import { useBreakpoint } from '~/lib/use-media-query';
+import { useBreakpoint, type Breakpoint } from '~/lib/use-media-query';
+
+export function mapPaddingForBreakpoint(breakpoint: Breakpoint, inspectorOpen: boolean) {
+  if (breakpoint === 'mobile') return { top: 16, right: 64, bottom: 16, left: 16 };
+  if (breakpoint === 'tablet') return { top: 16, right: 16, bottom: 16, left: 16 };
+  if (breakpoint === 'compact') {
+    return { top: 24, right: inspectorOpen ? 364 : 24, bottom: 24, left: 24 };
+  }
+  return {
+    top: 72,
+    right: inspectorOpen ? 404 : 24,
+    bottom: 24,
+    left: breakpoint === 'standard' && inspectorOpen ? 72 : 384,
+  };
+}
 
 export type AppShellProps = {
   topbar: ReactNode;

@@ -30,8 +30,10 @@ export function BottomSheet({ open, onClose, title, children, footer }: BottomSh
       role="dialog"
       aria-label={title}
       className={cn(
-        'rounded-t-panel border-border-base bg-surface shadow-sheet fixed inset-x-0 bottom-0 z-40 flex flex-col border-t',
-        snap === 'medium' ? 'h-[45vh]' : 'h-[92vh]',
+        'rounded-t-panel border-border-base bg-surface shadow-sheet fixed inset-x-0 bottom-[var(--spacing-tabbar)] z-40 flex flex-col border-t',
+        snap === 'medium'
+          ? 'h-[45dvh]'
+          : 'h-[calc(100dvh-var(--spacing-topbar)-var(--spacing-tabbar))]',
       )}
     >
       <div className="border-border-base flex h-11 shrink-0 items-center gap-2 border-b px-3">

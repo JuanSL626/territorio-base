@@ -31,7 +31,7 @@ export function MapToolbar({ activeTool, hasAoi, onTool }: MapToolbarProps) {
         variant="secondary"
         icon={<DrawIcon size={18} />}
         aria-pressed={activeTool === 'dibujar'}
-        className={activeTool === 'dibujar' ? 'border-accent text-accent' : undefined}
+        className={`h-10 w-10 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11 ${activeTool === 'dibujar' ? 'border-accent text-accent' : ''}`}
         onClick={() => {
           onTool('dibujar');
         }}
@@ -41,6 +41,7 @@ export function MapToolbar({ activeTool, hasAoi, onTool }: MapToolbarProps) {
         showLabel
         variant="secondary"
         icon={<UploadIcon size={18} />}
+        className="h-10 w-10 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11"
         onClick={() => {
           onTool('subir');
         }}
@@ -49,7 +50,7 @@ export function MapToolbar({ activeTool, hasAoi, onTool }: MapToolbarProps) {
         label="Cambiar mapa base"
         variant="secondary"
         icon={<BasemapIcon size={18} />}
-        className="h-10 w-10"
+        className="h-10 w-10 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11"
         onClick={() => {
           onTool('basemap');
         }}
@@ -58,7 +59,7 @@ export function MapToolbar({ activeTool, hasAoi, onTool }: MapToolbarProps) {
         label="Zoom al AOI"
         variant="secondary"
         icon={<LocateIcon size={18} />}
-        className="h-10 w-10"
+        className="h-10 w-10 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11"
         disabled={!hasAoi}
         onClick={() => {
           onTool('ubicacion');
