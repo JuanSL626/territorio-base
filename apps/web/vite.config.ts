@@ -82,6 +82,7 @@ export default defineConfig({
   },
   build: {
     outDir: DIST_DIR,
+    cssCodeSplit: false,
   },
   /*
     `maplibre-gl` no puede pasar por el pre-bundler de Vite: en `pnpm dev` el
