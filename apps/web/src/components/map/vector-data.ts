@@ -128,6 +128,9 @@ function protectedData(analysis: TerritorioAnalysis): VectorLayerData {
 }
 
 function igacData(analysis: TerritorioAnalysis): VectorLayerData {
+  const sourceYear = analysis.colombia.evidence
+    .find((evidence) => evidence.sourceId.startsWith('igac-'))
+    ?.sourceUpdatedAt?.slice(0, 4);
   const features = analysis.colombia.parcels.map((parcel) =>
     feature(`igac-${parcel.code}`, parcel.geometry, {
       code: parcel.code,
@@ -137,7 +140,8 @@ function igacData(analysis: TerritorioAnalysis): VectorLayerData {
       economic_destination: parcel.economicDestination,
       land_area_m2: parcel.landAreaM2,
       built_area_m2: parcel.builtAreaM2,
-      zone: parcel.zone,
+      zone: parcel.zone === 'urban' ? 'Urbano' : 'Rural',
+      source_year: sourceYear ?? null,
     }),
   );
   return { layerId: 'igac-parcels', data: collection(features), count: features.length };

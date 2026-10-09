@@ -221,6 +221,55 @@ describe('buildVectorData', () => {
     expect(first?.properties?.desig_eng).toBe('National Park');
   });
 
+  it('lleva al predio IGAC todos sus datos públicos y el año de la fuente', () => {
+    const analysis = analysisWith({});
+    analysis.colombia = {
+      in_colombia: true,
+      municipalities: [],
+      cadastre_truncated: false,
+      parcels: [
+        {
+          code: '763640100000009720001000000000',
+          previousCode: '76364010009720001000',
+          municipalityCode: '76364',
+          address: null,
+          economicDestination: null,
+          landAreaM2: 1_631.4,
+          builtAreaM2: null,
+          zone: 'urban',
+          geometry: POLYGON,
+        },
+      ],
+      evidence: [
+        {
+          authority: 'IGAC',
+          accessProvider: 'Servidor de mapas IGAC',
+          sourceId: 'igac-dato-fundamental-catastro',
+          endpoint: 'https://mapas.igac.gov.co/',
+          sourceVersion: 'Dato Fundamental Catastro',
+          queriedAt: '2026-10-09T00:00:00Z',
+          sourceUpdatedAt: '2026-09-09',
+          coverage: 'national',
+          license: null,
+          crs: 'EPSG:4326',
+          query: {},
+          payloadHash: 'hash',
+          warnings: [],
+        },
+      ],
+    };
+
+    expect(
+      buildVectorData(analysis).get('igac-parcels')?.data.features[0]?.properties,
+    ).toMatchObject({
+      previous_code: '76364010009720001000',
+      municipality_code: '76364',
+      zone: 'Urbano',
+      land_area_m2: 1_631.4,
+      source_year: '2026',
+    });
+  });
+
   it('MEPyD se indexa por el id del registro y copia sus atributos dinámicos', () => {
     const layerId = mepydLayerId(mepydDef.group, mepydDef.label);
     const entry = data.get(layerId);

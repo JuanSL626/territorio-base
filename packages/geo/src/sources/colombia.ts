@@ -1,10 +1,9 @@
 import { z } from 'zod';
 
+import { createAoi, type Aoi } from '../aoi';
 import { isGeometry, type Bounds2D, type Geometry } from '../geojson';
 import { arcgisRings } from '../geometry';
 import { postFormJson, type RequestOptions } from '../http';
-
-import type { Aoi } from '../aoi';
 
 export const COLOMBIA_BBOX: Bounds2D = [-79.1, -4.3, -66.8, 13.7];
 
@@ -351,7 +350,7 @@ type TerrainFeature = {
   municipalityCode: string | null;
   shapeAreaM2: number | null;
   zone: 'urban' | 'rural';
-  geometry: Geometry;
+  geometry: Extract<Geometry, { type: 'Polygon' | 'MultiPolygon' }>;
 };
 
 function stringProperty(properties: Record<string, unknown>, key: string): string | null {
@@ -411,7 +410,13 @@ async function fetchTerrainLayer(
     const geometry: unknown = feature.geometry;
     const properties = feature.properties ?? {};
     const code = stringProperty(properties, 'CODIGO');
-    if (code === null || !isGeometry(geometry)) continue;
+    if (
+      code === null ||
+      !isGeometry(geometry) ||
+      (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon')
+    ) {
+      continue;
+    }
     features.push({
       code,
       previousCode: stringProperty(properties, source.previousCodeField),
@@ -530,7 +535,8 @@ export async function fetchIgacCadastre(
       municipalityCode: feature.municipalityCode,
       address: record?.DIRECCION ?? null,
       economicDestination: record?.DESTINO_ECONOMICO ?? null,
-      landAreaM2: record?.AREA_TERRENO ?? feature.shapeAreaM2,
+      landAreaM2:
+        record?.AREA_TERRENO ?? feature.shapeAreaM2 ?? createAoi(feature.geometry).areaHa * 10_000,
       builtAreaM2: record?.AREA_CONSTRUIDA ?? null,
       zone: feature.zone,
       geometry: feature.geometry,
@@ -541,7 +547,7 @@ export async function fetchIgacCadastre(
     ...(useNationalFallback && terrain.length > 0
       ? [
           'La Base Catastral Pública del Gestor IGAC no cubrió el AOI; se usó el Dato Fundamental Catastro del IGAC.',
-          'El Dato Fundamental Catastro no publica atributos de Registro 1; se entregan geometrías y códigos prediales.',
+          'El Dato Fundamental Catastro no publica dirección, destino económico ni área construida; el área del terreno se calcula desde su geometría.',
         ]
       : []),
     ...(truncated

@@ -169,9 +169,9 @@ export const SRC_IGAC: SourceRef = {
   license: 'Dato Fundamental: no publicada; base Gestor IGAC: CC BY 4.0',
   citation: 'IGAC. Dato Fundamental Catastro y Base Catastral Pública del Gestor IGAC.',
   method:
-    'Intersección del AOI con terrenos urbanos y rurales. Si la base del Gestor IGAC no cubre el AOI, se consulta el Dato Fundamental Catastro nacional.',
+    'Intersección del AOI con terrenos urbanos y rurales. Si la base del Gestor IGAC no cubre el AOI, se consulta el Dato Fundamental Catastro nacional y el área se calcula desde la geometría predial.',
   caveat:
-    'El Dato Fundamental no publica Registro 1: en esas zonas sólo se entregan geometrías y códigos prediales. No incluye propietarios ni garantiza avalúo vigente.',
+    'El Dato Fundamental no publica dirección, destino económico ni área construida. No incluye propietarios ni garantiza avalúo vigente.',
 };
 
 export const SRC_AOI: SourceRef = {

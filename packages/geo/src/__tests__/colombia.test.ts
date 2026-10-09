@@ -359,9 +359,10 @@ describe('IGAC — base catastral pública', () => {
       code,
       previousCode: '76364010007640008803',
       municipalityCode: '76364',
-      landAreaM2: null,
       zone: 'urban',
     });
+    expect(result.parcels[0]?.landAreaM2).not.toBeNull();
+    expect(result.parcels[0]?.landAreaM2 ?? 0).toBeGreaterThan(0);
     expect(result.evidence[0]).toMatchObject({
       sourceId: 'igac-dato-fundamental-catastro',
       coverage: 'national',

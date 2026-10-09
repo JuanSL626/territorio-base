@@ -36,6 +36,20 @@ describe('registro de capas', () => {
     }
   });
 
+  it('muestra todos los atributos públicos disponibles de cada predio IGAC', () => {
+    expect(getLayer('igac-parcels')?.popup?.fields.map((field) => field.key)).toEqual([
+      'code',
+      'previous_code',
+      'municipality_code',
+      'zone',
+      'address',
+      'economic_destination',
+      'land_area_m2',
+      'built_area_m2',
+      'source_year',
+    ]);
+  });
+
   it('mantiene la opacidad por defecto entre 0 y 1', () => {
     for (const layer of LAYER_REGISTRY) {
       expect(layer.defaultOpacity).toBeGreaterThanOrEqual(0);
