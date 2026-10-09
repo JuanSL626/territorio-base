@@ -1,9 +1,10 @@
 import { z } from 'zod';
 
-import { createAoi, type Aoi } from '../aoi';
 import { isGeometry, type Bounds2D, type Geometry } from '../geojson';
-import { arcgisRings } from '../geometry';
+import { arcgisRings, areaHectares } from '../geometry';
 import { postFormJson, type RequestOptions } from '../http';
+
+import type { Aoi } from '../aoi';
 
 export const COLOMBIA_BBOX: Bounds2D = [-79.1, -4.3, -66.8, 13.7];
 
@@ -558,7 +559,9 @@ export async function fetchIgacCadastre(
       address: record?.DIRECCION ?? null,
       economicDestination: record?.DESTINO_ECONOMICO ?? null,
       landAreaM2:
-        record?.AREA_TERRENO ?? feature.shapeAreaM2 ?? createAoi(feature.geometry).areaHa * 10_000,
+        record?.AREA_TERRENO ??
+        feature.shapeAreaM2 ??
+        areaHectares(feature.geometry, aoi.utmEpsg) * 10_000,
       builtAreaM2: record?.AREA_CONSTRUIDA ?? null,
       zone: feature.zone,
       geometry: feature.geometry,
