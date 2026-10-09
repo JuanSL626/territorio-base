@@ -73,7 +73,7 @@ export function buildSourcesManifest(options: SourcesManifestOptions): string {
     '',
     'Cada capa de este ZIP proviene de una de las fuentes de abajo. La fecha de',
     'consulta es la misma para todas: es el momento en que corrió el análisis.',
-    'Los servicios en vivo (OpenStreetMap, WDPA, MEPyD) pueden haber cambiado',
+    'Los servicios en vivo (OpenStreetMap, RUNAP/WDPA, MEPyD) pueden haber cambiado',
     'desde entonces; los datasets satelitales no.',
     '',
   ];
@@ -286,7 +286,16 @@ export function buildSummaryRows(analysis: TerritorioAnalysis): SummaryRow[] {
   const S2 = 'Sentinel-2 L2A (ESA Copernicus / Planetary Computer)';
   const WC = 'ESA WorldCover 2021';
   const OSM = 'OpenStreetMap vía Overpass API';
-  const WDPA = 'WDPA — UNEP-WCMC';
+  const WDPA =
+    [
+      ...new Set(
+        analysis.protected_areas.areas.map((area) =>
+          [area.source_name, area.source_year].filter(Boolean).join(' · '),
+        ),
+      ),
+    ]
+      .filter(Boolean)
+      .join(' / ') || `RUNAP / WDPA · ${analysis.created_at.slice(0, 4)}`;
   const MEPYD = 'MEPyD — Sistema de Información para la GRD y la AC';
   const DANE = 'DANE — DIVIPOLA / CNPV 2018';
   const CATASTRE = 'IGAC y gestores catastrales oficiales';
@@ -539,7 +548,7 @@ export function buildSummaryRows(analysis: TerritorioAnalysis): SummaryRow[] {
     rows.push({
       tema: 'Áreas protegidas',
       indicador: 'Fuente no disponible',
-      valor: 'WDPA no respondió durante el análisis.',
+      valor: 'El servicio oficial de áreas protegidas no respondió durante el análisis.',
       unidad: '',
       fuente: WDPA,
     });
@@ -893,12 +902,12 @@ export function buildReportMarkdown(options: ReportOptions): string {
     if (!wdpa.available) {
       lines.push(
         ...unavailableBlock(
-          'No se pudo consultar áreas protegidas (WDPA) — el servicio no respondió.',
+          'No se pudo consultar la fuente oficial de áreas protegidas — el servicio no respondió.',
         ),
       );
     } else if (wdpa.areas_found === 0) {
       lines.push(
-        'Se consultó WDPA y **no hay áreas protegidas** dentro del buffer de 1 km alrededor del AOI.',
+        'Se consultó la fuente oficial y **no hay áreas protegidas** dentro del buffer de 1 km alrededor del AOI.',
         '',
       );
     } else {

@@ -155,7 +155,7 @@ describe('buildCandidates — un click que pega en varias capas (§5.1)', () => 
 
     expect(candidates).toEqual([
       { layerId: 'osm-hydro', layerLabel: 'Hidrología (OSM)', count: 1 },
-      { layerId: 'wdpa', layerLabel: 'Áreas protegidas (WDPA)', count: 2 },
+      { layerId: 'wdpa', layerLabel: 'Áreas protegidas oficiales', count: 2 },
     ]);
   });
 

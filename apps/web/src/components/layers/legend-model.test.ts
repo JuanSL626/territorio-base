@@ -80,6 +80,6 @@ describe('equivalente de texto', () => {
     const resolved = resolveLegend(layer('wdpa'), undefined);
     expect(resolved).not.toBeNull();
     if (resolved === null) return;
-    expect(describeResolvedLegend(resolved)).toBe('Área protegida (WDPA)');
+    expect(describeResolvedLegend(resolved)).toBe('Área protegida');
   });
 });

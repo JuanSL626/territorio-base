@@ -33,7 +33,7 @@ const DOWN_REASON: Record<AnalysisSourceId, string> = {
   raster: 'servicio caído',
   solar: 'NASA POWER caído',
   hidrologia: 'Overpass caído',
-  'areas-protegidas': 'WDPA caído',
+  'areas-protegidas': 'fuente oficial caída',
   mepyd: 'MEPyD caído',
   dane: 'DANE caído',
   igac: 'Catastro caído',

@@ -258,7 +258,7 @@ export function buildSections(
   sections.push({
     id: 'areas-protegidas',
     eyebrow: 'Áreas protegidas',
-    title: 'Áreas protegidas (WDPA)',
+    title: 'Áreas protegidas oficiales',
     citedLayerIds: ['wdpa'],
     map: mapState({
       layers: ['wdpa'],

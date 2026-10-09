@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { createAoi } from '../aoi';
 import { arcgisRings } from '../geometry';
-import { fetchProtectedAreas, WDPA_OUT_FIELDS, WdpaUnavailableError } from '../sources/wdpa';
+import {
+  fetchProtectedAreas,
+  RUNAP_OUT_FIELDS,
+  RUNAP_QUERY_URL,
+  WDPA_OUT_FIELDS,
+  WdpaUnavailableError,
+} from '../sources/wdpa';
 
 import type { FetchLike } from '../http';
 
@@ -15,6 +21,19 @@ const AOI = createAoi({
       [-69.59, 18.46],
       [-69.6, 18.46],
       [-69.6, 18.45],
+    ],
+  ],
+});
+
+const COLOMBIA_AOI = createAoi({
+  type: 'Polygon',
+  coordinates: [
+    [
+      [-76.7, 3.2],
+      [-76.5, 3.2],
+      [-76.5, 3.4],
+      [-76.7, 3.4],
+      [-76.7, 3.2],
     ],
   ],
 });
@@ -68,7 +87,10 @@ describe('WDPA', () => {
   it('normaliza propiedades vacías a null y conserva desig/mang_auth', async () => {
     const fetchImpl: FetchLike = async () =>
       await Promise.resolve(new Response(JSON.stringify(RESPONSE), { status: 200 }));
-    const areas = await fetchProtectedAreas(AOI, { fetchImpl });
+    const areas = await fetchProtectedAreas(AOI, {
+      fetchImpl,
+      now: () => new Date('2026-10-09T00:00:00.000Z'),
+    });
     expect(areas).toHaveLength(1);
     expect(areas[0]).toMatchObject({
       name: 'Parque Nacional Submarino La Caleta',
@@ -77,6 +99,8 @@ describe('WDPA', () => {
       iucnCat: 'II',
       status: 'Designated',
       mangAuth: 'Ministerio de Medio Ambiente y Recursos Naturales',
+      sourceName: 'WDPA — UNEP-WCMC',
+      sourceYear: '2026',
     });
 
     const blankFetch: FetchLike = async () =>
@@ -129,6 +153,79 @@ describe('WDPA', () => {
     const fetchImpl: FetchLike = async () =>
       await Promise.resolve(new Response('', { status: 503 }));
     await expect(fetchProtectedAreas(AOI, { fetchImpl })).rejects.toThrow(WdpaUnavailableError);
+  });
+});
+
+describe('RUNAP Colombia', () => {
+  it('prioriza la fuente nacional, pagina y conserva fuente y año', async () => {
+    const offsets: string[] = [];
+    const urls: string[] = [];
+    const fetchImpl: FetchLike = async (url, init) => {
+      urls.push(String(url));
+      const params = new URLSearchParams(init?.body ?? '');
+      offsets.push(params.get('resultOffset') ?? '');
+      expect(params.get('outFields')).toBe(RUNAP_OUT_FIELDS.join(','));
+      const firstPage = params.get('resultOffset') === '0';
+      return await Promise.resolve(
+        new Response(
+          JSON.stringify({
+            type: 'FeatureCollection',
+            properties: { exceededTransferLimit: firstPage },
+            features: firstPage
+              ? [
+                  {
+                    properties: {
+                      ap_nombre: 'Farallones de Cali',
+                      ap_categoria: 'Parque Nacional Natural',
+                      condicion: 'REGISTRADA',
+                      organizacion: 'Parques Nacionales Naturales de Colombia',
+                      fecha_registro: null,
+                      fecha_inscrita: 1_310_533_200_000,
+                    },
+                    geometry: RESPONSE.features[0]?.geometry,
+                  },
+                ]
+              : [],
+          }),
+          { status: 200 },
+        ),
+      );
+    };
+
+    const areas = await fetchProtectedAreas(COLOMBIA_AOI, {
+      fetchImpl,
+      now: () => new Date('2026-10-09T00:00:00.000Z'),
+    });
+
+    expect(urls).toEqual([RUNAP_QUERY_URL, RUNAP_QUERY_URL]);
+    expect(offsets).toEqual(['0', '1000']);
+    expect(areas[0]).toMatchObject({
+      name: 'Farallones de Cali',
+      desig: 'Parque Nacional Natural',
+      status: 'REGISTRADA',
+      mangAuth: 'Parques Nacionales Naturales de Colombia',
+      sourceName: 'RUNAP — Parques Nacionales Naturales de Colombia',
+      sourceYear: '2026',
+      registrationDate: '2011-07-13',
+    });
+  });
+
+  it('usa WDPA como fallback sin mezclar fuentes cuando RUNAP falla', async () => {
+    const urls: string[] = [];
+    const fetchImpl: FetchLike = async (url) => {
+      urls.push(String(url));
+      const payload = String(url) === RUNAP_QUERY_URL ? { error: { code: 500 } } : RESPONSE;
+      return await Promise.resolve(new Response(JSON.stringify(payload), { status: 200 }));
+    };
+
+    const areas = await fetchProtectedAreas(COLOMBIA_AOI, {
+      fetchImpl,
+      now: () => new Date('2026-10-09T00:00:00.000Z'),
+    });
+
+    expect(urls).toHaveLength(2);
+    expect(urls[0]).toBe(RUNAP_QUERY_URL);
+    expect(areas[0]).toMatchObject({ sourceName: 'WDPA — UNEP-WCMC', sourceYear: '2026' });
   });
 });
 

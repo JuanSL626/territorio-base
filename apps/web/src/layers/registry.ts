@@ -374,7 +374,7 @@ const OSM_CONTEXT_LAYERS: LayerDef[] = [
 const PROTECTED_LAYERS: LayerDef[] = [
   {
     id: 'wdpa',
-    label: 'Áreas protegidas (WDPA)',
+    label: 'Áreas protegidas oficiales',
     group: 'Áreas protegidas',
     themes: ['areas-protegidas'],
     kind: 'vector-polygon',
@@ -385,7 +385,7 @@ const PROTECTED_LAYERS: LayerDef[] = [
       type: 'swatch',
       color: WDPA_COLOR,
       fillFactor: 0.5,
-      label: 'Área protegida (WDPA)',
+      label: 'Área protegida',
     },
     source: SRC_WDPA,
     popup: {
@@ -396,6 +396,9 @@ const PROTECTED_LAYERS: LayerDef[] = [
         { key: 'desig', alias: 'Designación', format: 'text' },
         { key: 'iucn_cat', alias: 'Categoría UICN', format: 'text', valueLabels: IUCN_LABELS },
         { key: 'status', alias: 'Estado', format: 'text' },
+        { key: 'registration_date', alias: 'Fecha de registro', format: 'text' },
+        { key: 'source_name', alias: 'Fuente', format: 'text' },
+        { key: 'source_year', alias: 'Año de consulta', format: 'text' },
       ],
       derived: [
         {

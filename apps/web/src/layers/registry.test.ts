@@ -58,6 +58,12 @@ describe('registro de capas', () => {
     }
   });
 
+  it('muestra fuente y año en áreas protegidas', () => {
+    const keys = getLayer('wdpa')?.popup?.fields.map((field) => field.key);
+    expect(keys).toContain('source_name');
+    expect(keys).toContain('source_year');
+  });
+
   it('mantiene la opacidad por defecto entre 0 y 1', () => {
     for (const layer of LAYER_REGISTRY) {
       expect(layer.defaultOpacity).toBeGreaterThanOrEqual(0);

@@ -104,7 +104,7 @@ export const SOURCE_DOWN_MESSAGES: Record<AnalysisSourceId, string> = {
   hidrologia:
     'No se pudo consultar hidrología (Overpass API) — el servicio no respondió. El resto del análisis sí se completó.',
   'areas-protegidas':
-    'No se pudo consultar áreas protegidas (WDPA) — el servicio no respondió. El resto del análisis sí se completó.',
+    'No se pudo consultar la fuente oficial de áreas protegidas — el servicio no respondió. El resto del análisis sí se completó.',
   mepyd:
     'No se pudo consultar el contexto RD (MEPyD) — los servicios no respondieron. El resto del análisis sí se completó.',
   dane: 'No se pudo consultar DANE — el servicio no respondió. El resto del análisis sí se completó.',
@@ -115,7 +115,7 @@ export const SOURCE_SERVICE_NAMES: Record<AnalysisSourceId, string> = {
   raster: 'Servicio raster (Planetary Computer)',
   solar: 'NASA POWER (CERES/SRB y MERRA-2)',
   hidrologia: 'Overpass API (OpenStreetMap)',
-  'areas-protegidas': 'WDPA (UNEP-WCMC)',
+  'areas-protegidas': 'RUNAP Colombia / WDPA global',
   mepyd: 'MEPyD — Sistema de Información para la GRD y la AC',
   dane: 'DANE — DIVIPOLA y CNPV 2018',
   igac: 'Catastro Colombia — IGAC y gestores oficiales',
@@ -178,6 +178,9 @@ export type ProtectedAreaGeo = {
   status: string | null;
   /** Se trae y nunca se muestra (inventario §6). Está para la exportación. */
   mang_auth: string | null;
+  source_name?: string | null;
+  source_year?: string | null;
+  registration_date?: string | null;
   distance_m: number;
   overlap_ha: number;
   geometry: Geometry;
@@ -700,6 +703,9 @@ export const territorioAnalysisSchema = z.object({
         iucn_cat: z.string().nullable(),
         status: z.string().nullable(),
         mang_auth: z.string().nullable(),
+        source_name: z.string().nullable().optional(),
+        source_year: z.string().nullable().optional(),
+        registration_date: z.string().nullable().optional(),
         distance_m: z.number(),
         overlap_ha: z.number(),
         geometry: geometrySchema,

@@ -13,7 +13,7 @@
  *    derivan acá, una sola vez, con los strings EXACTOS del legacy.
  * 2. El análisis es DESCRIPTIVO: describe y contextualiza lo que muestran
  *    los datos; no recomienda, no autoriza, no prohíbe y no afirma qué
- *    régimen legal aplica. Un solape con la WDPA se enuncia como un hecho a
+ *    régimen legal aplica. Un solape con la fuente consultada se enuncia como un hecho a
  *    verificar contra la delimitación oficial, nunca como una prohibición.
  *
  * El registro de la audiencia es el de alguien que sabe leer un plano pero no
@@ -27,7 +27,11 @@ import type {
 } from '@territorio/api-client';
 import type { HydrologySummary, ProtectedAreasSummary } from '@territorio/geo';
 
-import { type CoastalRun, type TerritorioAnalysisSummary, SOURCE_DOWN_MESSAGES  } from '~/lib/analysis-contract';
+import {
+  type CoastalRun,
+  type TerritorioAnalysisSummary,
+  SOURCE_DOWN_MESSAGES,
+} from '~/lib/analysis-contract';
 import { formatHectares, formatNumber, formatPercent } from '~/lib/format';
 
 /** El tono decide el color del bloque; es el mismo vocabulario de los banners. */
@@ -106,12 +110,12 @@ export function hydrologyNearbyText(found: number, distanceM: number): string {
 
 export const PROTECTED_BANNER = {
   'no-consultado': SOURCE_DOWN_MESSAGES['areas-protegidas'],
-  intersecta: '⚠️ El polígono SÍ intersecta un área de la WDPA:',
-  'sin-elementos': 'No se encontraron áreas protegidas (WDPA) cerca del polígono.',
+  intersecta: '⚠️ El polígono SÍ intersecta un área protegida:',
+  'sin-elementos': 'No se encontraron áreas protegidas cerca del polígono.',
 } as const;
 
 export function protectedNearbyText(found: number, distanceM: number): string {
-  return `No hay intersección, pero hay ${formatNumber(found, 0)} área(s) WDPA a ${meters(
+  return `No hay intersección, pero hay ${formatNumber(found, 0)} área(s) protegida(s) a ${meters(
     distanceM,
   )} del polígono.`;
 }
@@ -429,10 +433,7 @@ export function hydrologyConclusions(summary: HydrologySummary): Conclusion[] {
   return out;
 }
 
-export function protectedConclusions(
-  summary: ProtectedAreasSummary,
-  areaHa: number,
-): Conclusion[] {
+export function protectedConclusions(summary: ProtectedAreasSummary, areaHa: number): Conclusion[] {
   const banner = protectedBanner(summary);
   const out: Conclusion[] = [];
 
@@ -441,7 +442,7 @@ export function protectedConclusions(
       out.push({
         id: 'ap-caida',
         tone: 'danger',
-        text: 'El servicio de la WDPA (UNEP-WCMC) no respondió, así que este reporte no puede afirmar ni descartar que el polígono toque un área protegida. Es una falta de dato, no una ausencia de áreas protegidas.',
+        text: 'La fuente oficial no respondió, así que este reporte no puede afirmar ni descartar que el polígono toque un área protegida. Es una falta de dato, no una ausencia de áreas protegidas.',
       });
       break;
 
@@ -463,7 +464,7 @@ export function protectedConclusions(
         text: `El polígono se solapa con ${formatNumber(
           Math.max(overlapping.length, 1),
           0,
-        )} área(s) protegida(s) registrada(s) en la WDPA${
+        )} área(s) protegida(s) registrada(s) en la fuente consultada${
           names.length === 0 ? '' : `: ${names.join(', ')}`
         }. El solape es de ${formatHectares(summary.overlap_ha)}, es decir ${formatPercent(
           pct,
@@ -472,7 +473,7 @@ export function protectedConclusions(
       out.push({
         id: 'ap-intersecta-nota',
         tone: 'neutral',
-        text: 'La WDPA es un inventario global compilado por UNEP-WCMC: sus límites son referenciales. Este reporte describe el solape con esa capa; no sustituye la delimitación oficial ni determina qué régimen legal aplica al terreno.',
+        text: 'Este reporte describe el solape cartográfico con la fuente consultada; no sustituye una certificación oficial ni determina qué régimen legal aplica al terreno.',
       });
       break;
     }
@@ -481,7 +482,7 @@ export function protectedConclusions(
       out.push({
         id: 'ap-cerca',
         tone: 'info',
-        text: `El polígono no toca ninguna área protegida de la WDPA, pero hay ${formatNumber(
+        text: `El polígono no toca ninguna área protegida registrada, pero hay ${formatNumber(
           summary.areas_found,
           0,
         )} a ${meters(
@@ -494,7 +495,7 @@ export function protectedConclusions(
       out.push({
         id: 'ap-vacio',
         tone: 'success',
-        text: 'La consulta a la WDPA se completó y no hay áreas protegidas registradas dentro del kilómetro alrededor del polígono.',
+        text: 'La consulta se completó y no hay áreas protegidas registradas dentro del kilómetro alrededor del polígono.',
       });
       break;
   }
@@ -506,7 +507,9 @@ export const MEPYD_HAZARD_GROUP = 'Amenazas';
 
 export type MepydGroupTally = { group: string; layers: { label: string; count: number }[] };
 
-export function tallyMepyd(summary: TerritorioAnalysisSummary['mepyd_rd']['summary']): MepydGroupTally[] {
+export function tallyMepyd(
+  summary: TerritorioAnalysisSummary['mepyd_rd']['summary'],
+): MepydGroupTally[] {
   return Object.entries(summary).map(([group, layers]) => ({
     group,
     layers: Object.entries(layers).map(([label, entry]) => ({ label, count: entry.count })),
@@ -562,7 +565,9 @@ export function mepydConclusions(
         tone: 'warning',
         text: `En el grupo «${MEPYD_HAZARD_GROUP}» el polígono cae dentro del alcance de: ${hazards.layers
           .map((layer) => layer.label)
-          .join(', ')}. Son capas de zonificación a escala nacional: indican que el área figura en esa cartografía, no el nivel de riesgo de un lote en particular.`,
+          .join(
+            ', ',
+          )}. Son capas de zonificación a escala nacional: indican que el área figura en esa cartografía, no el nivel de riesgo de un lote en particular.`,
       });
     }
   }
@@ -576,7 +581,9 @@ export function mepydConclusions(
         0,
       )} capa(s) del MEPyD no respondieron y quedan fuera de este reporte: ${mepyd.failures
         .map((failure) => failure.label)
-        .join(', ')}. El legacy las descartaba en silencio; acá se listan porque su ausencia no es un "no hay nada".`,
+        .join(
+          ', ',
+        )}. El legacy las descartaba en silencio; acá se listan porque su ausencia no es un "no hay nada".`,
     });
   }
 
@@ -662,11 +669,10 @@ export function coastalConclusions(coastal: CoastalRun): Conclusion[] {
       tone: 'warning',
       text: `El escenario «${coastal.preset}» proyecta inundación sobre ${formatPercent(
         pct,
-      )} del polígono, con una profundidad máxima de ${formatNumber(
-        maxDepth,
-        1,
-      )} m${
-        meanDepth == null ? '' : ` y ${formatNumber(meanDepth, 1)} m de profundidad media donde se inunda`
+      )} del polígono, con una profundidad máxima de ${formatNumber(maxDepth, 1)} m${
+        meanDepth == null
+          ? ''
+          : ` y ${formatNumber(meanDepth, 1)} m de profundidad media donde se inunda`
       } (resolución ~${formatNumber(resolution, 0)} m).`,
     },
     {
@@ -724,7 +730,10 @@ export function executiveSummary(analysis: TerritorioAnalysisSummary): Executive
   lines.push({
     id: 'cobertura',
     label: 'Cobertura de suelo dominante',
-    value: analysis.vegetation.worldcover_available && cover !== null ? cover.label : 'No se pudo consultar',
+    value:
+      analysis.vegetation.worldcover_available && cover !== null
+        ? cover.label
+        : 'No se pudo consultar',
     note:
       analysis.vegetation.worldcover_available && cover !== null
         ? `${formatPercent(cover.pct)} · cobertura arbórea ${
@@ -763,8 +772,8 @@ export function executiveSummary(analysis: TerritorioAnalysisSummary): Executive
           ? `0 % · la más cercana a ${meters(protectedAreas.nearest_distance_m ?? 0)}`
           : 'Sin áreas en 1 km',
     note: protectedAreas.available
-      ? `${formatNumber(protectedAreas.areas_found, 0)} área(s) WDPA en 1 km`
-      : 'WDPA sin respuesta',
+      ? `${formatNumber(protectedAreas.areas_found, 0)} área(s) protegida(s) en 1 km`
+      : 'Fuente oficial sin respuesta',
   });
 
   if (analysis.coastal != null) {

@@ -188,7 +188,7 @@ describe('secciones del reporte', () => {
     expect(html).toContain('Sin elementos.');
   });
 
-  it('WDPA que intersecta: aviso explícito con nombre y solape (TC-08)', () => {
+  it('área protegida que intersecta: muestra nombre, solape, fuente y año (TC-08)', () => {
     const analysis = base();
     analysis.protected_areas.summary = {
       available: true,
@@ -203,25 +203,30 @@ describe('secciones del reporte', () => {
           desig: 'Parque Nacional',
           iucn_cat: 'II',
           status: 'Designated',
+          source_name: 'RUNAP — Parques Nacionales Naturales de Colombia',
+          source_year: '2026',
+          registration_date: '2011-07-13',
           distance_m: 0,
           overlap_ha: 12.5,
         },
       ],
     };
     const html = render(analysis, 'areas-protegidas');
-    expect(html).toContain('El polígono SÍ intersecta un área de la WDPA:');
+    expect(html).toContain('El polígono SÍ intersecta un área protegida:');
     expect(html).toContain('Parque Nacional Sibarí');
     expect(html).toContain('12,5 ha');
+    expect(html).toContain('RUNAP — Parques Nacionales Naturales de Colombia');
+    expect(html).toContain('2026');
     // La categoría UICN cruda nunca llega a la pantalla (§5.2).
     expect(html).toContain('II · Parque nacional');
   });
 
-  it('WDPA caída: no dice que no hay áreas protegidas (TC-07)', () => {
+  it('fuente oficial caída: no dice que no hay áreas protegidas (TC-07)', () => {
     const analysis = base();
     analysis.protected_areas.summary.available = false;
     const html = render(analysis, 'areas-protegidas');
-    expect(html).toContain('No se pudo consultar áreas protegidas (WDPA)');
-    expect(html).not.toContain('No se encontraron áreas protegidas (WDPA) cerca');
+    expect(html).toContain('No se pudo consultar la fuente oficial de áreas protegidas');
+    expect(html).not.toContain('No se encontraron áreas protegidas cerca');
     expect(html).not.toContain('Sin áreas encontradas.');
   });
 

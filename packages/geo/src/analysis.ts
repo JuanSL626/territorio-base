@@ -68,6 +68,9 @@ export const protectedAreaSummarySchema = z.object({
   desig: z.string().nullable(),
   iucn_cat: z.string().nullable(),
   status: z.string().nullable(),
+  source_name: z.string().nullable().optional(),
+  source_year: z.string().nullable().optional(),
+  registration_date: z.string().nullable().optional(),
   distance_m: z.number(),
   overlap_ha: z.number(),
 });
@@ -87,6 +90,9 @@ export type ProtectedAreaSummary = {
   desig: string | null;
   iucn_cat: string | null;
   status: string | null;
+  source_name?: string | null;
+  source_year?: string | null;
+  registration_date?: string | null;
   distance_m: number;
   overlap_ha: number;
 };
@@ -271,6 +277,9 @@ export function summarizeProtectedAreas(
         desig: area.desigEng ?? area.desig,
         iucn_cat: area.iucnCat,
         status: area.status,
+        source_name: area.sourceName ?? null,
+        source_year: area.sourceYear ?? null,
+        registration_date: area.registrationDate ?? null,
         distance_m: distance,
         overlap_ha: overlap,
       };

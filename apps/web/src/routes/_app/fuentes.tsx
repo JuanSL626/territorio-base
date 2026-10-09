@@ -167,8 +167,8 @@ const EXCLUSIONS: readonly { title: string; body: string }[] = [
     body: 'Su modelo de elevación es propietario y no publica una API abierta, así que un resultado suyo no sería reproducible ni auditable por quien reciba el reporte. Se prefirió WRI Aqueduct, que es CC-BY y documenta su metodología.',
   },
   {
-    title: 'Protected Planet API vs. el FeatureServer de UNEP-WCMC',
-    body: 'La API oficial de Protected Planet exige token. Se usa el FeatureServer público de UNEP-WCMC, que sirve la misma base (WDPA) sin registro. La obligación de citar a UNEP-WCMC se mantiene igual, y por eso viaja en el `FUENTES.txt` de cada descarga.',
+    title: 'RUNAP en Colombia; WDPA fuera de Colombia',
+    body: 'En Colombia se consulta directamente el Registro Único Nacional de Áreas Protegidas (RUNAP) de Parques Nacionales Naturales. No se mezcla con WDPA para evitar duplicados. Fuera de Colombia se conserva WDPA como fuente global.',
   },
   {
     title: 'Paginación de los servicios MEPyD',

@@ -95,7 +95,7 @@ export const VISTAS: Vista[] = [
   {
     id: 'areas-protegidas',
     label: 'Áreas protegidas',
-    hint: 'WDPA (UNEP-WCMC) y áreas protegidas declaradas por el MEPyD.',
+    hint: 'RUNAP en Colombia, WDPA global y áreas protegidas declaradas por el MEPyD.',
     basemap: 'light',
     inspectorDefaultTab: 'atributos',
     layers: [

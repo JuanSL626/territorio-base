@@ -66,14 +66,14 @@ export const DATASET_CITATIONS: readonly DatasetCitation[] = [
   },
   {
     id: 'wdpa',
-    layer: 'Áreas protegidas (WDPA)',
-    officialName: 'World Database on Protected Areas (WDPA)',
-    provider: 'UNEP-WCMC (misma base que Protected Planet)',
-    endpoint:
-      'https://data-gis.unep-wcmc.org/arcgis/rest/services/ProtectedSites/' +
-      'The_World_Database_of_Protected_Areas/FeatureServer/1/query',
+    layer: 'Áreas protegidas oficiales',
+    officialName: 'RUNAP Colombia / World Database on Protected Areas (WDPA)',
+    provider: 'Parques Nacionales Naturales de Colombia / UNEP-WCMC',
+    endpoint: 'RUNAP en Colombia; WDPA fuera de Colombia',
     resolution: 'Vectorial',
-    license: 'Abierto, sin token. Citar a UNEP-WCMC como fuente.',
+    license: 'RUNAP es público y exige cita; WDPA conserva sus términos de uso.',
+    caveats:
+      'RUNAP se actualiza permanentemente y su cartografía es multiescalar. Citar la fecha de consulta.',
   },
   {
     id: 'aqueduct',

@@ -93,6 +93,9 @@ const PROTECTED: ProtectedAreaFeature[] = [
     iucnCat: 'II',
     status: 'Designated',
     mangAuth: 'Ministerio de Medio Ambiente',
+    sourceName: 'WDPA — UNEP-WCMC',
+    sourceYear: '2026',
+    registrationDate: null,
     geometry: POLYGON,
   },
 ];
@@ -216,9 +219,13 @@ describe('buildVectorData', () => {
     });
   });
 
-  it('WDPA conserva `desig_eng` y `mang_auth` para la exportación aunque no se muestren', () => {
+  it('áreas protegidas conserva atributos, fuente y año', () => {
     const first = data.get('wdpa')?.data.features[0];
-    expect(first?.properties?.desig_eng).toBe('National Park');
+    expect(first?.properties).toMatchObject({
+      desig_eng: 'National Park',
+      source_name: 'WDPA — UNEP-WCMC',
+      source_year: '2026',
+    });
   });
 
   it('lleva al predio IGAC todos sus datos públicos y el año de la fuente', () => {

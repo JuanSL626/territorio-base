@@ -173,21 +173,21 @@ describe('banner de áreas protegidas — strings exactos (TC-07..TC-10)', () =>
   it('intersecta', () => {
     const banner = protectedBanner(protectedAreas({ intersects_aoi: true, areas_found: 1 }));
     expect(banner.tone).toBe('warning');
-    expect(banner.headline).toBe('⚠️ El polígono SÍ intersecta un área de la WDPA:');
+    expect(banner.headline).toBe('⚠️ El polígono SÍ intersecta un área protegida:');
   });
 
   it('cerca sin intersección', () => {
     const banner = protectedBanner(protectedAreas({ areas_found: 2, nearest_distance_m: 815 }));
     expect(banner.tone).toBe('info');
     expect(banner.headline).toBe(
-      'No hay intersección, pero hay 2 área(s) WDPA a 815 m del polígono.',
+      'No hay intersección, pero hay 2 área(s) protegida(s) a 815 m del polígono.',
     );
   });
 
   it('sin áreas', () => {
     const banner = protectedBanner(protectedAreas());
     expect(banner.tone).toBe('success');
-    expect(banner.headline).toBe('No se encontraron áreas protegidas (WDPA) cerca del polígono.');
+    expect(banner.headline).toBe('No se encontraron áreas protegidas cerca del polígono.');
   });
 });
 

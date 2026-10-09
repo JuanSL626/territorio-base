@@ -657,7 +657,7 @@ export function AreasProtegidasSection({
           <ul className="flex flex-col gap-1">
             {overlapping.map((area, index) => (
               <li key={`${area.name ?? 'sin-nombre'}-${String(index)}`} className="text-12 text-fg">
-                <span className="font-medium">{area.name ?? 'Área sin nombre en la WDPA'}</span>
+                <span className="font-medium">{area.name ?? 'Área protegida sin nombre'}</span>
                 {area.desig == null ? null : <span className="text-fg-muted"> · {area.desig}</span>}
                 <span className="text-fg-muted">
                   {' '}
@@ -696,7 +696,7 @@ export function AreasProtegidasSection({
             onShowOnMap(section.id);
           }}
           download={downloadForLayer(analysis, 'wdpa')}
-          footnote="WDPA (UNEP-WCMC) dentro de un buffer de 1 km alrededor del polígono; el solape se calcula en la zona UTM local."
+          footnote="RUNAP en Colombia y WDPA fuera de Colombia, consultados en un buffer de 1 km; el solape se calcula en la zona UTM local."
         >
           <StatList
             stats={[
@@ -719,7 +719,7 @@ export function AreasProtegidasSection({
             <div className="mt-3 overflow-x-auto">
               <table className="w-full border-collapse text-left">
                 <caption className="sr-only">
-                  Áreas protegidas de la WDPA cercanas al polígono, ordenadas por distancia.
+                  Áreas protegidas cercanas al polígono, ordenadas por distancia.
                 </caption>
                 <thead>
                   <tr className="border-border-base border-b">
@@ -728,6 +728,9 @@ export function AreasProtegidasSection({
                       'Designación',
                       'Categoría UICN',
                       'Estado',
+                      'Fecha de registro',
+                      'Fuente',
+                      'Año',
                       'Distancia',
                       'Solape',
                     ].map((heading) => (
@@ -755,6 +758,11 @@ export function AreasProtegidasSection({
                           : (IUCN_LABELS[area.iucn_cat] ?? area.iucn_cat)}
                       </td>
                       <td className="text-11 text-fg-muted py-1">{area.status ?? '—'}</td>
+                      <td className="text-11 text-fg-muted py-1">
+                        {area.registration_date ?? '—'}
+                      </td>
+                      <td className="text-11 text-fg-muted py-1">{area.source_name ?? '—'}</td>
+                      <td className="text-11 text-fg-muted py-1">{area.source_year ?? '—'}</td>
                       <td className="tabular text-11 text-fg py-1">
                         {area.distance_m <= 0
                           ? '0 m (intersecta)'

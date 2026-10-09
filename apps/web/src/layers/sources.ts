@@ -114,17 +114,18 @@ export const SRC_OSM_CONTEXT: SourceRef = {
 };
 
 export const SRC_WDPA: SourceRef = {
-  name: 'WDPA — World Database on Protected Areas',
-  provider: 'UNEP-WCMC (misma base que Protected Planet)',
-  url: 'https://www.protectedplanet.net/',
-  vintage: 'Servicio en vivo (UNEP-WCMC FeatureServer)',
+  name: 'RUNAP Colombia / WDPA global',
+  provider: 'Parques Nacionales Naturales de Colombia / UNEP-WCMC',
+  url: 'https://runap.parquesnacionales.gov.co/',
+  acquisition: 'Consulta realizada al ejecutar el análisis',
+  vintage: 'Servicio RUNAP en vivo para Colombia; WDPA fuera de Colombia',
   resolution: 'Vectorial',
-  coverage: 'Global',
-  license: 'UNEP-WCMC — uso no comercial con atribución; ver términos de Protected Planet',
+  coverage: 'Colombia (RUNAP) / global (WDPA)',
+  license: 'Información pública oficial RUNAP / términos de uso de Protected Planet para WDPA',
   citation:
-    'UNEP-WCMC and IUCN (año en curso), Protected Planet: The World Database on Protected Areas (WDPA).',
+    'RUNAP — Parques Nacionales Naturales de Colombia; fuera de Colombia, WDPA — UNEP-WCMC. Año visible en cada objeto.',
   method:
-    'Áreas protegidas que intersectan un buffer de 1 km alrededor del AOI; solape calculado en UTM local.',
+    'Áreas protegidas que intersectan un buffer de 1 km alrededor del AOI; RUNAP tiene prioridad en Colombia y el solape se calcula en UTM local.',
 };
 
 export const SRC_AQUEDUCT: SourceRef = {
