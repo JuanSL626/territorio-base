@@ -501,6 +501,7 @@ function buildColombia(
       parcels,
       cadastre_truncated: igac?.truncated ?? false,
       evidence: [...(dane?.evidence ?? []), ...(igac?.evidence ?? [])],
+      idesc_layers: igac?.idescLayers ?? [],
     },
     statuses: [daneStatus, igacStatus],
   };

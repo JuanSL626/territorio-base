@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createAoi, type Aoi } from '../aoi';
 import {
+  fetchCaliContext,
   fetchDaneContext,
   fetchIgacCadastre,
   isInColombia,
@@ -28,6 +29,7 @@ function squareAoi(lon: number, lat: number): Aoi {
 
 const AGUADAS = squareAoi(-75.4557, 5.6096);
 const JAMUNDI = squareAoi(-76.57002, 3.25446);
+const CALI = squareAoi(-76.5385, 3.3867);
 const COSTA_RICA = squareAoi(-84.1, 9.9);
 
 async function jsonResponse(value: unknown): Promise<Response> {
@@ -397,6 +399,140 @@ describe('IGAC — base catastral pública', () => {
       sourceId: 'igac-dato-fundamental-catastro',
       coverage: 'national',
       query: { layers: '1,4' },
+    });
+  });
+
+  it('usa el catastro oficial de Cali cuando las fuentes del IGAC no cubren el AOI', async () => {
+    let nationalCalls = 0;
+    const fetchImpl: FetchLike = async (url, init) => {
+      const params = form(init);
+      if (url.includes('CATASTRO_PUBLICO_31082026')) {
+        nationalCalls += 1;
+        return await jsonResponse({ objectIdFieldName: 'OBJECTID', objectIds: [] });
+      }
+      if (url.includes('Dato_Fundamental_Catastro')) {
+        nationalCalls += 1;
+        return await jsonResponse({ objectIdFieldName: 'FID', objectIds: [] });
+      }
+      expect(url).toBe('https://ws-idesc.cali.gov.co/geoserver/wfs');
+      const typeName = params.get('typeNames');
+      expect(params.get('bbox')).toContain('EPSG:4326');
+      if (typeName !== 'catastro:cat_bas_terrenos') {
+        return await jsonResponse({
+          type: 'FeatureCollection',
+          numberMatched: 1,
+          numberReturned: 1,
+          features: [
+            {
+              type: 'Feature',
+              id: `${typeName ?? 'idesc'}.1`,
+              properties: { label: typeName },
+              geometry: CALI.geometry,
+            },
+          ],
+        });
+      }
+      return await jsonResponse({
+        type: 'FeatureCollection',
+        numberMatched: 2,
+        numberReturned: 2,
+        features: [
+          {
+            type: 'Feature',
+            properties: {
+              npn: '760010100178300700001903990182',
+              conexion: '178300700001',
+              cminpred: 'CONJUNTO RESIDENCIAL TORRES DE MONTEALTO',
+              direpred: 'KR 79 B # 9 - 18 TO C GAS 82',
+              last_edite: '2025-09-02Z',
+              uso_princi: 'RESIDENCIAL',
+              shape_area: 4782.18,
+            },
+            geometry: CALI.geometry,
+          },
+          {
+            type: 'Feature',
+            properties: {
+              npn: '760010100178300700001901020072',
+              conexion: '178300700001',
+              cminpred: 'CONJUNTO RESIDENCIAL TORRES DE MONTEALTO',
+              direpred: 'KR 79 B # 9 - 18 BLQ A AP 202',
+              last_edite: '2025-09-02Z',
+              uso_princi: 'RESIDENCIAL',
+              shape_area: 4782.18,
+            },
+            geometry: CALI.geometry,
+          },
+        ],
+      });
+    };
+
+    const result = await fetchIgacCadastre(CALI, { fetchImpl });
+
+    expect(result.parcels).toHaveLength(1);
+    expect(result.parcels[0]).toMatchObject({
+      code: '760010100178300700001',
+      municipalityCode: '76001',
+      address: 'CONJUNTO RESIDENCIAL TORRES DE MONTEALTO',
+      economicDestination: 'RESIDENCIAL',
+      landAreaM2: 4782.18,
+      zone: 'urban',
+    });
+    expect(result.evidence[0]).toMatchObject({
+      sourceId: 'cali-idesc-catastro',
+      sourceUpdatedAt: '2025-09-02',
+      coverage: 'regional',
+    });
+    expect(result.idescLayers?.map((layer) => layer.layerId)).toEqual([
+      'idesc-constructions',
+      'idesc-pot-activity',
+      'idesc-seismic-microzonation',
+    ]);
+    expect(nationalCalls).toBe(0);
+  });
+});
+
+describe('IDESC — contexto territorial de Cali', () => {
+  it('carga construcciones, norma POT y microzonificación dentro del AOI', async () => {
+    const requested: string[] = [];
+    const fetchImpl: FetchLike = async (url, init) => {
+      expect(url).toBe('https://ws-idesc.cali.gov.co/geoserver/wfs');
+      const params = form(init);
+      const typeName = params.get('typeNames') ?? '';
+      requested.push(typeName);
+      expect(params.get('bbox')).toContain('EPSG:4326');
+
+      const properties =
+        typeName === 'catastro:cat_bas_construcciones'
+          ? { npn: '760010100178300060002900000017', npisos: 2, shape_area: 88 }
+          : typeName === 'pot_2014:nur_areas_actividad'
+            ? { area_de_ac: 'AREA DE ACTIVIDAD RESIDENCIAL NETA', barrio: 'Ciudad Capri' }
+            : { zona_mzsc: 'Zona 1', sucep_licu: 0, corrim_lat: 0 };
+
+      return await jsonResponse({
+        type: 'FeatureCollection',
+        numberMatched: 1,
+        numberReturned: 1,
+        features: [{ type: 'Feature', id: `${typeName}.1`, properties, geometry: CALI.geometry }],
+      });
+    };
+
+    const result = await fetchCaliContext(CALI, { fetchImpl });
+
+    expect(requested).toEqual([
+      'catastro:cat_bas_construcciones',
+      'pot_2014:nur_areas_actividad',
+      'idesc:mc_microzonificacion_sismica',
+    ]);
+    expect(result.layers.map((layer) => [layer.layerId, layer.count])).toEqual([
+      ['idesc-constructions', 1],
+      ['idesc-pot-activity', 1],
+      ['idesc-seismic-microzonation', 1],
+    ]);
+    expect(result.layers[0]?.features[0]?.properties).toMatchObject({ npisos: 2 });
+    expect(result.evidence).toMatchObject({
+      sourceId: 'cali-idesc-context',
+      coverage: 'regional',
     });
   });
 });

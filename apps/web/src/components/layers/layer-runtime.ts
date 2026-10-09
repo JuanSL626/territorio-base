@@ -36,7 +36,7 @@ const DOWN_REASON: Record<AnalysisSourceId, string> = {
   'areas-protegidas': 'WDPA caído',
   mepyd: 'MEPyD caído',
   dane: 'DANE caído',
-  igac: 'IGAC caído',
+  igac: 'Catastro caído',
 };
 
 const DOWN_DETAIL: Record<AnalysisSourceId, string> = {
@@ -59,7 +59,7 @@ const EMPTY_RUNTIME: LayerRuntime = {
 function sourceOf(layer: LayerDef): AnalysisSourceId {
   if (layer.id.startsWith('osm-')) return 'hidrologia';
   if (layer.id === 'wdpa') return 'areas-protegidas';
-  if (layer.id === 'igac-parcels') return 'igac';
+  if (layer.id === 'igac-parcels' || layer.id.startsWith('idesc-')) return 'igac';
   if (layer.id.startsWith('mepyd:')) return 'mepyd';
   return 'raster';
 }
@@ -141,8 +141,22 @@ function vectorRuntime(
     return {
       status: 'skipped',
       reason: 'fuera de Colombia',
-      detail: 'La base catastral del IGAC sólo se consulta para AOI en Colombia.',
+      detail: 'Las fuentes catastrales integradas sólo se consultan para AOI en Colombia.',
     };
+  }
+  if (layer.id.startsWith('idesc-')) {
+    const idescLayer = analysis.colombia.idesc_layers?.find((item) => item.layerId === layer.id);
+    if (idescLayer === undefined) {
+      return {
+        status: 'skipped',
+        reason: 'solo Cali',
+        detail:
+          'Esta capa oficial de IDESC sólo se consulta cuando el AOI intersecta Santiago de Cali.',
+      };
+    }
+    if (idescLayer.error !== null) {
+      return { status: 'error', reason: 'IDESC caído', detail: idescLayer.error };
+    }
   }
   if (status?.state === 'error') {
     return { status: 'error', reason: DOWN_REASON[source], detail: DOWN_DETAIL[source] };
@@ -151,7 +165,7 @@ function vectorRuntime(
     return {
       status: 'skipped',
       reason: 'otro gestor',
-      detail: 'El municipio usa un gestor catastral distinto del IGAC.',
+      detail: 'El municipio usa un gestor catastral que aún no está integrado.',
     };
   }
 

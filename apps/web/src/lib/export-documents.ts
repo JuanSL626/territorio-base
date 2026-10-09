@@ -289,7 +289,7 @@ export function buildSummaryRows(analysis: TerritorioAnalysis): SummaryRow[] {
   const WDPA = 'WDPA — UNEP-WCMC';
   const MEPYD = 'MEPyD — Sistema de Información para la GRD y la AC';
   const DANE = 'DANE — DIVIPOLA / CNPV 2018';
-  const IGAC = 'IGAC — Base Catastral Pública';
+  const CATASTRE = 'IGAC y gestores catastrales oficiales';
   const AQUEDUCT = 'WRI Aqueduct Floods v2';
   const POWER = 'NASA POWER (CERES/SRB y MERRA-2)';
 
@@ -580,10 +580,10 @@ export function buildSummaryRows(analysis: TerritorioAnalysis): SummaryRow[] {
     }
     rows.push({
       tema: 'Colombia',
-      indicador: 'Predios IGAC encontrados',
+      indicador: 'Predios catastrales encontrados',
       valor: formatNumber(analysis.colombia.parcels.length, 0),
       unidad: 'predios',
-      fuente: IGAC,
+      fuente: CATASTRE,
     });
   }
 
@@ -953,10 +953,12 @@ export function buildReportMarkdown(options: ReportOptions): string {
         '',
       );
     } else if (igac?.state === 'error') {
-      lines.push(...unavailableBlock(igac.error ?? 'IGAC no respondió durante el análisis.'));
+      lines.push(
+        ...unavailableBlock(igac.error ?? 'El catastro no respondió durante el análisis.'),
+      );
     } else {
       lines.push(
-        `**Predios IGAC encontrados:** ${formatNumber(analysis.colombia.parcels.length, 0)}.`,
+        `**Predios catastrales encontrados:** ${formatNumber(analysis.colombia.parcels.length, 0)}.`,
         analysis.colombia.cadastre_truncated
           ? 'El resultado es parcial porque alcanzó el límite de consulta.'
           : 'La consulta no alcanzó el límite de resultados.',

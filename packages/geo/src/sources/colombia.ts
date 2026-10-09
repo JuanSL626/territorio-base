@@ -1,7 +1,8 @@
 import { z } from 'zod';
 
+import { mapSettled } from '../concurrency';
 import { isGeometry, type Bounds2D, type Geometry } from '../geojson';
-import { arcgisRings, areaHectares } from '../geometry';
+import { arcgisRings, areaHectares, intersects } from '../geometry';
 import { postFormJson, type RequestOptions } from '../http';
 
 import type { Aoi } from '../aoi';
@@ -16,9 +17,31 @@ export const IGAC_CADASTRE_URL =
   'https://services2.arcgis.com/RVvWzU3lgJISqdke/arcgis/rest/services/CATASTRO_PUBLICO_31082026/FeatureServer';
 export const IGAC_NATIONAL_CADASTRE_URL =
   'https://mapas.igac.gov.co/server/rest/services/Dato_Fundamental_Catastro/MapServer';
+export const CALI_CADASTRE_WFS_URL = 'https://ws-idesc.cali.gov.co/geoserver/wfs';
 
 const IGAC_FEATURE_BATCH = 500;
 const IGAC_RECORD_BATCH = 100;
+const CALI_FEATURE_BATCH = 1_000;
+// ponytail: prefiltro urbano; la cobertura real se confirma sólo si IDESC devuelve terrenos.
+const CALI_BBOX: Bounds2D = [-76.65, 3.28, -76.42, 3.58];
+
+export const CALI_CONTEXT_LAYER_DEFS = [
+  {
+    layerId: 'idesc-constructions',
+    typeName: 'catastro:cat_bas_construcciones',
+    label: 'Construcciones catastrales',
+  },
+  {
+    layerId: 'idesc-pot-activity',
+    typeName: 'pot_2014:nur_areas_actividad',
+    label: 'Áreas de actividad POT',
+  },
+  {
+    layerId: 'idesc-seismic-microzonation',
+    typeName: 'idesc:mc_microzonificacion_sismica',
+    label: 'Microzonificación sísmica',
+  },
+] as const;
 
 export type SourceEvidence = {
   authority: string;
@@ -81,6 +104,30 @@ export type IgacCadastre = {
   parcels: IgacParcel[];
   truncated: boolean;
   evidence: SourceEvidence[];
+  idescLayers?: CaliContextLayer[];
+};
+
+export type CaliAttributeValue = string | number | boolean | null;
+
+export type CaliContextFeature = {
+  id: string;
+  properties: Record<string, CaliAttributeValue>;
+  geometry: Extract<Geometry, { type: 'Polygon' | 'MultiPolygon' }>;
+};
+
+export type CaliContextLayer = {
+  layerId: (typeof CALI_CONTEXT_LAYER_DEFS)[number]['layerId'];
+  label: string;
+  count: number;
+  features: CaliContextFeature[];
+  truncated: boolean;
+  error: string | null;
+};
+
+export type CaliContextResult = {
+  inCali: boolean;
+  layers: CaliContextLayer[];
+  evidence: SourceEvidence | null;
 };
 
 type ColombiaRequestOptions = RequestOptions & { now?: () => Date };
@@ -135,6 +182,20 @@ const igacGeoJsonSchema = z.object({
   features: z
     .array(
       z.object({
+        properties: z.record(z.string(), z.unknown()).nullable().optional(),
+        geometry: z.unknown().nullable().optional(),
+      }),
+    )
+    .nullable()
+    .optional(),
+});
+
+const caliGeoJsonSchema = igacGeoJsonSchema.extend({
+  numberMatched: z.union([z.number(), z.string()]),
+  features: z
+    .array(
+      z.object({
+        id: z.union([z.string(), z.number()]).optional(),
         properties: z.record(z.string(), z.unknown()).nullable().optional(),
         geometry: z.unknown().nullable().optional(),
       }),
@@ -356,6 +417,8 @@ type TerrainFeature = {
   shapeAreaM2: number | null;
   zone: 'urban' | 'rural';
   geometry: Extract<Geometry, { type: 'Polygon' | 'MultiPolygon' }>;
+  address?: string | null;
+  economicDestination?: string | null;
 };
 
 function stringProperty(properties: Record<string, unknown>, key: string): string | null {
@@ -463,6 +526,247 @@ async function fetchTerrainLayer(
   };
 }
 
+function boundsIntersect([minX, minY, maxX, maxY]: Bounds2D, bounds: Bounds2D): boolean {
+  return !(maxX < bounds[0] || minX > bounds[2] || maxY < bounds[1] || minY > bounds[3]);
+}
+
+function caliAttributes(properties: Record<string, unknown>): Record<string, CaliAttributeValue> {
+  const result: Record<string, CaliAttributeValue> = {};
+  for (const [key, value] of Object.entries(properties)) {
+    result[key] =
+      value === null ||
+      typeof value === 'string' ||
+      typeof value === 'number' ||
+      typeof value === 'boolean'
+        ? value
+        : JSON.stringify(value);
+  }
+  return result;
+}
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function fetchCaliContextLayer(
+  aoi: Aoi,
+  definition: (typeof CALI_CONTEXT_LAYER_DEFS)[number],
+  options: ColombiaRequestOptions,
+): Promise<{ layer: CaliContextLayer; payloads: unknown[] }> {
+  const payloads: unknown[] = [];
+  const features = new Map<string, CaliContextFeature>();
+  let startIndex = 0;
+  let numberMatched = Number.POSITIVE_INFINITY;
+
+  while (startIndex < numberMatched) {
+    const payload = await postFormJson(
+      CALI_CADASTRE_WFS_URL,
+      {
+        service: 'WFS',
+        version: '2.0.0',
+        request: 'GetFeature',
+        typeNames: definition.typeName,
+        srsName: 'EPSG:4326',
+        bbox: `${aoi.bbox.join(',')},EPSG:4326`,
+        outputFormat: 'application/json',
+        count: String(CALI_FEATURE_BATCH),
+        startIndex: String(startIndex),
+      },
+      options,
+    );
+    const parsed = caliGeoJsonSchema.safeParse(payload);
+    if (!parsed.success) throw new Error(`${definition.label} devolvió una respuesta inválida.`);
+    const matched = Number(parsed.data.numberMatched);
+    if (!Number.isSafeInteger(matched) || matched < 0) {
+      throw new Error(`${definition.label} devolvió un conteo inválido.`);
+    }
+    numberMatched = matched;
+    payloads.push(payload);
+
+    const page = parsed.data.features ?? [];
+    page.forEach((item, index) => {
+      const geometry: unknown = item.geometry;
+      if (
+        !isGeometry(geometry) ||
+        (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon') ||
+        !intersects(aoi.geometry, geometry)
+      ) {
+        return;
+      }
+      const id = String(item.id ?? `${definition.typeName}.${String(startIndex + index)}`);
+      features.set(id, {
+        id,
+        properties: caliAttributes(item.properties ?? {}),
+        geometry,
+      });
+    });
+
+    if (page.length === 0) break;
+    startIndex += page.length;
+  }
+
+  return {
+    layer: {
+      layerId: definition.layerId,
+      label: definition.label,
+      count: features.size,
+      features: [...features.values()],
+      truncated: startIndex < numberMatched,
+      error: null,
+    },
+    payloads,
+  };
+}
+
+export async function fetchCaliContext(
+  aoi: Aoi,
+  options: ColombiaRequestOptions = {},
+): Promise<CaliContextResult> {
+  if (!boundsIntersect(aoi.bbox, CALI_BBOX)) return { inCali: false, layers: [], evidence: null };
+
+  const settled = await mapSettled(
+    CALI_CONTEXT_LAYER_DEFS,
+    async (definition) => await fetchCaliContextLayer(aoi, definition, options),
+    3,
+  );
+  const payloads: unknown[] = [];
+  const layers: CaliContextLayer[] = settled.map((result, index) => {
+    const definition = CALI_CONTEXT_LAYER_DEFS[index];
+    if (definition === undefined) throw new Error('Catálogo IDESC fuera de rango.');
+    if (result.ok) {
+      payloads.push(...result.value.payloads);
+      return result.value.layer;
+    }
+    return {
+      layerId: definition.layerId,
+      label: definition.label,
+      count: 0,
+      features: [],
+      truncated: false,
+      error: errorText(result.error),
+    };
+  });
+  const warnings = layers.flatMap((layer) => [
+    ...(layer.error === null ? [] : [`${layer.label}: ${layer.error}`]),
+    ...(layer.truncated ? [`${layer.label}: el resultado es parcial.`] : []),
+  ]);
+
+  return {
+    inCali: true,
+    layers,
+    evidence: {
+      authority: 'Distrito de Santiago de Cali',
+      accessProvider: 'Infraestructura de Datos Espaciales de Santiago de Cali (IDESC)',
+      sourceId: 'cali-idesc-context',
+      endpoint: CALI_CADASTRE_WFS_URL,
+      sourceVersion: 'Catastro municipal, POT 2014 y microzonificación sísmica',
+      queriedAt: queriedAt(options),
+      sourceUpdatedAt: null,
+      coverage: 'regional',
+      license: null,
+      crs: 'EPSG:4326',
+      query: {
+        method: 'POST',
+        service: 'WFS 2.0.0',
+        layers: CALI_CONTEXT_LAYER_DEFS.map((definition) => definition.typeName).join(','),
+        pagination: 'startIndex',
+        featureBatch: String(CALI_FEATURE_BATCH),
+      },
+      payloadHash: await sha256Json(payloads),
+      warnings,
+    },
+  };
+}
+
+async function fetchCaliTerrain(
+  aoi: Aoi,
+  options: ColombiaRequestOptions,
+): Promise<{
+  payload: unknown[];
+  features: TerrainFeature[];
+  truncated: boolean;
+  sourceUpdatedAt: string | null;
+}> {
+  const payloads: unknown[] = [];
+  const unique = new Map<string, TerrainFeature>();
+  let sourceUpdatedAt: string | null = null;
+  let startIndex = 0;
+  let numberMatched = Number.POSITIVE_INFINITY;
+
+  while (startIndex < numberMatched) {
+    const payload = await postFormJson(
+      CALI_CADASTRE_WFS_URL,
+      {
+        service: 'WFS',
+        version: '2.0.0',
+        request: 'GetFeature',
+        typeNames: 'catastro:cat_bas_terrenos',
+        srsName: 'EPSG:4326',
+        bbox: `${aoi.bbox.join(',')},EPSG:4326`,
+        outputFormat: 'application/json',
+        propertyName: 'npn,conexion,cminpred,direpred,last_edite,uso_princi,shape_area,the_geom',
+        count: String(CALI_FEATURE_BATCH),
+        startIndex: String(startIndex),
+      },
+      options,
+    );
+    const parsed = caliGeoJsonSchema.safeParse(payload);
+    if (!parsed.success) throw new Error('Catastro de Cali devolvió una respuesta inválida.');
+    const matched = Number(parsed.data.numberMatched);
+    if (!Number.isSafeInteger(matched) || matched < 0) {
+      throw new Error('Catastro de Cali devolvió un conteo inválido.');
+    }
+    numberMatched = matched;
+    payloads.push(payload);
+
+    const page = parsed.data.features ?? [];
+    for (const feature of page) {
+      const geometry: unknown = feature.geometry;
+      const properties = feature.properties ?? {};
+      const npn = stringProperty(properties, 'npn');
+      if (
+        npn === null ||
+        !isGeometry(geometry) ||
+        (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon') ||
+        !intersects(aoi.geometry, geometry)
+      ) {
+        continue;
+      }
+
+      const code = npn.length >= 21 ? npn.slice(0, 21) : npn;
+      const terrainKey = stringProperty(properties, 'conexion') ?? code;
+      // ponytail: una geometría por terreno; modelar sus unidades si el contrato admite 1:N.
+      if (!unique.has(terrainKey)) {
+        unique.set(terrainKey, {
+          code,
+          previousCode: null,
+          municipalityCode: '76001',
+          shapeAreaM2: numberProperty(properties, 'shape_area'),
+          zone: 'urban',
+          geometry,
+          address: stringProperty(properties, 'cminpred') ?? stringProperty(properties, 'direpred'),
+          economicDestination: stringProperty(properties, 'uso_princi'),
+        });
+      }
+
+      const updatedAt = stringProperty(properties, 'last_edite')?.slice(0, 10) ?? null;
+      if (updatedAt !== null && (sourceUpdatedAt === null || updatedAt > sourceUpdatedAt)) {
+        sourceUpdatedAt = updatedAt;
+      }
+    }
+
+    if (page.length === 0) break;
+    startIndex += page.length;
+  }
+
+  return {
+    payload: payloads,
+    features: [...unique.values()],
+    truncated: startIndex < numberMatched,
+    sourceUpdatedAt,
+  };
+}
+
 function batches<T>(values: readonly T[], size: number): T[][] {
   const result: T[][] = [];
   for (let index = 0; index < values.length; index += size) {
@@ -515,32 +819,48 @@ export async function fetchIgacCadastre(
     return { inColombia: false, parcels: [], truncated: false, evidence: [] };
   }
 
-  const [igacUrban, igacRural] = await Promise.all([
-    fetchTerrainLayer(aoi, 7, 'urban', options),
-    fetchTerrainLayer(aoi, 14, 'rural', options),
-  ]);
-  const useNationalFallback = igacUrban.features.length + igacRural.features.length === 0;
-  const [urban, rural] = useNationalFallback
-    ? await Promise.all([
-        fetchTerrainLayer(aoi, 4, 'urban', options, {
-          url: IGAC_NATIONAL_CADASTRE_URL,
-          outFields: 'CODIGO,CODIGO_ANT',
-          previousCodeField: 'CODIGO_ANT',
-          municipalityCodeField: null,
-          shapeAreaField: null,
-        }),
-        fetchTerrainLayer(aoi, 1, 'rural', options, {
-          url: IGAC_NATIONAL_CADASTRE_URL,
-          outFields: 'CODIGO,CODIGO_ANT',
-          previousCodeField: 'CODIGO_ANT',
-          municipalityCodeField: null,
-          shapeAreaField: null,
-        }),
-      ])
-    : [igacUrban, igacRural];
-  const allTerrain = [...urban.features, ...rural.features];
+  const inCali = boundsIntersect(aoi.bbox, CALI_BBOX);
+  const caliPreferred = inCali ? await fetchCaliTerrain(aoi, options) : null;
+  const useCaliDirect = (caliPreferred?.features.length ?? 0) > 0;
+  const caliContext = useCaliDirect
+    ? await fetchCaliContext(aoi, options)
+    : { inCali: false, layers: [], evidence: null };
+  const emptyTerrain = { payload: [], features: [] as TerrainFeature[], truncated: false };
+  const [igacUrban, igacRural] = useCaliDirect
+    ? [emptyTerrain, emptyTerrain]
+    : await Promise.all([
+        fetchTerrainLayer(aoi, 7, 'urban', options),
+        fetchTerrainLayer(aoi, 14, 'rural', options),
+      ]);
+  const useNationalFallback =
+    useCaliDirect || igacUrban.features.length + igacRural.features.length === 0;
+  const [urban, rural] = useCaliDirect
+    ? [emptyTerrain, emptyTerrain]
+    : useNationalFallback
+      ? await Promise.all([
+          fetchTerrainLayer(aoi, 4, 'urban', options, {
+            url: IGAC_NATIONAL_CADASTRE_URL,
+            outFields: 'CODIGO,CODIGO_ANT',
+            previousCodeField: 'CODIGO_ANT',
+            municipalityCodeField: null,
+            shapeAreaField: null,
+          }),
+          fetchTerrainLayer(aoi, 1, 'rural', options, {
+            url: IGAC_NATIONAL_CADASTRE_URL,
+            outFields: 'CODIGO,CODIGO_ANT',
+            previousCodeField: 'CODIGO_ANT',
+            municipalityCodeField: null,
+            shapeAreaField: null,
+          }),
+        ])
+      : [igacUrban, igacRural];
+  const useCaliFallback =
+    useCaliDirect ||
+    (useNationalFallback && urban.features.length + rural.features.length === 0 && inCali);
+  const cali = useCaliFallback ? (caliPreferred ?? (await fetchCaliTerrain(aoi, options))) : null;
+  const allTerrain = cali?.features ?? [...urban.features, ...rural.features];
   const unique = new Map(allTerrain.map((feature) => [feature.code, feature]));
-  const truncated = urban.truncated || rural.truncated;
+  const truncated = cali?.truncated ?? (urban.truncated || rural.truncated);
   const terrain = [...unique.values()];
   const { payloads: recordPayloads, records } =
     terrain.length === 0 || useNationalFallback
@@ -556,8 +876,8 @@ export async function fetchIgacCadastre(
       code: feature.code,
       previousCode: record?.NUMERO_PREDIAL_ANTERIOR ?? feature.previousCode,
       municipalityCode: feature.municipalityCode,
-      address: record?.DIRECCION ?? null,
-      economicDestination: record?.DESTINO_ECONOMICO ?? null,
+      address: record?.DIRECCION ?? feature.address ?? null,
+      economicDestination: record?.DESTINO_ECONOMICO ?? feature.economicDestination ?? null,
       landAreaM2:
         record?.AREA_TERRENO ??
         feature.shapeAreaM2 ??
@@ -569,56 +889,88 @@ export async function fetchIgacCadastre(
   });
 
   const warnings = [
-    ...(useNationalFallback && terrain.length > 0
+    ...(useCaliFallback && terrain.length > 0
       ? [
-          'La Base Catastral Pública del Gestor IGAC no cubrió el AOI; se usó el Dato Fundamental Catastro del IGAC.',
-          'El Dato Fundamental Catastro no publica dirección, destino económico ni área construida; el área del terreno se calcula desde su geometría.',
+          'Para el AOI en Cali se usó el catastro oficial de Santiago de Cali publicado por IDESC.',
+          'Las unidades de propiedad horizontal se consolidaron por terreno para no duplicar la misma geometría.',
         ]
-      : []),
+      : useNationalFallback && terrain.length > 0
+        ? [
+            'La Base Catastral Pública del Gestor IGAC no cubrió el AOI; se usó el Dato Fundamental Catastro del IGAC.',
+            'El Dato Fundamental Catastro no publica dirección, destino económico ni área construida; el área del terreno se calcula desde su geometría.',
+          ]
+        : []),
     ...(truncated
-      ? ['ArcGIS no devolvió todos los predios solicitados; el resultado es parcial.']
+      ? ['La fuente catastral no devolvió todos los predios solicitados; el resultado es parcial.']
       : []),
   ];
-  const evidenceEndpoint = useNationalFallback ? IGAC_NATIONAL_CADASTRE_URL : IGAC_CADASTRE_URL;
+  const evidenceEndpoint = useCaliFallback
+    ? CALI_CADASTRE_WFS_URL
+    : useNationalFallback
+      ? IGAC_NATIONAL_CADASTRE_URL
+      : IGAC_CADASTRE_URL;
 
   return {
     inColombia: true,
     parcels,
     truncated,
+    idescLayers: caliContext.layers,
     evidence: [
       {
-        authority: 'Instituto Geográfico Agustín Codazzi (IGAC)',
-        accessProvider: useNationalFallback
-          ? 'Servidor de mapas IGAC (ArcGIS REST)'
-          : 'ArcGIS Online del IGAC',
-        sourceId: useNationalFallback
-          ? 'igac-dato-fundamental-catastro'
-          : 'igac-base-catastral-publica-2026-08-31',
+        authority: useCaliFallback
+          ? 'Distrito de Santiago de Cali — Catastro Municipal'
+          : 'Instituto Geográfico Agustín Codazzi (IGAC)',
+        accessProvider: useCaliFallback
+          ? 'Infraestructura de Datos Espaciales de Santiago de Cali (IDESC)'
+          : useNationalFallback
+            ? 'Servidor de mapas IGAC (ArcGIS REST)'
+            : 'ArcGIS Online del IGAC',
+        sourceId: useCaliFallback
+          ? 'cali-idesc-catastro'
+          : useNationalFallback
+            ? 'igac-dato-fundamental-catastro'
+            : 'igac-base-catastral-publica-2026-08-31',
         endpoint: evidenceEndpoint,
-        sourceVersion: useNationalFallback
-          ? 'Dato Fundamental Catastro; item modificado 2026-09-09'
-          : 'Base Catastral Pública del Gestor IGAC 08-2026',
+        sourceVersion: useCaliFallback
+          ? 'IDESC Catastro: Terrenos'
+          : useNationalFallback
+            ? 'Dato Fundamental Catastro; item modificado 2026-09-09'
+            : 'Base Catastral Pública del Gestor IGAC 08-2026',
         queriedAt: queriedAt(options),
-        sourceUpdatedAt: useNationalFallback ? '2026-09-09' : '2026-10-01',
-        coverage: useNationalFallback ? 'national' : 'partial',
+        sourceUpdatedAt: useCaliFallback
+          ? (cali?.sourceUpdatedAt ?? null)
+          : useNationalFallback
+            ? '2026-09-09'
+            : '2026-10-01',
+        coverage: useCaliFallback ? 'regional' : useNationalFallback ? 'national' : 'partial',
         license: useNationalFallback ? null : 'CC BY 4.0',
         crs: 'EPSG:4326',
-        query: {
-          method: 'POST',
-          layers: useNationalFallback ? '1,4' : '7,14,17',
-          geometryType: 'esriGeometryPolygon',
-          spatialRelationship: 'esriSpatialRelIntersects',
-          pagination: 'objectIds',
-          featureBatch: String(IGAC_FEATURE_BATCH),
-        },
+        query: useCaliFallback
+          ? {
+              method: 'POST',
+              service: 'WFS 2.0.0',
+              typeName: 'catastro:cat_bas_terrenos',
+              pagination: 'startIndex',
+              featureBatch: String(CALI_FEATURE_BATCH),
+            }
+          : {
+              method: 'POST',
+              layers: useNationalFallback ? '1,4' : '7,14,17',
+              geometryType: 'esriGeometryPolygon',
+              spatialRelationship: 'esriSpatialRelIntersects',
+              pagination: 'objectIds',
+              featureBatch: String(IGAC_FEATURE_BATCH),
+            },
         payloadHash: await sha256Json([
           igacUrban.payload,
           igacRural.payload,
           ...(useNationalFallback ? [urban.payload, rural.payload] : []),
+          ...(cali === null ? [] : cali.payload),
           ...recordPayloads,
         ]),
         warnings,
       },
+      ...(caliContext.evidence === null ? [] : [caliContext.evidence]),
     ],
   };
 }

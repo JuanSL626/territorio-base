@@ -129,7 +129,7 @@ function protectedData(analysis: TerritorioAnalysis): VectorLayerData {
 
 function igacData(analysis: TerritorioAnalysis): VectorLayerData {
   const sourceYear = analysis.colombia.evidence
-    .find((evidence) => evidence.sourceId.startsWith('igac-'))
+    .find((evidence) => evidence.sourceId.includes('catastro'))
     ?.sourceUpdatedAt?.slice(0, 4);
   const features = analysis.colombia.parcels.map((parcel) =>
     feature(`igac-${parcel.code}`, parcel.geometry, {
@@ -145,6 +145,16 @@ function igacData(analysis: TerritorioAnalysis): VectorLayerData {
     }),
   );
   return { layerId: 'igac-parcels', data: collection(features), count: features.length };
+}
+
+function idescData(analysis: TerritorioAnalysis): VectorLayerData[] {
+  return (analysis.colombia.idesc_layers ?? []).map((layer) => ({
+    layerId: layer.layerId,
+    data: collection(
+      layer.features.map((item) => feature(`idesc-${item.id}`, item.geometry, item.properties)),
+    ),
+    count: layer.count,
+  }));
 }
 
 /**
@@ -187,6 +197,7 @@ export function buildVectorData(
     ...osmContextData(analysis),
     protectedData(analysis),
     igacData(analysis),
+    ...idescData(analysis),
     ...mepydData(analysis),
   ]) {
     index.set(entry.layerId, entry);

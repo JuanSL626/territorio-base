@@ -45,6 +45,7 @@ import {
   type ProtectedAreasSummary,
   type AreaGeometry,
   type Bounds2D,
+  type CaliContextLayer,
   type DaneMunicipality,
   type Geometry,
   type IgacParcel,
@@ -107,7 +108,7 @@ export const SOURCE_DOWN_MESSAGES: Record<AnalysisSourceId, string> = {
   mepyd:
     'No se pudo consultar el contexto RD (MEPyD) — los servicios no respondieron. El resto del análisis sí se completó.',
   dane: 'No se pudo consultar DANE — el servicio no respondió. El resto del análisis sí se completó.',
-  igac: 'No se pudo consultar la base catastral pública del IGAC — el servicio no respondió. El resto del análisis sí se completó.',
+  igac: 'No se pudieron consultar las fuentes catastrales de Colombia — el servicio no respondió. El resto del análisis sí se completó.',
 };
 
 export const SOURCE_SERVICE_NAMES: Record<AnalysisSourceId, string> = {
@@ -117,7 +118,7 @@ export const SOURCE_SERVICE_NAMES: Record<AnalysisSourceId, string> = {
   'areas-protegidas': 'WDPA (UNEP-WCMC)',
   mepyd: 'MEPyD — Sistema de Información para la GRD y la AC',
   dane: 'DANE — DIVIPOLA y CNPV 2018',
-  igac: 'IGAC — Base Catastral Pública',
+  igac: 'Catastro Colombia — IGAC y gestores oficiales',
 };
 
 /**
@@ -233,6 +234,8 @@ export type AnalysisColombia = {
   parcels: IgacParcel[];
   cadastre_truncated: boolean;
   evidence: SourceEvidence[];
+  /** Capas oficiales adicionales de IDESC; ausente en análisis históricos y fuera de Cali. */
+  idesc_layers?: CaliContextLayer[];
 };
 
 export const EMPTY_COLOMBIA: AnalysisColombia = {
@@ -360,7 +363,7 @@ export type TerritorioAnalysisSummary = Omit<
   hydrology: { summary: HydrologySummary };
   protected_areas: { summary: ProtectedAreasSummary };
   mepyd_rd: { in_rd: boolean; summary: AnalysisMepydSummary; failures: MepydLayerFailure[] };
-  colombia: Omit<AnalysisColombia, 'parcels'> & {
+  colombia: Omit<AnalysisColombia, 'parcels' | 'idesc_layers'> & {
     parcels: Omit<IgacParcel, 'geometry'>[];
   };
 };
@@ -375,6 +378,7 @@ export function toSummary(analysis: TerritorioAnalysis): TerritorioAnalysisSumma
     colombia,
     ...rest
   } = analysis;
+  const { idesc_layers: _idescLayers, ...colombiaSummary } = colombia;
   return {
     ...rest,
     hydrology: { summary: hydrology.summary },
@@ -382,7 +386,7 @@ export function toSummary(analysis: TerritorioAnalysis): TerritorioAnalysisSumma
     protected_areas: { summary: protected_areas.summary },
     mepyd_rd: { in_rd: mepyd_rd.in_rd, summary: mepyd_rd.summary, failures: mepyd_rd.failures },
     colombia: {
-      ...colombia,
+      ...colombiaSummary,
       parcels: colombia.parcels.map(({ geometry: _parcelGeometry, ...parcel }) => parcel),
     },
   };
@@ -619,6 +623,22 @@ const igacParcelSchema: z.ZodType<IgacParcel> = z.object({
   geometry: geometrySchema,
 });
 
+const caliAttributeSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+const caliContextLayerSchema = z.object({
+  layerId: z.enum(['idesc-constructions', 'idesc-pot-activity', 'idesc-seismic-microzonation']),
+  label: z.string(),
+  count: z.number().int(),
+  features: z.array(
+    z.object({
+      id: z.string(),
+      properties: z.record(z.string(), caliAttributeSchema),
+      geometry: areaGeometrySchema,
+    }),
+  ),
+  truncated: z.boolean(),
+  error: z.string().nullable(),
+});
+
 export const territorioAnalysisSchema = z.object({
   id: z.string(),
   raster_job_id: z.string().nullable(),
@@ -710,6 +730,7 @@ export const territorioAnalysisSchema = z.object({
       parcels: z.array(igacParcelSchema),
       cadastre_truncated: z.boolean(),
       evidence: z.array(sourceEvidenceSchema),
+      idesc_layers: z.array(caliContextLayerSchema).optional(),
     })
     .default(EMPTY_COLOMBIA),
 

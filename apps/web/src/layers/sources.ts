@@ -160,18 +160,36 @@ export const SRC_MEPYD: SourceRef = {
 };
 
 export const SRC_IGAC: SourceRef = {
-  name: 'Datos catastrales públicos del IGAC',
-  provider: 'Instituto Geográfico Agustín Codazzi (IGAC)',
+  name: 'Datos catastrales públicos de Colombia',
+  provider: 'IGAC y gestores catastrales oficiales',
   url: 'https://mapas.igac.gov.co/server/rest/services/Dato_Fundamental_Catastro/MapServer',
-  vintage: 'Dato Fundamental modificado 09-09-2026; base Gestor 08-2026',
+  vintage: 'IGAC 2026; Cali según fecha de edición de IDESC',
   resolution: 'Vectorial predial',
-  coverage: 'Colombia; según cobertura de los servicios publicados',
-  license: 'Dato Fundamental: no publicada; base Gestor IGAC: CC BY 4.0',
-  citation: 'IGAC. Dato Fundamental Catastro y Base Catastral Pública del Gestor IGAC.',
+  coverage: 'Colombia según cobertura publicada; Cali mediante Catastro Municipal/IDESC',
+  license: 'Dato Fundamental e IDESC: no publicada; base Gestor IGAC: CC BY 4.0',
+  citation: 'IGAC. Datos catastrales públicos. Distrito de Santiago de Cali. IDESC Catastro.',
   method:
-    'Intersección del AOI con terrenos urbanos y rurales. Si la base del Gestor IGAC no cubre el AOI, se consulta el Dato Fundamental Catastro nacional y el área se calcula desde la geometría predial.',
+    'Intersección del AOI con terrenos urbanos y rurales. Se consulta IGAC y, cuando no cubre Cali, el WFS oficial de Catastro Municipal publicado por IDESC.',
   caveat:
-    'El Dato Fundamental no publica dirección, destino económico ni área construida. No incluye propietarios ni garantiza avalúo vigente.',
+    'Los atributos dependen de cada gestor. En Cali, las unidades de propiedad horizontal se consolidan por terreno. No incluye propietarios ni garantiza avalúo vigente.',
+};
+
+export const SRC_IDESC: SourceRef = {
+  name: 'Contexto territorial oficial de Santiago de Cali',
+  provider: 'Infraestructura de Datos Espaciales de Santiago de Cali (IDESC)',
+  url: 'https://ws-idesc.cali.gov.co/geoserver/wfs',
+  acquisition: 'Consulta WFS realizada al ejecutar el análisis',
+  vintage:
+    'Catastro según edición de la entidad; normativa POT 2014; demás capas según metadatos IDESC',
+  resolution: 'Vectorial',
+  coverage: 'Distrito de Santiago de Cali',
+  license: 'No publicada en el servicio WFS',
+  citation:
+    'Distrito de Santiago de Cali. Infraestructura de Datos Espaciales de Santiago de Cali.',
+  method:
+    'Consulta WFS 2.0 por el bbox del AOI, paginada y filtrada después por intersección geométrica exacta.',
+  caveat:
+    'Las capas POT son históricas y no sustituyen un concepto de uso del suelo, certificado catastral o estudio de riesgo vigente.',
 };
 
 export const SRC_AOI: SourceRef = {
@@ -199,4 +217,4 @@ export function isInRd(bbox: [number, number, number, number]): boolean {
   );
 }
 
-export const ATTRIBUTION_LINE = '© OpenStreetMap · Copernicus · ESA · UNEP-WCMC · MEPyD';
+export const ATTRIBUTION_LINE = '© OpenStreetMap · Copernicus · ESA · UNEP-WCMC · MEPyD · IDESC';

@@ -511,7 +511,7 @@ export function buildExportPlan(options: BuildExportPlanOptions): ExportPlan {
   artifacts.push({
     id: 'vector:igac',
     kind: 'vector',
-    label: 'Predios (IGAC)',
+    label: 'Predios catastrales',
     group: 'Catastro Colombia',
     formats: 'Shapefile + GeoJSON',
     selectable: igacReason === null && parcelCount > 0,

@@ -41,7 +41,7 @@ const VECTOR_THEMES = [
   {
     id: 'igac',
     label: 'Catastro Colombia',
-    step: 'Consultando la base catastral pública del IGAC',
+    step: 'Consultando fuentes catastrales públicas',
   },
 ] as const;
 

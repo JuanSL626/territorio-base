@@ -270,6 +270,34 @@ describe('buildVectorData', () => {
     });
   });
 
+  it('convierte las capas IDESC de Cali en capas consultables del mapa', () => {
+    const analysis = analysisWith({});
+    analysis.colombia.idesc_layers = [
+      {
+        layerId: 'idesc-pot-activity',
+        label: 'Áreas de actividad POT',
+        count: 1,
+        truncated: false,
+        error: null,
+        features: [
+          {
+            id: 'pot.1',
+            properties: { area_de_ac: 'AREA RESIDENCIAL', barrio: 'Ciudad Capri' },
+            geometry: AOI_GEOMETRY,
+          },
+        ],
+      },
+    ];
+
+    const entry = buildVectorData(analysis).get('idesc-pot-activity');
+    expect(entry?.count).toBe(1);
+    expect(entry?.data.features[0]?.properties).toMatchObject({
+      area_de_ac: 'AREA RESIDENCIAL',
+      barrio: 'Ciudad Capri',
+      [FEATURE_ID_KEY]: 'idesc-pot.1',
+    });
+  });
+
   it('MEPyD se indexa por el id del registro y copia sus atributos dinámicos', () => {
     const layerId = mepydLayerId(mepydDef.group, mepydDef.label);
     const entry = data.get(layerId);

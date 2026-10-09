@@ -857,9 +857,9 @@ export function ColombiaSection({
 
       {igacStatus?.state === 'not_covered' ? (
         <NoDataCard
-          title="Fuera de cobertura del gestor IGAC"
-          reason="El municipio usa un gestor catastral distinto del IGAC; no se interpreta como ausencia de predios."
-          service="IGAC — Base Catastral Pública"
+          title="Fuera de cobertura catastral"
+          reason="El municipio usa un gestor catastral que aún no está integrado; no se interpreta como ausencia de predios."
+          service="Fuentes catastrales públicas"
         />
       ) : (
         <MetricCard
@@ -876,7 +876,9 @@ export function ColombiaSection({
             stats={[{ label: 'Predios encontrados', value: formatNumber(parcels.length, 0) }]}
           />
           {parcels.length === 0 ? (
-            <p className="text-12 text-fg-muted mt-3">IGAC respondió sin predios para este AOI.</p>
+            <p className="text-12 text-fg-muted mt-3">
+              Las fuentes catastrales respondieron sin predios para este AOI.
+            </p>
           ) : (
             <ul className="mt-3 flex flex-col gap-1">
               {parcels.slice(0, 20).map((parcel) => (

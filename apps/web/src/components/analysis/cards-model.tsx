@@ -209,7 +209,7 @@ export function buildAnalysisCards({ analysis, onRetry }: BuildCardsInput): Anal
                     ? 'Municipio no determinado'
                     : `${municipality.name}, ${municipality.departmentName}`
                 }
-                note={`${String(analysis.colombia.parcels.length)} predio(s) IGAC · DIVIPOLA ${municipality?.code ?? '—'}`}
+                note={`${String(analysis.colombia.parcels.length)} predio(s) catastral(es) · DIVIPOLA ${municipality?.code ?? '—'}`}
               />
             ),
           }

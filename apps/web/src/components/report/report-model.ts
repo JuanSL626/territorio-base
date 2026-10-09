@@ -282,8 +282,8 @@ export function buildSections(
         basemap: 'light',
         caption:
           analysis.colombia.parcels.length > 0
-            ? 'Predios de la base catastral pública del gestor IGAC dentro del AOI.'
-            : 'DANE resolvió el territorio; IGAC no devolvió predios para este AOI.',
+            ? 'Predios de fuentes catastrales públicas oficiales dentro del AOI.'
+            : 'DANE resolvió el territorio; las fuentes catastrales no devolvieron predios.',
         fly,
       }),
     });
