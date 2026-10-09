@@ -18,7 +18,9 @@ import {
   createAoi,
   MEPYD_LAYERS_FLAT,
   type Aoi,
+  type DaneContext,
   type HydrologyFeature,
+  type IgacCadastre,
   type MepydLayerDef,
   type MepydResult,
   type ProtectedAreaFeature,
@@ -71,6 +73,19 @@ const AOI_OUTSIDE_RD: AreaGeometry = {
       [-84.09, 9.91],
       [-84.1, 9.91],
       [-84.1, 9.9],
+    ],
+  ],
+};
+
+const AOI_COLOMBIA: AreaGeometry = {
+  type: 'Polygon',
+  coordinates: [
+    [
+      [-75.456, 5.609],
+      [-75.455, 5.609],
+      [-75.455, 5.61],
+      [-75.456, 5.61],
+      [-75.456, 5.609],
     ],
   ],
 };
@@ -134,6 +149,51 @@ const MEPYD_OK: MepydResult = {
     },
   ],
   failures: [],
+};
+
+const DANE_OK: DaneContext = {
+  inColombia: true,
+  municipalities: [
+    {
+      code: '17013',
+      municipalityCode: '013',
+      departmentCode: '17',
+      name: 'AGUADAS',
+      departmentName: 'CALDAS',
+      kind: 'MUNICIPIO',
+      areaKm2: 475.57,
+      geographicVersion: 2024,
+      census2018: {
+        population: 20_712,
+        households: 6_955,
+        dwellings: 8_617,
+        electricityAccessPct: 99.21,
+        aqueductAccessPct: 78.77,
+        sewerAccessPct: 58.76,
+        internetAccessPct: 14.92,
+      },
+    },
+  ],
+  evidence: [],
+};
+
+const IGAC_OK: IgacCadastre = {
+  inColombia: true,
+  parcels: [
+    {
+      code: '170130100000000630029000000000',
+      previousCode: '17013010000630029000',
+      municipalityCode: '17013',
+      address: 'C 12 4 51',
+      economicDestination: 'A',
+      landAreaM2: 216,
+      builtAreaM2: 600,
+      zone: 'urban',
+      geometry: NEARBY_POLYGON,
+    },
+  ],
+  truncated: false,
+  evidence: [],
 };
 
 const RASTER_RESULT: AnalysisJob = {
@@ -217,6 +277,8 @@ function vector(overrides: Partial<VectorOutcomes> = {}): VectorOutcomes {
 
     protectedAreas: up(PROTECTED_AREAS),
     mepyd: up(MEPYD_OK),
+    dane: up(DANE_OK),
+    igac: up(IGAC_OK),
     ...overrides,
   };
 }
@@ -301,6 +363,24 @@ describe('mergeAnalysis — el camino completo', () => {
     expect('street_context' in result).toBe(false);
     expect(result.status).toBe('ok');
   });
+
+  it('integra municipio, CNPV 2018 y predios en el resultado', () => {
+    const result = merge({ aoi: createAoi(AOI_COLOMBIA) });
+
+    expect(result.colombia.in_colombia).toBe(true);
+    expect(result.colombia.municipalities[0]).toMatchObject({
+      code: '17013',
+      name: 'AGUADAS',
+      census2018: { population: 20_712, internetAccessPct: 14.92 },
+    });
+    expect(result.colombia.parcels[0]).toMatchObject({
+      code: '170130100000000630029000000000',
+      address: 'C 12 4 51',
+      landAreaM2: 216,
+    });
+    expect(findSource(result, 'dane')).toMatchObject({ state: 'ok', found: 1 });
+    expect(findSource(result, 'igac')).toMatchObject({ state: 'ok', found: 1 });
+  });
 });
 
 type Flags = { hydrology: boolean; protectedAreas: boolean; mepyd: boolean };
@@ -318,6 +398,8 @@ function outcomesFor(flags: Flags): VectorOutcomes {
       ? up(PROTECTED_AREAS)
       : down('El FeatureServer de WDPA no respondió'),
     mepyd: flags.mepyd ? up(MEPYD_OK) : down('El portal del MEPyD no respondió'),
+    dane: up(DANE_OK),
+    igac: up(IGAC_OK),
   };
 }
 

@@ -14,6 +14,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   DEFAULT_ANALYSIS_PARAMS,
+  EMPTY_COLOMBIA,
   SOURCE_SERVICE_NAMES,
   type TerritorioAnalysis,
 } from './analysis-contract';
@@ -105,6 +106,7 @@ function analysisFixture(): TerritorioAnalysis {
       failures: [],
       geometries_omitted: false,
     },
+    colombia: EMPTY_COLOMBIA,
     provenance: {},
     layers: [
       {

@@ -89,6 +89,22 @@ function protectedData(analysis: TerritorioAnalysis): VectorLayerData {
   return { layerId: 'wdpa', data: collection(features), count: features.length };
 }
 
+function igacData(analysis: TerritorioAnalysis): VectorLayerData {
+  const features = analysis.colombia.parcels.map((parcel) =>
+    feature(`igac-${parcel.code}`, parcel.geometry, {
+      code: parcel.code,
+      previous_code: parcel.previousCode,
+      municipality_code: parcel.municipalityCode,
+      address: parcel.address,
+      economic_destination: parcel.economicDestination,
+      land_area_m2: parcel.landAreaM2,
+      built_area_m2: parcel.builtAreaM2,
+      zone: parcel.zone,
+    }),
+  );
+  return { layerId: 'igac-parcels', data: collection(features), count: features.length };
+}
+
 /**
  * Un `FeatureCollection` por capa MEPyD, con el id del registro
  * (`mepyd:<grupo>/<capa>`) como clave. Si `geometries_omitted` es `true` el
@@ -127,6 +143,7 @@ export function buildVectorData(
     aoiData(analysis),
     hydrologyData(analysis),
     protectedData(analysis),
+    igacData(analysis),
     ...mepydData(analysis),
   ]) {
     index.set(entry.layerId, entry);

@@ -36,6 +36,7 @@ import {
   SRC_AOI,
   SRC_AQUEDUCT,
   SRC_COPERNICUS_DEM,
+  SRC_IGAC,
   SRC_OSM_HYDRO,
   SRC_SENTINEL2,
   SRC_SLOPE,
@@ -58,6 +59,7 @@ export const GROUP_ORDER = [
   'Hidrología',
   'Áreas protegidas',
   'Riesgo costero',
+  'Catastro Colombia',
   'Contexto RD (MEPyD)',
 ] as const;
 
@@ -354,6 +356,35 @@ const COASTAL_LAYERS: LayerDef[] = [
   },
 ];
 
+const COLOMBIA_LAYERS: LayerDef[] = [
+  {
+    id: 'igac-parcels',
+    label: 'Predios (IGAC)',
+    group: 'Catastro Colombia',
+    themes: ['topografia'],
+    kind: 'vector-polygon',
+    role: 'contexto',
+    defaultOn: false,
+    defaultOpacity: 0.75,
+    legend: { type: 'swatch', color: '#f59e0b', fillFactor: 0.18, label: 'Predio IGAC' },
+    source: SRC_IGAC,
+    popup: {
+      title: '{address}',
+      subtitle: 'Predio {code}',
+      fields: [
+        { key: 'code', alias: 'Código predial', format: 'text' },
+        { key: 'address', alias: 'Dirección', format: 'text' },
+        { key: 'economic_destination', alias: 'Destino económico', format: 'text' },
+        { key: 'land_area_m2', alias: 'Área del terreno (m²)', format: 'number', decimals: 1 },
+        { key: 'built_area_m2', alias: 'Área construida (m²)', format: 'number', decimals: 1 },
+      ],
+      hiddenByDefault: true,
+    },
+    exports: ['shp', 'geojson'],
+    removable: false,
+  },
+];
+
 export const LAYER_REGISTRY: LayerDef[] = [
   AOI_LAYER,
   ...TOPOGRAPHY_LAYERS,
@@ -361,6 +392,7 @@ export const LAYER_REGISTRY: LayerDef[] = [
   ...HYDROLOGY_LAYERS,
   ...PROTECTED_LAYERS,
   ...COASTAL_LAYERS,
+  ...COLOMBIA_LAYERS,
   ...MEPYD_LAYERS,
 ];
 

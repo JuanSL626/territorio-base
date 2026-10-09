@@ -288,6 +288,8 @@ export function buildSummaryRows(analysis: TerritorioAnalysis): SummaryRow[] {
   const OSM = 'OpenStreetMap vía Overpass API';
   const WDPA = 'WDPA — UNEP-WCMC';
   const MEPYD = 'MEPyD — Sistema de Información para la GRD y la AC';
+  const DANE = 'DANE — DIVIPOLA / CNPV 2018';
+  const IGAC = 'IGAC — Base Catastral Pública';
   const AQUEDUCT = 'WRI Aqueduct Floods v2';
 
   rows.push(
@@ -539,6 +541,48 @@ export function buildSummaryRows(analysis: TerritorioAnalysis): SummaryRow[] {
       valor: 'WDPA no respondió durante el análisis.',
       unidad: '',
       fuente: WDPA,
+    });
+  }
+
+  if (analysis.colombia.in_colombia) {
+    for (const municipality of analysis.colombia.municipalities) {
+      rows.push({
+        tema: 'Colombia',
+        indicador: 'Municipio',
+        valor: `${municipality.name}, ${municipality.departmentName}`,
+        unidad: `DIVIPOLA ${municipality.code}`,
+        fuente: DANE,
+      });
+      const census = municipality.census2018;
+      if (census !== null) {
+        const indicators: [string, number | null, string][] = [
+          ['Población CNPV 2018', census.population, 'personas'],
+          ['Hogares CNPV 2018', census.households, 'hogares'],
+          ['Viviendas CNPV 2018', census.dwellings, 'viviendas'],
+          ['Acceso a electricidad', census.electricityAccessPct, '%'],
+          ['Acceso a acueducto', census.aqueductAccessPct, '%'],
+          ['Acceso a alcantarillado', census.sewerAccessPct, '%'],
+          ['Acceso a internet', census.internetAccessPct, '%'],
+        ];
+        for (const [indicator, value, unit] of indicators) {
+          if (value !== null) {
+            rows.push({
+              tema: 'Colombia',
+              indicador: indicator,
+              valor: formatNumber(value, unit === '%' ? 2 : 0),
+              unidad: unit,
+              fuente: DANE,
+            });
+          }
+        }
+      }
+    }
+    rows.push({
+      tema: 'Colombia',
+      indicador: 'Predios IGAC encontrados',
+      valor: formatNumber(analysis.colombia.parcels.length, 0),
+      unidad: 'predios',
+      fuente: IGAC,
     });
   }
 
@@ -819,6 +863,53 @@ export function buildReportMarkdown(options: ReportOptions): string {
           (area) =>
             `| ${area.name ?? '(sin nombre)'} | ${area.desig ?? '—'} | ${area.iucn_cat ?? '—'} | ${area.status ?? '—'} | ${formatHectares(area.overlap_ha, 2)} | ${formatNumber(area.distance_m, 0)} m |`,
         ),
+        '',
+      );
+    }
+  }
+
+  if (wants(sections, 'colombia') && analysis.colombia.in_colombia) {
+    lines.push('## Colombia — catastro y contexto socioeconómico', '');
+    if (analysis.colombia.municipalities.length === 0) {
+      lines.push('DANE no devolvió un municipio DIVIPOLA para el AOI.', '');
+    }
+    for (const municipality of analysis.colombia.municipalities) {
+      lines.push(
+        `### ${municipality.name}, ${municipality.departmentName} — DIVIPOLA ${municipality.code}`,
+        '',
+      );
+      const census = municipality.census2018;
+      if (census === null) {
+        lines.push('Sin indicadores CNPV 2018.', '');
+      } else {
+        lines.push(
+          `- Población: **${census.population === null ? '—' : formatNumber(census.population, 0)}**.`,
+          `- Hogares: **${census.households === null ? '—' : formatNumber(census.households, 0)}**.`,
+          `- Viviendas: **${census.dwellings === null ? '—' : formatNumber(census.dwellings, 0)}**.`,
+          `- Acceso a acueducto: **${census.aqueductAccessPct === null ? '—' : formatPercent(census.aqueductAccessPct, 2)}**.`,
+          `- Acceso a alcantarillado: **${census.sewerAccessPct === null ? '—' : formatPercent(census.sewerAccessPct, 2)}**.`,
+          `- Acceso a internet: **${census.internetAccessPct === null ? '—' : formatPercent(census.internetAccessPct, 2)}**.`,
+          '',
+        );
+      }
+    }
+
+    const igac = analysis.sources.find((source) => source.id === 'igac');
+    if (igac?.state === 'not_covered') {
+      lines.push(
+        '**IGAC:** el municipio usa un gestor catastral distinto; no se interpreta como ausencia de predios.',
+        '',
+      );
+    } else if (igac?.state === 'error') {
+      lines.push(...unavailableBlock(igac.error ?? 'IGAC no respondió durante el análisis.'));
+    } else {
+      lines.push(
+        `**Predios IGAC encontrados:** ${formatNumber(analysis.colombia.parcels.length, 0)}.`,
+        analysis.colombia.cadastre_truncated
+          ? 'El resultado es parcial porque alcanzó el límite de consulta.'
+          : 'La consulta no alcanzó el límite de resultados.',
+        '',
+        '> La base pública no incluye propietarios ni garantiza avalúo catastral individual vigente.',
         '',
       );
     }

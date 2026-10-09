@@ -15,6 +15,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   DEFAULT_ANALYSIS_PARAMS,
+  EMPTY_COLOMBIA,
   SOURCE_SERVICE_NAMES,
   type SourceStatus,
   type TerritorioAnalysis,
@@ -209,6 +210,7 @@ function analysisFixture(overrides: Partial<TerritorioAnalysis> = {}): Territori
       failures: [],
       geometries_omitted: false,
     },
+    colombia: EMPTY_COLOMBIA,
 
     provenance: { dem_source: 'cop-dem-glo-30', sentinel2_scene_count: 6 },
     layers: [
@@ -565,6 +567,62 @@ describe('documentos del bundle', () => {
 
     const elevation = rows.find((row) => row.includes('Elevación media'));
     expect(elevation).toContain('Copernicus DEM GLO-30');
+  });
+
+  it('exporta el contexto DANE y los predios IGAC del análisis colombiano', () => {
+    const analysis = analysisFixture({
+      colombia: {
+        in_colombia: true,
+        municipalities: [
+          {
+            code: '17013',
+            municipalityCode: '013',
+            departmentCode: '17',
+            departmentName: 'Caldas',
+            name: 'Aguadas',
+            kind: 'Municipio',
+            areaKm2: null,
+            geographicVersion: 2025,
+            census2018: {
+              population: 20_712,
+              households: 6_955,
+              dwellings: 8_617,
+              electricityAccessPct: 99.21,
+              aqueductAccessPct: 78.77,
+              sewerAccessPct: 58.76,
+              internetAccessPct: 14.92,
+            },
+          },
+        ],
+        parcels: [
+          {
+            code: '170130100000000630029000000000',
+            previousCode: null,
+            municipalityCode: '17013',
+            address: 'C 12 4 51',
+            economicDestination: 'Habitacional',
+            landAreaM2: 216,
+            builtAreaM2: 600,
+            zone: 'urban',
+            geometry: { type: 'Point', coordinates: [-75.4557, 5.6096] },
+          },
+        ],
+        cadastre_truncated: false,
+        evidence: [],
+      },
+      sources: [source('dane'), source('igac')],
+    });
+
+    expect(buildSummaryCsv(analysis)).toContain('Aguadas, Caldas');
+    expect(
+      buildReportMarkdown({
+        analysis,
+        sections: ['colombia'],
+        aoiName: 'Aguadas',
+        generatedAt,
+      }),
+    ).toContain('## Colombia — catastro y contexto socioeconómico');
+    expect(byId(analysis, 'vector:igac')).toMatchObject({ selectable: true, datasetId: 'igac' });
   });
 
   it('el reporte incluye la costera, que el legacy nunca metía en el Markdown', () => {

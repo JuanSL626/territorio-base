@@ -260,6 +260,8 @@ export async function startRun(input: StartRunInput): Promise<{ analysisId: stri
       hidrologia: 'pending',
       'areas-protegidas': 'pending',
       mepyd: 'pending',
+      dane: 'pending',
+      igac: 'pending',
     },
     error: null,
     finished: false,
@@ -294,6 +296,8 @@ export async function startRun(input: StartRunInput): Promise<{ analysisId: stri
             run.sources.hidrologia = outcomes.hydrology.available ? 'ok' : 'error';
             run.sources['areas-protegidas'] = outcomes.protectedAreas.available ? 'ok' : 'error';
             run.sources.mepyd = outcomes.mepyd.available ? 'ok' : 'error';
+            run.sources.dane = outcomes.dane.available ? 'ok' : 'error';
+            run.sources.igac = outcomes.igac.available ? 'ok' : 'error';
             return outcomes;
           },
         ),

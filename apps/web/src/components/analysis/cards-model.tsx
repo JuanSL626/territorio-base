@@ -44,6 +44,8 @@ const SOURCE_THEME: Record<AnalysisSourceId, ThemeId> = {
   hidrologia: 'hidrologia',
   'areas-protegidas': 'areas-protegidas',
   mepyd: 'riesgo-rd',
+  dane: 'topografia',
+  igac: 'topografia',
 };
 
 function Metric({ value, note }: { value: string; note?: string }) {
@@ -150,6 +152,40 @@ export function buildAnalysisCards({ analysis, onRetry }: BuildCardsInput): Anal
             content: null,
             failure: {
               reason: failed.error ?? 'Los servicios del MEPyD no respondieron.',
+              service: failed.service,
+              onRetry,
+            },
+          },
+    );
+  }
+
+  if (analysis.colombia.in_colombia) {
+    const municipality = analysis.colombia.municipalities[0];
+    const failed = down.get('dane') ?? down.get('igac');
+    cards.push(
+      failed === undefined
+        ? {
+            id: 'colombia',
+            theme: 'topografia',
+            title: 'Catastro y contexto socioeconómico',
+            content: (
+              <Metric
+                value={
+                  municipality === undefined
+                    ? 'Municipio no determinado'
+                    : `${municipality.name}, ${municipality.departmentName}`
+                }
+                note={`${String(analysis.colombia.parcels.length)} predio(s) IGAC · DIVIPOLA ${municipality?.code ?? '—'}`}
+              />
+            ),
+          }
+        : {
+            id: 'colombia',
+            theme: 'topografia',
+            title: 'Catastro y contexto socioeconómico',
+            content: null,
+            failure: {
+              reason: failed.error ?? 'La fuente no respondió.',
               service: failed.service,
               onRetry,
             },

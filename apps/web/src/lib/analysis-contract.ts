@@ -45,7 +45,10 @@ import {
   type ProtectedAreasSummary,
   type AreaGeometry,
   type Bounds2D,
+  type DaneMunicipality,
   type Geometry,
+  type IgacParcel,
+  type SourceEvidence,
 } from '@territorio/geo';
 
 /**
@@ -56,11 +59,18 @@ import {
  * reporta en `topography.available` / `vegetation.ndvi_available` /
  * `vegetation.worldcover_available`.
  */
-export const ANALYSIS_SOURCE_IDS = ['raster', 'hidrologia', 'areas-protegidas', 'mepyd'] as const;
+export const ANALYSIS_SOURCE_IDS = [
+  'raster',
+  'hidrologia',
+  'areas-protegidas',
+  'mepyd',
+  'dane',
+  'igac',
+] as const;
 export type AnalysisSourceId = (typeof ANALYSIS_SOURCE_IDS)[number];
 
 /** El vocabulario del design brief §0.5, menos `pending` (que no se persiste). */
-export const SOURCE_STATES = ['ok', 'empty', 'error', 'skipped'] as const;
+export const SOURCE_STATES = ['ok', 'empty', 'not_covered', 'error', 'skipped'] as const;
 export type SourceState = (typeof SOURCE_STATES)[number];
 
 export type SourceStatus = {
@@ -93,6 +103,8 @@ export const SOURCE_DOWN_MESSAGES: Record<AnalysisSourceId, string> = {
     'No se pudo consultar áreas protegidas (WDPA) — el servicio no respondió. El resto del análisis sí se completó.',
   mepyd:
     'No se pudo consultar el contexto RD (MEPyD) — los servicios no respondieron. El resto del análisis sí se completó.',
+  dane: 'No se pudo consultar DANE — el servicio no respondió. El resto del análisis sí se completó.',
+  igac: 'No se pudo consultar la base catastral pública del IGAC — el servicio no respondió. El resto del análisis sí se completó.',
 };
 
 export const SOURCE_SERVICE_NAMES: Record<AnalysisSourceId, string> = {
@@ -100,6 +112,8 @@ export const SOURCE_SERVICE_NAMES: Record<AnalysisSourceId, string> = {
   hidrologia: 'Overpass API (OpenStreetMap)',
   'areas-protegidas': 'WDPA (UNEP-WCMC)',
   mepyd: 'MEPyD — Sistema de Información para la GRD y la AC',
+  dane: 'DANE — DIVIPOLA y CNPV 2018',
+  igac: 'IGAC — Base Catastral Pública',
 };
 
 /**
@@ -172,6 +186,22 @@ export type MepydLayerSummaryEntry = { count: number; features: MepydAttributes[
 
 /** `{ "<grupo>": { "<capa>": { count, features } } }` — inventario §3. */
 export type AnalysisMepydSummary = Record<string, Record<string, MepydLayerSummaryEntry>>;
+
+export type AnalysisColombia = {
+  in_colombia: boolean;
+  municipalities: DaneMunicipality[];
+  parcels: IgacParcel[];
+  cadastre_truncated: boolean;
+  evidence: SourceEvidence[];
+};
+
+export const EMPTY_COLOMBIA: AnalysisColombia = {
+  in_colombia: false,
+  municipalities: [],
+  parcels: [],
+  cadastre_truncated: false,
+  evidence: [],
+};
 
 /** Una capa MEPyD con sus features. El esquema de atributos es dinámico (§6). */
 export type MepydLayerGeo = {
@@ -266,6 +296,7 @@ export type TerritorioAnalysis = {
      */
     geometries_omitted: boolean;
   };
+  colombia: AnalysisColombia;
 
   provenance: Provenance;
   /** Capas raster que esta corrida produjo de verdad. Maneja el §7.2 "Datos". */
@@ -279,21 +310,35 @@ export type TerritorioAnalysis = {
 /** Sólo lo que el reporte necesita: sin geometrías. Para listados y SSR liviano. */
 export type TerritorioAnalysisSummary = Omit<
   TerritorioAnalysis,
-  'hydrology' | 'protected_areas' | 'mepyd_rd' | 'aoi_geometry'
+  'hydrology' | 'protected_areas' | 'mepyd_rd' | 'colombia' | 'aoi_geometry'
 > & {
   hydrology: { summary: HydrologySummary };
   protected_areas: { summary: ProtectedAreasSummary };
   mepyd_rd: { in_rd: boolean; summary: AnalysisMepydSummary; failures: MepydLayerFailure[] };
+  colombia: Omit<AnalysisColombia, 'parcels'> & {
+    parcels: Omit<IgacParcel, 'geometry'>[];
+  };
 };
 
 export function toSummary(analysis: TerritorioAnalysis): TerritorioAnalysisSummary {
-  const { aoi_geometry: _geometry, hydrology, protected_areas, mepyd_rd, ...rest } = analysis;
+  const {
+    aoi_geometry: _geometry,
+    hydrology,
+    protected_areas,
+    mepyd_rd,
+    colombia,
+    ...rest
+  } = analysis;
   return {
     ...rest,
     hydrology: { summary: hydrology.summary },
 
     protected_areas: { summary: protected_areas.summary },
     mepyd_rd: { in_rd: mepyd_rd.in_rd, summary: mepyd_rd.summary, failures: mepyd_rd.failures },
+    colombia: {
+      ...colombia,
+      parcels: colombia.parcels.map(({ geometry: _parcelGeometry, ...parcel }) => parcel),
+    },
   };
 }
 
@@ -422,6 +467,56 @@ const mepydSummarySchema: z.ZodType<AnalysisMepydSummary> = z.record(
   ),
 );
 
+const sourceEvidenceSchema: z.ZodType<SourceEvidence> = z.object({
+  authority: z.string(),
+  accessProvider: z.string(),
+  sourceId: z.string(),
+  endpoint: z.string(),
+  sourceVersion: z.string(),
+  queriedAt: z.string(),
+  sourceUpdatedAt: z.string().nullable(),
+  coverage: z.enum(['national', 'partial', 'regional']),
+  license: z.string().nullable(),
+  crs: z.string(),
+  query: z.record(z.string(), z.string()),
+  payloadHash: z.string(),
+  warnings: z.array(z.string()),
+});
+
+const daneMunicipalitySchema: z.ZodType<DaneMunicipality> = z.object({
+  code: z.string(),
+  municipalityCode: z.string(),
+  departmentCode: z.string(),
+  name: z.string(),
+  departmentName: z.string(),
+  kind: z.string().nullable(),
+  areaKm2: z.number().nullable(),
+  geographicVersion: z.number().nullable(),
+  census2018: z
+    .object({
+      population: z.number().nullable(),
+      households: z.number().nullable(),
+      dwellings: z.number().nullable(),
+      electricityAccessPct: z.number().nullable(),
+      aqueductAccessPct: z.number().nullable(),
+      sewerAccessPct: z.number().nullable(),
+      internetAccessPct: z.number().nullable(),
+    })
+    .nullable(),
+});
+
+const igacParcelSchema: z.ZodType<IgacParcel> = z.object({
+  code: z.string(),
+  previousCode: z.string().nullable(),
+  municipalityCode: z.string().nullable(),
+  address: z.string().nullable(),
+  economicDestination: z.string().nullable(),
+  landAreaM2: z.number().nullable(),
+  builtAreaM2: z.number().nullable(),
+  zone: z.enum(['urban', 'rural']),
+  geometry: geometrySchema,
+});
+
 export const territorioAnalysisSchema = z.object({
   id: z.string(),
   raster_job_id: z.string().nullable(),
@@ -490,6 +585,15 @@ export const territorioAnalysisSchema = z.object({
     failures: z.array(z.object({ group: z.string(), label: z.string(), reason: z.string() })),
     geometries_omitted: z.boolean(),
   }),
+  colombia: z
+    .object({
+      in_colombia: z.boolean(),
+      municipalities: z.array(daneMunicipalitySchema),
+      parcels: z.array(igacParcelSchema),
+      cadastre_truncated: z.boolean(),
+      evidence: z.array(sourceEvidenceSchema),
+    })
+    .default(EMPTY_COLOMBIA),
 
   provenance: provenanceSchema,
   layers: z.array(layerAvailabilitySchema),

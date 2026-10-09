@@ -33,6 +33,16 @@ const VECTOR_THEMES = [
     label: 'Contexto RD (MEPyD)',
     step: 'Consultando las capas del MEPyD',
   },
+  {
+    id: 'dane',
+    label: 'Contexto socioeconómico',
+    step: 'Resolviendo municipio y CNPV 2018 en DANE',
+  },
+  {
+    id: 'igac',
+    label: 'Catastro Colombia',
+    step: 'Consultando la base catastral pública del IGAC',
+  },
 ] as const;
 
 const RASTER_THEME_LABEL = 'Topografía y vegetación';
@@ -51,6 +61,7 @@ export function stepStateOf(
   switch (state) {
     case 'ok':
     case 'empty':
+    case 'not_covered':
     case 'skipped':
       return 'done';
     case 'error':

@@ -23,7 +23,8 @@ import {
 import { StaticMap } from './static-map';
 
 import type { AreaGeometry } from '@territorio/geo';
-import type { TerritorioAnalysisSummary } from '~/lib/analysis-contract';
+
+import { EMPTY_COLOMBIA, type TerritorioAnalysisSummary } from '~/lib/analysis-contract';
 
 const AOI: AreaGeometry = {
   type: 'Polygon',
@@ -107,6 +108,7 @@ function base(): TerritorioAnalysisSummary {
       },
     },
     mepyd_rd: { in_rd: false, summary: {}, failures: [] },
+    colombia: EMPTY_COLOMBIA,
     provenance: {},
     layers: [],
     sources: [],

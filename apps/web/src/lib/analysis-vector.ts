@@ -20,10 +20,14 @@
  */
 import {
   fetchAllMepyd,
+  fetchDaneContext,
   fetchHydrology,
+  fetchIgacCadastre,
   fetchProtectedAreas,
   type Aoi,
+  type DaneContext,
   type HydrologyFeature,
+  type IgacCadastre,
   type MepydResult,
   type ProtectedAreaFeature,
   type SourceOutcome,
@@ -38,6 +42,8 @@ export type RunVectorSourcesOptions = {
     hydrology: () => Promise<readonly HydrologyFeature[]>;
     protectedAreas: () => Promise<readonly ProtectedAreaFeature[]>;
     mepyd: () => Promise<MepydResult>;
+    dane: () => Promise<DaneContext>;
+    igac: () => Promise<IgacCadastre>;
   }>;
 };
 
@@ -64,7 +70,7 @@ export async function runVectorSources(
   const signal = options.signal;
   const overrides = options.overrides ?? {};
 
-  const [hydrology, protectedAreas, mepyd] = await Promise.all([
+  const [hydrology, protectedAreas, mepyd, dane, igac] = await Promise.all([
     isolate(async () =>
       overrides.hydrology === undefined
         ? await fetchHydrology(aoi, { signal })
@@ -81,7 +87,17 @@ export async function runVectorSources(
         ? await fetchAllMepyd(aoi, { signal })
         : await overrides.mepyd(),
     ),
+    isolate(async () =>
+      overrides.dane === undefined
+        ? await fetchDaneContext(aoi, { signal })
+        : await overrides.dane(),
+    ),
+    isolate(async () =>
+      overrides.igac === undefined
+        ? await fetchIgacCadastre(aoi, { signal })
+        : await overrides.igac(),
+    ),
   ]);
 
-  return { hydrology, protectedAreas, mepyd };
+  return { hydrology, protectedAreas, mepyd, dane, igac };
 }

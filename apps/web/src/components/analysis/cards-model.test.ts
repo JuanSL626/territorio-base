@@ -14,6 +14,8 @@ import {
   MEPYD_LAYERS_FLAT,
   type Aoi,
   type AreaGeometry,
+  type DaneContext,
+  type IgacCadastre,
   type MepydLayerDef,
   type MepydResult,
   type SourceOutcome,
@@ -125,6 +127,8 @@ function build(
     hydrology: up([]),
     protectedAreas: up([]),
     mepyd: up(mepydResult(true)),
+    dane: up<DaneContext>({ inColombia: false, municipalities: [], evidence: [] }),
+    igac: up<IgacCadastre>({ inColombia: false, parcels: [], truncated: false, evidence: [] }),
     ...options.vector,
   };
   return mergeAnalysis({
