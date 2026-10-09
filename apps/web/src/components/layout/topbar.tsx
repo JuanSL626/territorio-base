@@ -2,7 +2,7 @@ import type { ThemeId } from '~/layers/types';
 import type { Vista } from '~/layers/vistas';
 
 import { Button, IconButton } from '~/components/ui/button';
-import { ChevronDown, DownloadIcon, ReportIcon, UserIcon } from '~/components/ui/icons';
+import { ChevronDown, CloseIcon, DownloadIcon, ReportIcon, UserIcon } from '~/components/ui/icons';
 import { Popover } from '~/components/ui/popover';
 import { SegmentedControl } from '~/components/ui/segmented-control';
 import { Select } from '~/components/ui/select';
@@ -148,7 +148,6 @@ export function Topbar({
                 ['ver', 'Ver límites'],
                 ['reemplazar', 'Reemplazar'],
                 ['descargar', 'Descargar AOI'],
-                ['borrar', 'Borrar'],
               ] as const
             ).map(([action, label]) => (
               <li key={action}>
@@ -165,6 +164,18 @@ export function Topbar({
             ))}
           </ul>
         </Popover>
+
+        {hasAoi ? (
+          <IconButton
+            label="Eliminar AOI y reiniciar análisis"
+            variant="secondary"
+            icon={<CloseIcon size={14} />}
+            className="[@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11"
+            onClick={() => {
+              onAoiAction('borrar');
+            }}
+          />
+        ) : null}
 
         <Button
           variant="secondary"
