@@ -210,7 +210,11 @@ describe('IGAC — base catastral pública', () => {
     const fetchImpl: FetchLike = async (url, init) => {
       const params = form(init);
       if (url.includes('/7/query')) {
+        if (params.get('returnIdsOnly') === 'true') {
+          return await jsonResponse({ objectIdFieldName: 'OBJECTID', objectIds: [7] });
+        }
         expect(params.get('f')).toBe('geojson');
+        expect(params.get('objectIds')).toBe('7');
         return await jsonResponse({
           type: 'FeatureCollection',
           properties: { exceededTransferLimit: false },
@@ -240,11 +244,8 @@ describe('IGAC — base catastral pública', () => {
         });
       }
       if (url.includes('/14/query')) {
-        return await jsonResponse({
-          type: 'FeatureCollection',
-          properties: { exceededTransferLimit: false },
-          features: [],
-        });
+        expect(params.get('returnIdsOnly')).toBe('true');
+        return await jsonResponse({ objectIdFieldName: 'OBJECTID', objectIds: [] });
       }
 
       expect(url).toContain('/17/query');
@@ -291,35 +292,67 @@ describe('IGAC — base catastral pública', () => {
     expect(result.evidence[0]?.payloadHash).toMatch(/^[a-f0-9]{64}$/);
   });
 
-  it('marca el resultado como truncado cuando ArcGIS anuncia más registros', async () => {
-    const fetchImpl: FetchLike = async (url) => {
+  it('pagina todos los predios del AOI en vez de cortar en 500', async () => {
+    const ids = Array.from({ length: 501 }, (_, index) => index + 1);
+    let featureRequests = 0;
+    const fetchImpl: FetchLike = async (url, init) => {
       if (url.includes('/17/query')) return await jsonResponse({ features: [] });
+      const params = form(init);
+      if (url.includes('/14/query')) {
+        return await jsonResponse({ objectIdFieldName: 'OBJECTID', objectIds: [] });
+      }
+      if (params.get('returnIdsOnly') === 'true') {
+        return await jsonResponse({ objectIdFieldName: 'OBJECTID', objectIds: ids });
+      }
+      featureRequests += 1;
+      const pageIds = (params.get('objectIds') ?? '').split(',').filter(Boolean);
       return await jsonResponse({
         type: 'FeatureCollection',
-        properties: { exceededTransferLimit: true },
-        features: [],
+        properties: { exceededTransferLimit: false },
+        features: pageIds.map((id) => ({
+          type: 'Feature',
+          properties: {
+            CODIGO: `170130100000000010001${id.padStart(9, '0')}`,
+            CODIGO_ANTERIOR: null,
+            codigo_municipio: '17013',
+            Shape__Area: 100,
+          },
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              [
+                [-75.4557, 5.6096],
+                [-75.4556, 5.6096],
+                [-75.4556, 5.6097],
+                [-75.4557, 5.6097],
+                [-75.4557, 5.6096],
+              ],
+            ],
+          },
+        })),
       });
     };
 
     const result = await fetchIgacCadastre(AGUADAS, { fetchImpl });
-    expect(result.truncated).toBe(true);
-    expect(result.evidence[0]?.warnings).toContain(
-      'La consulta catastral alcanzó el límite de seguridad; el resultado es parcial.',
-    );
+    expect(result.parcels).toHaveLength(501);
+    expect(featureRequests).toBe(2);
+    expect(result.truncated).toBe(false);
   });
 
   it('usa el dato fundamental nacional cuando la base del gestor IGAC no cubre el municipio', async () => {
     const code = '763640100000007640803800000008';
     const fetchImpl: FetchLike = async (url, init) => {
+      const params = form(init);
       if (url.includes('CATASTRO_PUBLICO_31082026')) {
-        return await jsonResponse({
-          type: 'FeatureCollection',
-          properties: { exceededTransferLimit: false },
-          features: [],
-        });
+        expect(params.get('returnIdsOnly')).toBe('true');
+        return await jsonResponse({ objectIdFieldName: 'OBJECTID', objectIds: [] });
       }
       if (url.includes('Dato_Fundamental_Catastro/MapServer/4/query')) {
-        expect(form(init).has('resultRecordCount')).toBe(false);
+        if (params.get('returnIdsOnly') === 'true') {
+          return await jsonResponse({ objectIdFieldName: 'FID', objectIds: [4] });
+        }
+        expect(params.has('resultRecordCount')).toBe(false);
+        expect(params.get('objectIds')).toBe('4');
         return await jsonResponse({
           type: 'FeatureCollection',
           properties: { exceededTransferLimit: false },
@@ -343,11 +376,8 @@ describe('IGAC — base catastral pública', () => {
         });
       }
       if (url.includes('Dato_Fundamental_Catastro/MapServer/1/query')) {
-        return await jsonResponse({
-          type: 'FeatureCollection',
-          properties: { exceededTransferLimit: false },
-          features: [],
-        });
+        expect(params.get('returnIdsOnly')).toBe('true');
+        return await jsonResponse({ objectIdFieldName: 'FID', objectIds: [] });
       }
       throw new Error(`Consulta inesperada: ${url}`);
     };

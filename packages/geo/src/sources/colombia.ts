@@ -16,7 +16,7 @@ export const IGAC_CADASTRE_URL =
 export const IGAC_NATIONAL_CADASTRE_URL =
   'https://mapas.igac.gov.co/server/rest/services/Dato_Fundamental_Catastro/MapServer';
 
-const IGAC_MAX_PARCELS = 500;
+const IGAC_FEATURE_BATCH = 500;
 const IGAC_RECORD_BATCH = 100;
 
 export type SourceEvidence = {
@@ -140,6 +140,10 @@ const igacGeoJsonSchema = z.object({
     )
     .nullable()
     .optional(),
+});
+
+const igacObjectIdsSchema = arcgisResponseBase.extend({
+  objectIds: z.array(z.number()).nullable().optional(),
 });
 
 const igacRecordAttributesSchema = z.object({
@@ -374,69 +378,87 @@ async function fetchTerrainLayer(
     previousCodeField: string;
     municipalityCodeField: string | null;
     shapeAreaField: string | null;
-    resultRecordCount?: string;
   } = {
     url: IGAC_CADASTRE_URL,
     outFields: 'CODIGO,CODIGO_ANTERIOR,codigo_municipio,Shape__Area',
     previousCodeField: 'CODIGO_ANTERIOR',
     municipalityCodeField: 'codigo_municipio',
     shapeAreaField: 'Shape__Area',
-    resultRecordCount: String(IGAC_MAX_PARCELS),
   },
 ): Promise<{ payload: unknown; features: TerrainFeature[]; truncated: boolean }> {
-  const payload = await postFormJson(
-    `${source.url}/${String(layerId)}/query`,
+  const queryUrl = `${source.url}/${String(layerId)}/query`;
+  const idsPayload = await postFormJson(
+    queryUrl,
     {
       geometry: arcgisGeometry(aoi),
       geometryType: 'esriGeometryPolygon',
       inSR: '4326',
       spatialRel: 'esriSpatialRelIntersects',
-      outFields: source.outFields,
-      returnGeometry: 'true',
-      outSR: '4326',
-      ...(source.resultRecordCount === undefined
-        ? {}
-        : { resultRecordCount: source.resultRecordCount }),
-      f: 'geojson',
+      returnIdsOnly: 'true',
+      f: 'json',
     },
     options,
   );
-  assertArcgisResponse(payload, `IGAC ${zone}`);
-  const parsed = igacGeoJsonSchema.safeParse(payload);
-  if (!parsed.success) throw new Error(`IGAC ${zone} devolvió una respuesta inválida.`);
+  assertArcgisResponse(idsPayload, `IGAC ${zone}`);
+  const parsedIds = igacObjectIdsSchema.safeParse(idsPayload);
+  if (!parsedIds.success) throw new Error(`IGAC ${zone} devolvió identificadores inválidos.`);
 
+  const objectIds = parsedIds.data.objectIds ?? [];
+  const payloads: unknown[] = [idsPayload];
   const features: TerrainFeature[] = [];
-  for (const feature of parsed.data.features ?? []) {
-    const geometry: unknown = feature.geometry;
-    const properties = feature.properties ?? {};
-    const code = stringProperty(properties, 'CODIGO');
-    if (
-      code === null ||
-      !isGeometry(geometry) ||
-      (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon')
-    ) {
-      continue;
+  let returnedCount = 0;
+  let truncated = false;
+  for (const page of batches(objectIds, IGAC_FEATURE_BATCH)) {
+    const payload = await postFormJson(
+      queryUrl,
+      {
+        objectIds: page.join(','),
+        outFields: source.outFields,
+        returnGeometry: 'true',
+        outSR: '4326',
+        f: 'geojson',
+      },
+      options,
+    );
+    assertArcgisResponse(payload, `IGAC ${zone}`);
+    const parsed = igacGeoJsonSchema.safeParse(payload);
+    if (!parsed.success) throw new Error(`IGAC ${zone} devolvió una respuesta inválida.`);
+    payloads.push(payload);
+    returnedCount += parsed.data.features?.length ?? 0;
+    truncated ||= parsed.data.properties?.exceededTransferLimit === true;
+
+    for (const feature of parsed.data.features ?? []) {
+      const geometry: unknown = feature.geometry;
+      const properties = feature.properties ?? {};
+      const code = stringProperty(properties, 'CODIGO');
+      if (
+        code === null ||
+        !isGeometry(geometry) ||
+        (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon')
+      ) {
+        continue;
+      }
+      features.push({
+        code,
+        previousCode: stringProperty(properties, source.previousCodeField),
+        municipalityCode:
+          source.municipalityCodeField === null
+            ? code.length >= 5
+              ? code.slice(0, 5)
+              : null
+            : stringProperty(properties, source.municipalityCodeField),
+        shapeAreaM2:
+          source.shapeAreaField === null ? null : numberProperty(properties, source.shapeAreaField),
+        zone,
+        geometry,
+      });
     }
-    features.push({
-      code,
-      previousCode: stringProperty(properties, source.previousCodeField),
-      municipalityCode:
-        source.municipalityCodeField === null
-          ? code.length >= 5
-            ? code.slice(0, 5)
-            : null
-          : stringProperty(properties, source.municipalityCodeField),
-      shapeAreaM2:
-        source.shapeAreaField === null ? null : numberProperty(properties, source.shapeAreaField),
-      zone,
-      geometry,
-    });
   }
 
   return {
-    payload,
+    payload: payloads,
     features,
-    truncated: parsed.data.properties?.exceededTransferLimit === true,
+    truncated: truncated || returnedCount < objectIds.length,
   };
 }
 
@@ -517,8 +539,8 @@ export async function fetchIgacCadastre(
     : [igacUrban, igacRural];
   const allTerrain = [...urban.features, ...rural.features];
   const unique = new Map(allTerrain.map((feature) => [feature.code, feature]));
-  const truncated = urban.truncated || rural.truncated || unique.size > IGAC_MAX_PARCELS;
-  const terrain = [...unique.values()].slice(0, IGAC_MAX_PARCELS);
+  const truncated = urban.truncated || rural.truncated;
+  const terrain = [...unique.values()];
   const { payloads: recordPayloads, records } =
     terrain.length === 0 || useNationalFallback
       ? { payloads: [], records: new Map<string, z.infer<typeof igacRecordAttributesSchema>>() }
@@ -551,7 +573,7 @@ export async function fetchIgacCadastre(
         ]
       : []),
     ...(truncated
-      ? ['La consulta catastral alcanzó el límite de seguridad; el resultado es parcial.']
+      ? ['ArcGIS no devolvió todos los predios solicitados; el resultado es parcial.']
       : []),
   ];
   const evidenceEndpoint = useNationalFallback ? IGAC_NATIONAL_CADASTRE_URL : IGAC_CADASTRE_URL;
@@ -583,7 +605,8 @@ export async function fetchIgacCadastre(
           layers: useNationalFallback ? '1,4' : '7,14,17',
           geometryType: 'esriGeometryPolygon',
           spatialRelationship: 'esriSpatialRelIntersects',
-          resultRecordCount: String(IGAC_MAX_PARCELS),
+          pagination: 'objectIds',
+          featureBatch: String(IGAC_FEATURE_BATCH),
         },
         payloadHash: await sha256Json([
           igacUrban.payload,
